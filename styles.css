@@ -1,0 +1,353 @@
+:root{
+  --header-bg:#D9EFF9;
+  --header-text:#195E7B;
+  --border-teal:#A9D9EC;
+  --primary-btn:#2FA745;
+  --primary-btn-hover:#268a39;
+  --danger-btn:#C4726A;
+  --danger-btn-hover:#b05a52;
+  --error:#C63D3D;
+  --warning-yellow-bg:#FFF7D6;
+  --warning-yellow-border:#EEDC9A;
+  --warning-pink-bg:#FDE7EF;
+  --warning-pink-border:#F3C6D9;
+  --disabled-bg:#F4F6F8;
+  --disabled-text:#9AA5B1;
+  --text-main:#1F2937;
+  --bg-page:#F7F9FA;
+  --white:#FFFFFF;
+  --shadow:0 2px 10px rgba(25,94,123,0.12);
+  --radius:8px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:"Segoe UI","Arial Hebrew","Arial",sans-serif;
+  background:var(--bg-page);
+  color:var(--text-main);
+  direction:rtl;
+  text-align:right;
+  font-size:15px;
+  line-height:1.6;
+}
+#app{min-height:100vh;display:flex;flex-direction:column;}
+
+/* ===== Top bars ===== */
+.topbar{
+  background:var(--white);
+  border-bottom:1px solid var(--border-teal);
+  padding:12px 28px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  box-shadow:var(--shadow);
+  position:sticky;top:0;z-index:50;
+}
+.topbar .brand{font-weight:700;color:var(--header-text);font-size:21px;display:flex;align-items:center;gap:10px;}
+.topbar .brand small{font-weight:400;color:#5c7d8c;font-size:12.5px;}
+.tabs{display:flex;gap:6px;}
+.tab-btn{
+  background:none;border:1px solid transparent;padding:9px 16px;border-radius:var(--radius);
+  cursor:pointer;font-size:14.5px;color:var(--header-text);font-weight:600;
+}
+.tab-btn:hover{background:var(--header-bg);}
+.tab-btn.active{background:var(--header-text);color:#fff;}
+.user-chip{font-size:13px;color:#5c7d8c;background:var(--header-bg);padding:6px 12px;border-radius:20px;}
+
+.employee-topbar{
+  background:var(--header-text);color:#fff;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:50;box-shadow:var(--shadow);
+}
+.employee-topbar .title{font-weight:700;font-size:17px;}
+.employee-topbar .sub{font-size:13px;opacity:.85;}
+
+main{flex:1;padding:26px 32px;max-width:1280px;width:100%;margin:0 auto;}
+main.wide{max-width:1480px;}
+main.narrow{max-width:980px;}
+main.form-narrow{max-width:700px;}
+
+/* ===== Typography ===== */
+h1{color:var(--header-text);font-size:22px;margin:0 0 18px;}
+h2.section-title{
+  background:var(--header-bg);color:var(--header-text);
+  padding:11px 18px;border-radius:var(--radius);font-size:16px;margin:26px 0 16px;
+  border:1px solid var(--border-teal);
+}
+h2.section-title:first-child{margin-top:0;}
+.page-desc{color:#516170;font-size:13.5px;margin:-10px 0 20px;}
+
+/* ===== Card / panel ===== */
+.panel{
+  background:var(--white);border:1px solid var(--border-teal);border-radius:var(--radius);
+  padding:20px 22px;margin-bottom:18px;
+}
+.card{
+  background:var(--white);border:1px solid var(--border-teal);border-radius:var(--radius);
+  padding:16px 18px;margin-bottom:12px;position:relative;
+}
+.card.disabled{background:var(--disabled-bg);color:var(--disabled-text);}
+.card.disabled .hint{color:var(--disabled-text);}
+.card-title{font-weight:700;color:var(--text-main);font-size:14.5px;display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.card.disabled .card-title{color:#7a8794;}
+.card-hint{font-size:12.5px;color:#5c7d8c;margin-top:6px;}
+.card.disabled-note{font-size:12.5px;color:#8a94a3;background:#eceff2;border-radius:6px;padding:8px 10px;margin-top:8px;}
+
+/* ===== Forms ===== */
+.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 18px;}
+.form-grid.cols-2{grid-template-columns:repeat(2,1fr);}
+.form-grid.cols-4{grid-template-columns:repeat(4,1fr);}
+.form-grid.cols-5{grid-template-columns:repeat(5,1fr);}
+/* כשכמה form-grid מוצבים ברצף בתוך אותו panel (למשל כדי לקבץ שדות
+   בשורות שונות מספר העמודות ביניהן), יש להוסיף את אותו מרווח שורה
+   (16px) שקיים בין שורות בתוך grid יחיד - כדי שהמרווח ייראה זהה בכל
+   הטופס, ולא רק שם שבו יש כמה form-grid נפרדים ברצף. */
+.panel .form-grid + .form-grid{margin-top:16px;}
+.field{display:flex;flex-direction:column;gap:6px;}
+.field.span-2{grid-column:span 2;}
+.field.span-3{grid-column:span 3;}
+.field label{font-size:13.5px;font-weight:700;color:var(--text-main);display:flex;align-items:center;gap:5px;}
+.req-star{color:var(--error);font-weight:700;}
+input[type=text],input[type=date],input[type=email],input[type=tel],input[type=number],select,textarea{
+  border:1px solid #C7D2D9;border-radius:6px;padding:10px 12px;font-size:14.5px;
+  font-family:inherit;background:#fff;color:var(--text-main);width:100%;
+}
+input[type=date]{direction:ltr;text-align:right;padding:10px 6px 10px 12px;}
+input[type=date]::-webkit-calendar-picker-indicator{
+  margin-inline-start:8px;
+  border-inline-start:1px solid #C7D2D9;
+  padding:0 8px;
+  cursor:pointer;
+}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--header-text);box-shadow:0 0 0 3px rgba(25,94,123,0.12);}
+input.err,select.err{border-color:var(--error);background:#FFF6F6;}
+input:disabled,select:disabled{background:var(--disabled-bg);color:var(--disabled-text);cursor:not-allowed;}
+.field-error{color:var(--error);font-size:12.5px;margin-top:2px;}
+.field-hint-static{color:#6b7a86;font-size:12px;margin-top:2px;}
+.radio-row,.check-row{display:flex;align-items:center;gap:8px;font-size:14px;}
+.radio-group,.check-group{display:flex;flex-wrap:wrap;gap:14px;padding-top:6px;}
+.radio-group label,.check-group label{display:flex;align-items:center;gap:6px;font-weight:500;font-size:14px;cursor:pointer;}
+input[type=radio],input[type=checkbox]{width:17px;height:17px;accent-color:var(--header-text);cursor:pointer;}
+
+/* ===== Tooltip / help icon ===== */
+.qmark{
+  display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;
+  background:#eaf5fb;color:#1F7AA8;border:1px solid #bfe0ee;font-size:12px;font-weight:700;cursor:pointer;
+  flex-shrink:0;
+}
+.qmark:hover{background:#d7ecf6;}
+.tooltip-pop{
+  display:none;position:absolute;z-index:80;background:#fff;border:1px solid var(--border-teal);
+  border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,0.15);padding:12px 14px;font-size:13px;
+  color:var(--text-main);width:340px;max-width:80vw;line-height:1.55;top:100%;right:0;margin-top:6px;
+}
+.tooltip-pop.open{display:block;}
+.tooltip-wrap{position:relative;display:inline-flex;}
+
+/* ===== Alerts ===== */
+.alert{border-radius:var(--radius);padding:13px 16px;font-size:13.5px;margin:10px 0;line-height:1.6;}
+.alert-warning-yellow{background:var(--warning-yellow-bg);border:1px solid var(--warning-yellow-border);color:#6b5a12;}
+.alert-warning-pink{background:var(--warning-pink-bg);border:1px solid var(--warning-pink-border);color:#8a2451;}
+.alert-error{background:#FDEEEE;border:1px solid #F3C2C2;color:var(--error);}
+.alert-info{background:#EEF7FB;border:1px solid var(--border-teal);color:var(--header-text);}
+.alert b{display:block;margin-bottom:4px;}
+.alert .alert-actions{display:flex;gap:10px;margin-top:12px;}
+
+/* ===== Buttons ===== */
+.btn{border:none;border-radius:6px;padding:11px 20px;font-size:14.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;}
+.btn-primary{background:var(--primary-btn);color:#fff;}
+.btn-primary:hover{background:var(--primary-btn-hover);}
+.btn-secondary{background:#fff;color:var(--header-text);border:1px solid var(--border-teal);}
+.btn-secondary:hover{background:var(--header-bg);}
+.btn-danger{background:var(--danger-btn);color:#fff;}
+.btn-danger:hover{background:var(--danger-btn-hover);}
+.btn-disabled,.btn:disabled{background:var(--disabled-bg)!important;color:var(--disabled-text)!important;cursor:not-allowed;}
+.btn-sm{padding:6px 12px;font-size:13px;}
+.btn-link{background:none;border:none;color:var(--header-text);cursor:pointer;font-size:13.5px;text-decoration:underline;padding:0;font-weight:600;}
+.btn-icon-danger{background-color:#D9534F;border:0.8px solid #D43F3A;color:#fff;width:21.6px;height:21.6px;padding:1px;border-radius:3px;font-size:13px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;}
+.btn-icon-danger:hover{background-color:#c9302c;}
+.btn-add-green{background:var(--primary-btn);color:#fff;border:none;border-radius:6px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+.btn-row{display:flex;gap:10px;margin-top:22px;justify-content:flex-start;}
+
+/* ===== Table ===== */
+.table-wrap{overflow-x:auto;border:1px solid var(--border-teal);border-radius:var(--radius);}
+/* #hrListTableWrap: קונטיינר יחיד לכל הטבלה (כולל שורת הכותרות), עם גובה
+   מקסימלי קבוע שמתאים לגובה המסך הנראה (viewport) מתחת לכל מה שמופיע מעליו
+   בעמוד (תפריט עליון + כותרת + שורת כפתורים + סרגל סינונים). 300px הוא אומדן
+   של סך גובהם (ניתן לכייל אם הפריסה מעליהם משתנה). לקונטיינר הזה יש גם
+   overflow-y:auto (גלילה אנכית של השורות) וגם overflow-x:auto (גלילה אופקית -
+   פס גלילה טבעי (native) יחיד, בלי אלמנט מדומה נוסף וללא סנכרון ב-JS). מכיוון
+   שהקונטיינר לעולם לא גדל מעבר לגובה הזה, שני פסי הגלילה הטבעיים שלו נשארים
+   תמיד בתוך אזור הנראה למשתמש. שורת הכותרות (table.data-table th) מוגדרת
+   position:sticky;top:0 ונדבקת לראש הקונטיינר הזה עצמו תוך כדי גלילת השורות. */
+#hrListTableWrap{max-height:calc(100vh - 300px);overflow-y:auto;overflow-x:auto;}
+table.data-table{width:100%;border-collapse:collapse;font-size:13.5px;background:#fff;}
+table.data-table th{background:var(--header-bg);color:var(--header-text);padding:10px 12px;text-align:right;font-weight:700;white-space:nowrap;border-bottom:1px solid var(--border-teal);position:sticky;top:0;}
+table.data-table td{padding:9px 12px;border-bottom:1px solid #eef2f4;white-space:nowrap;}
+/* פסים לסירוגין (zebra striping) - כבוי כרגע לפי בקשת המשתמשת, אך
+   נשמר בקוד (כהערה) למקרה שירצו להחזיר אותו בעתיד. חל רק בטבלאות מסך
+   "הגדרות מערכת" (חברות, אתרי עבודה, טבלאות קוד נוספות) - ר' מחלקת
+   zebra-table שמתווספת לטבלאות האלה בלבד (המחלקה נשארת בקוד ה-HTML
+   גם כשהכלל הזה כבוי - היא פשוט לא עושה כלום בלעדיו).
+table.zebra-table tbody tr:nth-child(even) td{background:#DCE6EA!important;}
+*/
+/* כפתורי אייקון עריכה/מחיקה בטבלאות - באותו צבע כמו טקסט השורה כברירת
+   מחדל, וצבע שונה רק במעבר עכבר (hover). */
+.row-icon-btn{border:none;background:none;padding:2px;cursor:pointer;color:var(--text-main);display:inline-flex;align-items:center;}
+.row-icon-btn.edit:hover{color:var(--header-text);}
+.row-icon-btn.delete:hover{color:var(--error);}
+/* הדגשת שורה בריחוף עכבר (hover) - רקע אפור בהיר, זמנית ונעלמת כשהעכבר
+   עוזב את השורה. table.data-table משמש אך ורק במסכי ניהול עובדים,
+   הגדרות מערכת, יצוא טפסים והיסטוריית טפסים - כך שהכלל הזה כבר ממילא
+   מוגבל למסכים האלה בלבד ולא משפיע על הטופס או עמודים אחרים. */
+table.data-table tr:hover td{background:#E7E7E7;}
+.status-pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap;}
+.pill-gray{background:#EEF1F3;color:#5b6b77;}
+.pill-yellow{background:#FFF3CC;color:#8a6d00;}
+.pill-green{background:#DEF3E3;color:#1f7a3d;}
+.pill-red{background:#FBE1E1;color:#a72e2e;}
+.pill-blue{background:#DCEEF7;color:#195E7B;}
+
+/* ===== Filters bar ===== */
+.filters-bar{background:#fff;border:1px solid var(--border-teal);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:12px;align-items:end;}
+.filters-bar .field{min-width:150px;}
+.filters-bar .field label{font-size:12px;color:#5c7d8c;}
+
+/* ===== Anchor nav for form 101 ===== */
+.anchor-nav{
+  position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border-teal);z-index:40;
+  padding:10px 28px;display:flex;gap:4px;flex-wrap:wrap;box-shadow:var(--shadow);
+}
+.anchor-nav a{color:var(--header-text);text-decoration:none;font-size:12.8px;font-weight:600;padding:6px 10px;border-radius:6px;}
+.anchor-nav a:hover{background:var(--header-bg);}
+
+/* ===== מסך "טבלאות קוד" (הגדרות מערכת) =====
+   סרגל עליון קבוע (position:sticky) עם בחירת מערכת יעד (שיקלולית/כחולה)
+   ורשימת קישורי עוגן לכל שדה - כדי לאפשר קפיצה ישירה לשדה מתוך טבלה
+   ארוכה אחת (ולא טאבים אופקיים, שאינם מתאימים כשיש הרבה שדות). */
+.code-sys-bar{
+  position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border-teal);z-index:40;
+  padding:10px 0 8px;box-shadow:var(--shadow);
+}
+/* טבלה אחת רציפה לכל השדות המקודדים - כותרת "ערך"/"קוד" מופיעה פעם
+   אחת בלבד (ולא לכל שדה בנפרד). ברירת המחדל של table.data-table היא
+   width:100%, אבל כאן יש רק שתי עמודות ורוצים שהעמודות יהיו צמודות
+   זו לזו ולא פרושות על פני כל רוחב המסך. */
+table.code-table{width:auto;min-width:280px;}
+table.code-table td:last-child, table.code-table th:last-child{width:90px;}
+.code-group-row{background:var(--header-bg);color:var(--header-text);font-weight:700;}
+.code-table input.code-input{width:64px;padding:6px 8px;font-size:14px;}
+
+/* ===== misc ===== */
+.readonly-box{background:var(--disabled-bg);border:1px solid #E1E6EA;border-radius:6px;padding:10px 12px;font-size:14px;color:#4b5765;}
+.divider{border:none;border-top:1px solid #EEF2F4;margin:22px 0;}
+.badge-count{background:var(--header-text);color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;margin-right:5px;}
+.empty-state{text-align:center;padding:50px 20px;color:#8a94a3;}
+.kids-list{display:flex;flex-direction:column;gap:10px;}
+.kid-card{border:1px solid var(--border-teal);border-radius:var(--radius);padding:14px 16px;background:#fff;}
+.kid-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.kid-card-head b{color:var(--header-text);}
+.print-frame{background:#fff;box-shadow:0 0 0 1px #ddd, var(--shadow);width:210mm;min-height:297mm;margin:20px auto;padding:14mm 12mm;font-size:11.5px;color:#111;}
+.print-toolbar{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border-teal);padding:12px 28px;display:flex;justify-content:space-between;align-items:center;z-index:50;}
+@media print{
+  .no-print{display:none!important;}
+  body{background:#fff;}
+  .print-frame{box-shadow:none;margin:0;width:auto;min-height:auto;}
+}
+.modal-overlay{position:fixed;inset:0;background:rgba(20,30,40,0.45);display:flex;align-items:center;justify-content:center;z-index:100;}
+.modal-box{background:#fff;border-radius:var(--radius);padding:24px;max-width:480px;width:92%;box-shadow:0 10px 40px rgba(0,0,0,.25);}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#20303c;color:#fff;padding:13px 22px;border-radius:8px;font-size:14px;z-index:200;box-shadow:0 6px 20px rgba(0,0,0,.25);animation:toastin .2s ease;}
+@keyframes toastin{from{opacity:0;transform:translate(-50%,10px);}to{opacity:1;transform:translate(-50%,0);}}
+/* הדגשה זמנית של שורה שנוספה כרגע לטבלה (למשל חברה חדשה) */
+@keyframes rowHighlightFade{from{background:#FFF3B0;}to{background:transparent;}}
+table.data-table tr.row-highlight td{animation:rowHighlightFade 2.5s ease-out;}
+
+/* row action menu */
+.row-actions{display:flex;gap:6px;align-items:center;}
+details.row-menu{position:relative;}
+details.row-menu summary{list-style:none;cursor:pointer;width:28px;height:28px;border:1px solid var(--border-teal);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--header-text);background:#fff;}
+details.row-menu summary::-webkit-details-marker{display:none;}
+details.row-menu[open] summary{background:var(--header-bg);}
+.row-menu-list{position:absolute;left:0;top:32px;background:#fff;border:1px solid var(--border-teal);border-radius:8px;box-shadow:var(--shadow);min-width:190px;z-index:60;padding:6px;}
+.row-menu-list button{display:block;width:100%;text-align:right;background:none;border:none;padding:8px 10px;font-size:13px;border-radius:6px;cursor:pointer;color:var(--text-main);}
+.row-menu-list button:hover{background:var(--header-bg);}
+.row-menu-list button.danger{color:var(--danger-btn);}
+.row-menu-list hr{border:none;border-top:1px solid #eef2f4;margin:4px 0;}
+.btn-icon{width:30px;height:30px;border:1px solid var(--border-teal);border-radius:6px;background:#fff;cursor:pointer;font-size:13px;color:var(--header-text);}
+.btn-icon:hover{background:var(--header-bg);}
+
+/* ===== Combo (רשימה נפתחת עם הקלדה) ===== */
+.combo-wrap{position:relative;}
+.combo-dropdown{display:none;position:absolute;z-index:70;top:100%;right:0;left:0;margin-top:4px;max-height:260px;overflow-y:auto;background:#fff;border:1px solid var(--border-teal);border-radius:8px;box-shadow:var(--shadow);}
+.combo-dropdown.open{display:block;}
+.combo-item{padding:9px 12px;font-size:13.5px;color:var(--text-main);text-align:right;cursor:pointer;border-bottom:1px solid #F0F3F5;}
+.combo-item:last-child{border-bottom:none;}
+.combo-item:hover{background:var(--header-bg);}
+.combo-item.active{background:var(--header-text);color:#fff;}
+.combo-empty{padding:12px;text-align:center;color:#8a94a3;font-size:13px;}
+
+/* anchor sections nav highlight */
+.kv{display:grid;grid-template-columns:150px 1fr;gap:8px 14px;font-size:14px;}
+.kv div.k{color:#5c7d8c;font-weight:600;}
+.stepper-note{background:var(--header-bg);border:1px solid var(--border-teal);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--header-text);margin-bottom:16px;}
+.progress-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
+.progress-tabs button{background:#fff;border:1px solid var(--border-teal);color:var(--header-text);padding:9px 16px;border-radius:20px;font-size:13.5px;font-weight:600;cursor:pointer;}
+.progress-tabs button.active{background:var(--header-text);color:#fff;}
+.progress-tabs button .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:6px;}
+.dot-green{background:var(--primary-btn);}
+.dot-gray{background:#c8d0d6;}
+/* ===== צ'ק ליסט 11 הטפסים (כרטיס עובד + טאב מילוי הטפסים) ===== */
+.checklist-wrap{background:#fff;border:1px solid var(--border-teal);border-radius:8px;overflow:hidden;margin-bottom:18px;max-width:720px;}
+/* grid קבוע (לא flex) כדי שעמודת הסטטוס ועמודת הפעולה יהיו תמיד באותו
+   מיקום אופקי בכל השורות, בין אם יש כפתור פעולה בשורה ובין אם לא. */
+.checklist-row{display:grid;grid-template-columns:1fr 100px 130px;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid #eef2f4;font-size:13.5px;}
+.checklist-row:last-child{border-bottom:none;}
+.checklist-row:hover{background:#E7E7E7;}
+.checklist-status-col{justify-self:start;}
+.checklist-action-col{justify-self:start;}
+/* כפתור "לצפייה והדפסה" בסגנון קליל התואם ל-badge-ים (פס גבול דק,
+   פינות מעוגלות, טקסט קטן) ולא לכפתור btn רגיל שמתחרה איתם ויזואלית. */
+.checklist-print-btn{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--border-teal);color:var(--header-text);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;}
+.checklist-print-btn:hover{background:var(--header-bg);}
+
+/* ===== מסך "רשימת הטפסים למילוי" (עובד/ת בלבד) =====
+   גוון סגול ייחודי לעמוד הזה בלבד, כדי שיהיה ברור מיידית לעובד/ת
+   (שיושב/ת מול אותו מחשב כמו משאבי אנוש) שמדובר במסך אחר לגמרי -
+   ולא שינוי בעיצוב הכללי של המערכת. ר' emp-welcome-banner/
+   emp-progress-card/btn-emp-start, בשימוש רק ב-renderEmployeeChecklist. */
+.emp-welcome-banner{background:#EAF1FD;border:1px solid #C9DBFA;border-radius:8px;padding:18px 22px;margin-bottom:18px;max-width:720px;}
+.emp-welcome-banner h1{color:#1B3F82;margin:0 0 6px;}
+.emp-welcome-banner p{margin:0;color:#3D5A80;font-size:14px;}
+.emp-progress-card{background:#EAF1FD;border:1px solid #C9DBFA;}
+.btn-emp-start{background:#2F6FED;color:#fff;border:none;}
+.btn-emp-start:hover{background:#2557C7;}
+.emp-theme .checklist-row .btn{padding:6px 18px;font-size:13px;border-radius:18px;}
+/* שאר הרכיבים בעמוד (מסגרת טבלת הטפסים, מסגרת כפתור "עריכה"/כפתור
+   מושבת) - כל אלה משתמשים במחלקות משותפות עם כרטיס עובד (HR), ולכן
+   הצביעה שלהם לסגול חייבת להיות מוגבלת לתוך .emp-theme בלבד. */
+.emp-theme .checklist-wrap{border-color:#C9DBFA;}
+.emp-theme .btn-secondary{border-color:#2F6FED;color:#2F6FED;}
+.emp-theme .btn-secondary:hover{background:#EAF1FD;}
+
+/* ===== Print form replica ===== */
+.print-frame{page-break-after:always;}
+.print-frame.last{page-break-after:auto;}
+.pf-header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #195E7B;padding-bottom:8px;margin-bottom:10px;}
+.pf-header .pf-title{font-size:15px;font-weight:800;color:#195E7B;}
+.pf-header .pf-sub{font-size:10px;color:#555;}
+.pf-section-title{background:#D9EFF9;color:#195E7B;font-weight:800;font-size:11.5px;padding:4px 8px;margin:10px 0 6px;border:1px solid #A9D9EC;}
+.pf-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid #9fb3bd;margin-bottom:2px;}
+.pf-grid.c2{grid-template-columns:repeat(2,1fr);}
+.pf-grid.c3{grid-template-columns:repeat(3,1fr);}
+.pf-cell{border-left:1px solid #9fb3bd;padding:3px 6px;min-height:32px;}
+.pf-cell:last-child{border-left:none;}
+.pf-cell .pf-lbl{font-size:8.5px;color:#5c6b74;display:block;}
+.pf-cell .pf-val{font-size:11px;font-weight:600;color:#111;}
+.pf-check-list{display:flex;flex-direction:column;gap:1px;}
+.pf-check-item{display:flex;gap:6px;align-items:flex-start;font-size:10px;padding:2px 4px;border-bottom:1px dotted #ccd6db;}
+.pf-check-item .box{width:11px;height:11px;border:1px solid #333;flex-shrink:0;margin-top:1px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;}
+.pf-sig-row{display:flex;justify-content:space-between;margin-top:26px;}
+.pf-sig-box{width:45%;border-top:1px solid #333;padding-top:4px;font-size:10px;text-align:center;color:#555;}
+.pf-note{font-size:9px;color:#666;margin-top:6px;line-height:1.4;}
+.pf-kids-table{width:100%;border-collapse:collapse;font-size:9.5px;margin-top:4px;}
+.pf-kids-table th,.pf-kids-table td{border:1px solid #9fb3bd;padding:3px 5px;text-align:center;}
+.pf-kids-table th{background:#EEF6FA;}
