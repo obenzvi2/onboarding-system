@@ -63,12 +63,41 @@ const CODE_TABLES = {
     {id:"pension",name:"קצבה"},
     {id:"scholarship",name:"מלגה"},
     {id:"other",name:"הכנסה אחרת"}
+  ],
+  departments:[
+    {id:"dep1",name:"משאבי אנוש"},
+    {id:"dep2",name:"כספים"},
+    {id:"dep3",name:"תפעול ולוגיסטיקה"},
+    {id:"dep4",name:"שיווק ומכירות"}
+  ],
+  /* תת-מחלקה תלויה תמיד במחלקה שהיא שייכת אליה (departmentId) - בדיוק
+     כמו התלות של אתר עבודה בחברה. */
+  subDepartments:[
+    {id:"sdp1",departmentId:"dep3",name:"מחסן"},
+    {id:"sdp2",departmentId:"dep3",name:"הפצה"},
+    {id:"sdp3",departmentId:"dep2",name:"הנהלת חשבונות"},
+    {id:"sdp4",departmentId:"dep2",name:"גבייה"}
+  ],
+  ranks:[
+    {id:"rnk1",name:"דירוג עובדי מינהל"},
+    {id:"rnk2",name:"דירוג עובדי תפעול"},
+    {id:"rnk3",name:"דירוג מנהלים"}
+  ],
+  grades:[
+    {id:"grd1",name:"דרגה 1"},
+    {id:"grd2",name:"דרגה 2"},
+    {id:"grd3",name:"דרגה 3"},
+    {id:"grd4",name:"דרגה 4"}
   ]
 };
 
 /* מיון רשימות המידע הבסיסיות (חברות, אתרי עבודה, בנקים) לפי סדר א"ב */
 CODE_TABLES.companies.sort((a,b)=>a.name.localeCompare(b.name,"he"));
 CODE_TABLES.worksites.sort((a,b)=>a.name.localeCompare(b.name,"he"));
+CODE_TABLES.departments.sort((a,b)=>a.name.localeCompare(b.name,"he"));
+CODE_TABLES.subDepartments.sort((a,b)=>a.name.localeCompare(b.name,"he"));
+CODE_TABLES.ranks.sort((a,b)=>a.name.localeCompare(b.name,"he"));
+CODE_TABLES.grades.sort((a,b)=>a.name.localeCompare(b.name,"he"));
 
 /* ============================================================
    1-א. רישום השדות שהקוד שלהם ניתן לעריכה במסך "טבלאות קוד"

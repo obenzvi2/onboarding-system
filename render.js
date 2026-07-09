@@ -426,13 +426,15 @@ function printForm(caseId,type){
    ============================================================ */
 function goNewCase(){
   ui.newCaseDraft = {taxYear:2026, companyId:"", worksiteId:"", startDate:"", formLanguage:"he", formSelection: defaultFormSelection(),
-    firstName:"", lastName:"", idType:"id", idNumber:"", passportNumber:""};
+    firstName:"", lastName:"", idType:"id", idNumber:"", passportNumber:"",
+    departmentId:"", subDepartmentId:"", rankId:"", gradeId:""};
   ui.newCaseErrors = {};
   setScreen("new-case");
 }
 function updateNewCaseDraft(field,value){
   ui.newCaseDraft[field]=value;
   if(field==="companyId") ui.newCaseDraft.worksiteId="";
+  if(field==="departmentId") ui.newCaseDraft.subDepartmentId="";
   render();
 }
 function updateNewCaseFormSelection(key,checked){
@@ -475,6 +477,8 @@ function submitNewCase(){
   c.employee.idType = d.idType;
   c.employee.idNumber = d.idType==="id" ? (d.idNumber||"").trim() : "";
   c.employee.passportNumber = d.idType==="passport" ? (d.passportNumber||"").trim() : "";
+  c.departmentId = d.departmentId||""; c.subDepartmentId = d.subDepartmentId||"";
+  c.rankId = d.rankId||""; c.gradeId = d.gradeId||"";
   c.documents = buildDocuments(c);
   DB.cases.push(c);
   showToast("תיק הקליטה נפתח בהצלחה.");
@@ -489,9 +493,11 @@ function submitNewCase(){
 }
 function renderNewCase(){
   const d = ui.newCaseDraft || (ui.newCaseDraft={taxYear:2026,companyId:"",worksiteId:"",startDate:"",formLanguage:"he",formSelection:defaultFormSelection(),
-    firstName:"",lastName:"",idType:"id",idNumber:"",passportNumber:""});
+    firstName:"",lastName:"",idType:"id",idNumber:"",passportNumber:"",
+    departmentId:"",subDepartmentId:"",rankId:"",gradeId:""});
   const errs = ui.newCaseErrors || {};
   const worksitesForCompany = CODE_TABLES.worksites.filter(w=>w.companyId===d.companyId);
+  const subDepartmentsForDepartment = CODE_TABLES.subDepartments.filter(sd=>sd.departmentId===d.departmentId);
   const fld = (key,label,control,span,optional)=>'<div class="field '+(span?("span-"+span):"")+'"><label>'+label+' '+(optional?"":'<span class="req-star">*</span>')+'</label>'+control+(errs[key]?'<div class="field-error">'+errs[key]+'</div>':'')+'</div>';
   return '' +
   '<h1>פתיחת קליטת עובד חדש</h1>' +
@@ -521,6 +527,10 @@ function renderNewCase(){
         :
         fld("idNumber","מספר תעודת זהות (9 ספרות)",'<input type="text" id="newcase_idNumber" maxlength="9" value="'+escapeHtml(d.idNumber||"")+'" oninput="updateNewCaseDraft(\'idNumber\',this.value.trim())">')
       ) +
+      fld("departmentId","מחלקה",'<select onchange="updateNewCaseDraft(\'departmentId\',this.value)"><option value="">בחר/י מחלקה...</option>'+CODE_TABLES.departments.map(x=>'<option value="'+x.id+'" '+(d.departmentId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select>',null,true) +
+      fld("subDepartmentId","תת-מחלקה",'<select '+(!d.departmentId?"disabled":"")+' onchange="updateNewCaseDraft(\'subDepartmentId\',this.value)"><option value="">'+(d.departmentId?"בחר/י תת-מחלקה...":"יש לבחור מחלקה תחילה")+'</option>'+subDepartmentsForDepartment.map(x=>'<option value="'+x.id+'" '+(d.subDepartmentId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select>',null,true) +
+      fld("rankId","דירוג",'<select onchange="updateNewCaseDraft(\'rankId\',this.value)"><option value="">בחר/י דירוג...</option>'+CODE_TABLES.ranks.map(x=>'<option value="'+x.id+'" '+(d.rankId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select>',null,true) +
+      fld("gradeId","דרגה",'<select onchange="updateNewCaseDraft(\'gradeId\',this.value)"><option value="">בחר/י דרגה...</option>'+CODE_TABLES.grades.map(x=>'<option value="'+x.id+'" '+(d.gradeId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select>',null,true) +
     '</div>' +
     '<hr class="divider">' +
     '<h2 class="section-title" style="margin-top:0;">טפסים רלוונטיים לעובד/ת זה</h2>' +
@@ -2754,10 +2764,389 @@ function renderWorksiteModalLeaveConfirm(){
     '</div>' +
   '</div></div>';
 }
+/* ---------- רשימות קוד "פשוטות" (מחלקה/דירוג/דרגה): כל רשומה היא סתם
+   {id,name} ללא תלות ברשומה אחרת, ולכן מנוהלות במנגנון גנרי אחד
+   (מסך אחד לפי kind) במקום לשכפל את מנגנון "הוספת/עריכת חברה" פעם
+   לכל רשימה. תת-מחלקה כן תלויה במחלקה, ולכן יש לה מנגנון ייעודי
+   משלה בהמשך (אותו מנגנון בדיוק כמו אתר עבודה/חברה). ---------- */
+const SIMPLE_LISTS = {
+  departments:{label:"מחלקה", idPrefix:"dep"},
+  ranks:{label:"דירוג", idPrefix:"rnk"},
+  grades:{label:"דרגה", idPrefix:"grd"}
+};
+function openAddSimpleItem(kind){
+  ui.slModal = {kind, draft:{name:""}, original:null, editId:null, errors:{}, leaveConfirm:false};
+  render();
+}
+function openEditSimpleItem(kind,id){
+  const item = CODE_TABLES[kind].find(x=>x.id===id);
+  if(!item) return;
+  ui.slModal = {kind, draft:{name:item.name}, original:{name:item.name}, editId:id, errors:{}, leaveConfirm:false};
+  render();
+}
+function updateSimpleItemField(value){
+  const m = ui.slModal;
+  if(!m) return;
+  m.draft.name = value;
+  if(m.errors.name && value && value.trim()){ delete m.errors.name; render(); }
+}
+function validateSimpleItemField(){
+  const m = ui.slModal;
+  const v = (m.draft.name||"").trim();
+  const label = SIMPLE_LISTS[m.kind].label;
+  if(!v){ m.errors.name = "יש למלא שם "+label+"."; return false; }
+  if(CODE_TABLES[m.kind].some(x=>x.name.trim()===v && x.id!==m.editId)){ m.errors.name = "קיים/ת כבר "+label+" בשם זה."; return false; }
+  delete m.errors.name; return true;
+}
+function finalizeSimpleItemField(){
+  if(isRerendering) return; // blur מלאכותי שנגרם מהרינדור עצמו - לא פעולת יציאה אמיתית
+  const m = ui.slModal;
+  if(!m) return;
+  const before = JSON.stringify(m.errors);
+  validateSimpleItemField();
+  const after = JSON.stringify(m.errors);
+  if(before!==after) render();
+}
+function saveSimpleItemModal(){
+  flushPendingRender();
+  const m = ui.slModal;
+  if(!m) return;
+  if(!validateSimpleItemField()){
+    render();
+    setTimeout(()=>scrollToField("slModal_name"),0);
+    return;
+  }
+  const arr = CODE_TABLES[m.kind];
+  const isEdit = !!m.editId;
+  let id;
+  if(isEdit){
+    id = m.editId;
+    const item = arr.find(x=>x.id===id);
+    if(item) item.name = m.draft.name.trim();
+  } else {
+    id = nextCodeId(SIMPLE_LISTS[m.kind].idPrefix, arr);
+    arr.push({id, name:m.draft.name.trim()});
+  }
+  arr.sort((a,b)=>a.name.localeCompare(b.name,"he"));
+  saveDB();
+  const label = SIMPLE_LISTS[m.kind].label;
+  const kind = m.kind;
+  ui.slModal = null;
+  ui.slHighlight = {kind, id};
+  showToast(isEdit ? label+" עודכן/ה בהצלחה." : label+" נוסף/ה בהצלחה.");
+  render();
+  setTimeout(()=>{ ui.slHighlight=null; render(); }, 2600);
+}
+function closeSimpleItemModalRequest(){
+  flushPendingRender();
+  const m = ui.slModal;
+  if(!m) return;
+  let touched;
+  if(m.editId){
+    touched = m.draft.name !== (m.original?m.original.name:"");
+  } else {
+    touched = m.draft.name && m.draft.name.trim();
+  }
+  if(!touched){ ui.slModal=null; render(); return; }
+  m.leaveConfirm = true;
+  render();
+}
+function confirmDiscardSimpleItemModal(){ ui.slModal=null; render(); }
+function cancelDiscardSimpleItemModal(){ if(ui.slModal) ui.slModal.leaveConfirm=false; render(); }
+function requestDeleteSimpleItem(kind,id){ ui.slDeleteId={kind,id}; render(); }
+function cancelDeleteSimpleItem(){ ui.slDeleteId=null; render(); }
+function confirmDeleteSimpleItem(){
+  const d = ui.slDeleteId;
+  if(!d) return;
+  const arr = CODE_TABLES[d.kind];
+  const item = arr.find(x=>x.id===d.id);
+  const label = SIMPLE_LISTS[d.kind].label;
+  if(d.kind==="departments"){
+    // מחיקת מחלקה מוחקת גם את תתי-המחלקות המקושרות אליה (בדיוק כמו חברה/אתרי עבודה)
+    CODE_TABLES.subDepartments = CODE_TABLES.subDepartments.filter(sd=>sd.departmentId!==d.id);
+  }
+  CODE_TABLES[d.kind] = arr.filter(x=>x.id!==d.id);
+  saveDB();
+  ui.slDeleteId = null;
+  showToast(item ? label+" \""+item.name+"\" נמחק/ה בהצלחה." : label+" נמחק/ה בהצלחה.");
+  render();
+}
+function renderDeleteSimpleItemModal(){
+  const d = ui.slDeleteId;
+  if(!d) return "";
+  const item = CODE_TABLES[d.kind].find(x=>x.id===d.id);
+  if(!item) return "";
+  const label = SIMPLE_LISTS[d.kind].label;
+  let blockingCases;
+  if(d.kind==="departments") blockingCases = DB.cases.filter(cs=>cs.departmentId===d.id || CODE_TABLES.subDepartments.some(sd=>sd.id===cs.subDepartmentId && sd.departmentId===d.id));
+  else if(d.kind==="ranks") blockingCases = DB.cases.filter(cs=>cs.rankId===d.id);
+  else blockingCases = DB.cases.filter(cs=>cs.gradeId===d.id);
+  if(blockingCases.length){
+    return '<div class="modal-overlay" onclick="if(event.target===this) cancelDeleteSimpleItem()"><div class="modal-box" style="max-width:480px;">' +
+      '<h1 style="margin:0 0 14px;">לא ניתן למחוק</h1>' +
+      '<div style="margin-bottom:18px;">לא ניתן למחוק את ה'+label+' "'+escapeHtml(item.name)+'" מכיוון שקיימים '+blockingCases.length+' תיקי קליטה המשויכים אליו. יש לעדכן את התיקים האלה לפני המחיקה.</div>' +
+      '<div class="btn-row"><button class="btn btn-primary" onclick="cancelDeleteSimpleItem()">הבנתי</button></div>' +
+    '</div></div>';
+  }
+  const warn = (d.kind==="departments" && CODE_TABLES.subDepartments.some(sd=>sd.departmentId===d.id)) ?
+    '<div class="alert alert-warning-pink" style="margin-bottom:16px;">שימו לב: למחלקה זו יש תתי-מחלקות מקושרות. מחיקת המחלקה תמחק גם אותן.</div>' : '';
+  return '<div class="modal-overlay" onclick="if(event.target===this) cancelDeleteSimpleItem()"><div class="modal-box" style="max-width:480px;">' +
+    '<h1 style="margin:0 0 14px;">מחיקת '+label+'</h1>' +
+    warn +
+    '<div style="margin-bottom:18px;">האם אתה בטוח שברצונך למחוק את ה'+label+' "'+escapeHtml(item.name)+'"?</div>' +
+    '<div class="btn-row"><button class="btn btn-danger" onclick="confirmDeleteSimpleItem()">מחק</button><button class="btn btn-secondary" onclick="cancelDeleteSimpleItem()">ביטול</button></div>' +
+  '</div></div>';
+}
+function renderSimpleListTable(kind){
+  const arr = CODE_TABLES[kind];
+  if(!arr.length) return '<div class="empty-state">אין רשומות.</div>';
+  const label = SIMPLE_LISTS[kind].label;
+  const hl = ui.slHighlight;
+  return '<div class="table-wrap" style="margin-bottom:20px;"><table class="data-table zebra-table"><thead><tr>'+
+    '<th>'+label+'</th><th>פעולות</th>'+
+  '</tr></thead><tbody>'+
+    arr.map(x=>'<tr'+((hl&&hl.kind===kind&&hl.id===x.id)?' class="row-highlight"':'')+' ondblclick="if(!event.target.closest(\'.row-actions\')) openEditSimpleItem(\''+kind+'\',\''+x.id+'\')" style="cursor:pointer;">'+
+      '<td><b>'+escapeHtml(x.name)+'</b></td>'+
+      '<td class="row-actions">'+ICON_BTN("pencil","ערוך",'openEditSimpleItem(\''+kind+'\',\''+x.id+'\')',"edit")+ICON_BTN("trash","מחק",'requestDeleteSimpleItem(\''+kind+'\',\''+x.id+'\')',"delete")+'</td>'+
+    '</tr>').join("")+
+  '</tbody></table></div>';
+}
+function renderAddSimpleItemModal(){
+  const m = ui.slModal;
+  if(!m) return "";
+  const errs = m.errors || {};
+  const label = SIMPLE_LISTS[m.kind].label;
+  const isEdit = !!m.editId;
+  const modal = '<div class="modal-overlay" onclick="if(event.target===this) closeSimpleItemModalRequest()">' +
+    '<div class="modal-box" style="max-width:480px;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+        '<h1 style="margin:0;">'+(isEdit?("עריכת "+label):("הוספת "+label))+'</h1>' +
+        '<button onclick="closeSimpleItemModalRequest()" title="סגור" style="border:none;background:none;font-size:22px;line-height:1;cursor:pointer;color:var(--header-text);">&times;</button>' +
+      '</div>' +
+      '<div class="form-grid cols-2" style="margin-top:16px;">' +
+        '<div class="field"><label>שם ה'+label+' <span class="req-star">*</span></label>'+
+          '<input type="text" id="slModal_name" class="'+(errs.name?"err":"")+'" value="'+escapeHtml(m.draft.name)+'" oninput="updateSimpleItemField(this.value)" onblur="finalizeSimpleItemField()">'+
+          (errs.name?'<div class="field-error">'+escapeHtml(errs.name)+'</div>':'')+
+        '</div>' +
+      '</div>' +
+      '<div class="btn-row" style="margin-top:20px;">' +
+        '<button class="btn btn-primary" onclick="saveSimpleItemModal()">שמור</button>' +
+        '<button class="btn btn-secondary" onclick="closeSimpleItemModalRequest()">ביטול</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  return modal + (m.leaveConfirm ? renderSimpleItemModalLeaveConfirm() : "");
+}
+function renderSimpleItemModalLeaveConfirm(){
+  return '<div class="modal-overlay" style="z-index:110;" onclick="if(event.target===this) cancelDiscardSimpleItemModal()"><div class="modal-box" style="max-width:420px;">' +
+    '<div style="margin-bottom:18px;">קיימים שינויים שלא נשמרו. האם לצאת בלי לשמור?</div>' +
+    '<div class="btn-row">' +
+      '<button class="btn btn-primary" onclick="cancelDiscardSimpleItemModal()">המשך עריכה</button>' +
+      '<button class="btn btn-secondary" onclick="confirmDiscardSimpleItemModal()">צא בלי לשמור</button>' +
+    '</div>' +
+  '</div></div>';
+}
+/* ---------- הוספת/עריכת תת-מחלקה - אותו מנגנון בדיוק כמו אתר עבודה
+   (תלויה במחלקה, בדיוק כמו שאתר עבודה תלוי בחברה). ---------- */
+function openAddSubDepartmentModal(){
+  ui.subDepartmentModalDraft = {name:"",departmentId:""};
+  ui.subDepartmentModalOriginal = null;
+  ui.subDepartmentModalEditId = null;
+  ui.subDepartmentModalErrors = {};
+  ui.subDepartmentModalLeaveConfirm = false;
+  render();
+}
+function openEditSubDepartmentModal(id){
+  const sd = CODE_TABLES.subDepartments.find(x=>x.id===id);
+  if(!sd) return;
+  ui.subDepartmentModalDraft = {name:sd.name, departmentId:sd.departmentId};
+  ui.subDepartmentModalOriginal = {name:sd.name, departmentId:sd.departmentId};
+  ui.subDepartmentModalEditId = id;
+  ui.subDepartmentModalErrors = {};
+  ui.subDepartmentModalLeaveConfirm = false;
+  render();
+}
+function updateSubDepartmentModalField(field,value){
+  const d = ui.subDepartmentModalDraft;
+  if(!d) return;
+  d[field] = value;
+  if(field==="departmentId"){
+    validateSubDepartmentModalField("departmentId");
+    render();
+  } else if(ui.subDepartmentModalErrors[field] && value && value.trim()){
+    delete ui.subDepartmentModalErrors[field];
+    render();
+  }
+}
+function validateSubDepartmentModalField(field){
+  const d = ui.subDepartmentModalDraft;
+  if(field==="name"){
+    const v = (d.name||"").trim();
+    if(!v){ ui.subDepartmentModalErrors.name = "יש למלא שם תת-מחלקה."; return false; }
+    delete ui.subDepartmentModalErrors.name; return true;
+  }
+  if(field==="departmentId"){
+    if(!d.departmentId){ ui.subDepartmentModalErrors.departmentId = "יש לבחור מחלקה."; return false; }
+    delete ui.subDepartmentModalErrors.departmentId; return true;
+  }
+  return true;
+}
+function finalizeSubDepartmentModalField(field){
+  if(isRerendering) return; // blur מלאכותי שנגרם מהרינדור עצמו - לא פעולת יציאה אמיתית
+  if(!ui.subDepartmentModalDraft) return;
+  const before = JSON.stringify(ui.subDepartmentModalErrors);
+  validateSubDepartmentModalField(field);
+  const after = JSON.stringify(ui.subDepartmentModalErrors);
+  if(before!==after) render();
+}
+function saveSubDepartmentModal(){
+  flushPendingRender();
+  const fields = ["name","departmentId"];
+  let firstInvalid = null;
+  fields.forEach(f=>{
+    const ok = validateSubDepartmentModalField(f);
+    if(!ok && !firstInvalid) firstInvalid = f;
+  });
+  if(firstInvalid){
+    render();
+    setTimeout(()=>scrollToField("subDepartmentModal_"+firstInvalid), 0);
+    return;
+  }
+  const d = ui.subDepartmentModalDraft;
+  const isEdit = !!ui.subDepartmentModalEditId;
+  let id;
+  if(isEdit){
+    id = ui.subDepartmentModalEditId;
+    const sd = CODE_TABLES.subDepartments.find(x=>x.id===id);
+    if(sd){ sd.name=d.name.trim(); sd.departmentId=d.departmentId; }
+  } else {
+    id = nextCodeId("sdp", CODE_TABLES.subDepartments);
+    CODE_TABLES.subDepartments.push({id, name:d.name.trim(), departmentId:d.departmentId});
+  }
+  CODE_TABLES.subDepartments.sort((a,b)=>a.name.localeCompare(b.name,"he"));
+  saveDB();
+  ui.subDepartmentModalDraft = null;
+  ui.subDepartmentModalOriginal = null;
+  ui.subDepartmentModalEditId = null;
+  ui.subDepartmentModalErrors = {};
+  ui.subDepartmentModalLeaveConfirm = false;
+  ui.highlightSubDepartmentId = id;
+  showToast(isEdit ? "תת-המחלקה עודכנה בהצלחה." : "תת-המחלקה נוספה בהצלחה.");
+  render();
+  setTimeout(()=>{ ui.highlightSubDepartmentId=null; render(); }, 2600);
+}
+function closeSubDepartmentModalRequest(){
+  flushPendingRender();
+  const d = ui.subDepartmentModalDraft;
+  if(!d) return;
+  let touched;
+  if(ui.subDepartmentModalEditId){
+    const o = ui.subDepartmentModalOriginal || {};
+    touched = d.name!==o.name || d.departmentId!==o.departmentId;
+  } else {
+    touched = (d.name&&d.name.trim()) || d.departmentId;
+  }
+  if(!touched){ ui.subDepartmentModalDraft=null; ui.subDepartmentModalOriginal=null; ui.subDepartmentModalEditId=null; ui.subDepartmentModalErrors={}; render(); return; }
+  ui.subDepartmentModalLeaveConfirm = true;
+  render();
+}
+function confirmDiscardSubDepartmentModal(){
+  ui.subDepartmentModalDraft = null;
+  ui.subDepartmentModalOriginal = null;
+  ui.subDepartmentModalEditId = null;
+  ui.subDepartmentModalErrors = {};
+  ui.subDepartmentModalLeaveConfirm = false;
+  render();
+}
+function cancelDiscardSubDepartmentModal(){
+  ui.subDepartmentModalLeaveConfirm = false;
+  render();
+}
+function requestDeleteSubDepartment(id){ ui.subDepartmentDeleteId = id; render(); }
+function cancelDeleteSubDepartment(){ ui.subDepartmentDeleteId = null; render(); }
+function confirmDeleteSubDepartment(){
+  const id = ui.subDepartmentDeleteId;
+  if(!id) return;
+  const sd = CODE_TABLES.subDepartments.find(x=>x.id===id);
+  CODE_TABLES.subDepartments = CODE_TABLES.subDepartments.filter(x=>x.id!==id);
+  saveDB();
+  ui.subDepartmentDeleteId = null;
+  showToast(sd ? "תת-המחלקה \""+sd.name+"\" נמחקה בהצלחה." : "תת-המחלקה נמחקה בהצלחה.");
+  render();
+}
+function renderDeleteSubDepartmentModal(){
+  const id = ui.subDepartmentDeleteId;
+  if(!id) return "";
+  const sd = CODE_TABLES.subDepartments.find(x=>x.id===id);
+  if(!sd) return "";
+  const blockingCases = DB.cases.filter(cs=>cs.subDepartmentId===id);
+  if(blockingCases.length){
+    return '<div class="modal-overlay" onclick="if(event.target===this) cancelDeleteSubDepartment()"><div class="modal-box" style="max-width:480px;">' +
+      '<h1 style="margin:0 0 14px;">לא ניתן למחוק</h1>' +
+      '<div style="margin-bottom:18px;">לא ניתן למחוק את תת-המחלקה "'+escapeHtml(sd.name)+'" מכיוון שקיימים '+blockingCases.length+' תיקי קליטה המשויכים אליה. יש לעדכן את התיקים האלה לפני המחיקה.</div>' +
+      '<div class="btn-row"><button class="btn btn-primary" onclick="cancelDeleteSubDepartment()">הבנתי</button></div>' +
+    '</div></div>';
+  }
+  return '<div class="modal-overlay" onclick="if(event.target===this) cancelDeleteSubDepartment()"><div class="modal-box" style="max-width:480px;">' +
+    '<h1 style="margin:0 0 14px;">מחיקת תת-מחלקה</h1>' +
+    '<div style="margin-bottom:18px;">האם אתה בטוח שברצונך למחוק את תת-המחלקה "'+escapeHtml(sd.name)+'"?</div>' +
+    '<div class="btn-row"><button class="btn btn-danger" onclick="confirmDeleteSubDepartment()">מחק</button><button class="btn btn-secondary" onclick="cancelDeleteSubDepartment()">ביטול</button></div>' +
+  '</div></div>';
+}
+function renderSubDepartmentsTable(){
+  if(!CODE_TABLES.subDepartments.length) return '<div class="empty-state">אין רשומות.</div>';
+  const sorted = CODE_TABLES.subDepartments.slice().sort((a,b)=>departmentName(a.departmentId).localeCompare(departmentName(b.departmentId),'he'));
+  return '<div class="table-wrap" style="margin-bottom:20px;"><table class="data-table zebra-table"><thead><tr>'+
+    '<th>מחלקה</th><th>תת-מחלקה</th><th>פעולות</th>'+
+  '</tr></thead><tbody>'+
+    sorted.map(sd=>'<tr'+(ui.highlightSubDepartmentId===sd.id?' class="row-highlight"':'')+' ondblclick="if(!event.target.closest(\'.row-actions\')) openEditSubDepartmentModal(\''+sd.id+'\')" style="cursor:pointer;">'+
+      '<td>'+escapeHtml(departmentName(sd.departmentId))+'</td>'+
+      '<td><b>'+escapeHtml(sd.name)+'</b></td>'+
+      '<td class="row-actions">'+ICON_BTN("pencil","ערוך",'openEditSubDepartmentModal(\''+sd.id+'\')',"edit")+ICON_BTN("trash","מחק",'requestDeleteSubDepartment(\''+sd.id+'\')',"delete")+'</td>'+
+    '</tr>').join("")+
+  '</tbody></table></div>';
+}
+function renderAddSubDepartmentModal(){
+  const d = ui.subDepartmentModalDraft;
+  if(!d) return "";
+  const errs = ui.subDepartmentModalErrors || {};
+  const fld = (key,label,inputHtml)=>'<div class="field"><label>'+label+' <span class="req-star">*</span></label>'+inputHtml+(errs[key]?'<div class="field-error">'+escapeHtml(errs[key])+'</div>':'')+'</div>';
+  const cls = k => errs[k] ? "err" : "";
+  const isEdit = !!ui.subDepartmentModalEditId;
+  const departmentOptions = '<option value=""></option>'+CODE_TABLES.departments.map(dep=>'<option value="'+dep.id+'" '+(d.departmentId===dep.id?"selected":"")+'>'+escapeHtml(dep.name)+'</option>').join("");
+  const modal = '<div class="modal-overlay" onclick="if(event.target===this) closeSubDepartmentModalRequest()">' +
+    '<div class="modal-box" style="max-width:640px;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+        '<h1 style="margin:0;">'+(isEdit?"עריכת תת-מחלקה":"הוספת תת-מחלקה")+'</h1>' +
+        '<button onclick="closeSubDepartmentModalRequest()" title="סגור" style="border:none;background:none;font-size:22px;line-height:1;cursor:pointer;color:var(--header-text);">&times;</button>' +
+      '</div>' +
+      '<div class="form-grid cols-2" style="margin-top:16px;">' +
+        fld("departmentId","מחלקה",'<select id="subDepartmentModal_departmentId" class="'+cls("departmentId")+'" onchange="updateSubDepartmentModalField(\'departmentId\',this.value)">'+departmentOptions+'</select>') +
+        fld("name","שם תת-המחלקה",'<input type="text" id="subDepartmentModal_name" class="'+cls("name")+'" value="'+escapeHtml(d.name)+'" oninput="updateSubDepartmentModalField(\'name\',this.value)" onblur="finalizeSubDepartmentModalField(\'name\')">') +
+      '</div>' +
+      '<div class="btn-row" style="margin-top:20px;">' +
+        '<button class="btn btn-primary" onclick="saveSubDepartmentModal()">שמור</button>' +
+        '<button class="btn btn-secondary" onclick="closeSubDepartmentModalRequest()">ביטול</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  return modal + (ui.subDepartmentModalLeaveConfirm ? renderSubDepartmentModalLeaveConfirm() : "");
+}
+function renderSubDepartmentModalLeaveConfirm(){
+  return '<div class="modal-overlay" style="z-index:110;" onclick="if(event.target===this) cancelDiscardSubDepartmentModal()"><div class="modal-box" style="max-width:420px;">' +
+    '<div style="margin-bottom:18px;">קיימים שינויים שלא נשמרו. האם לצאת בלי לשמור?</div>' +
+    '<div class="btn-row">' +
+      '<button class="btn btn-primary" onclick="cancelDiscardSubDepartmentModal()">המשך עריכה</button>' +
+      '<button class="btn btn-secondary" onclick="confirmDiscardSubDepartmentModal()">צא בלי לשמור</button>' +
+    '</div>' +
+  '</div></div>';
+}
 function renderAdminScreen(){
   const tab = ui.adminTab || "companies";
   const tabs = [
     ["companies","חברות"],["worksites","אתרי עבודה"],
+    ["departments","מחלקה"],["subDepartments","תת-מחלקה"],
+    ["ranks","דירוג"],["grades","דרגה"],
     ["misc","טבלאות קוד"]
   ];
   let body="";
@@ -2765,6 +3154,14 @@ function renderAdminScreen(){
     body = renderCompaniesTable();
   } else if(tab==="worksites"){
     body = renderWorksitesTable();
+  } else if(tab==="departments"){
+    body = renderSimpleListTable("departments");
+  } else if(tab==="subDepartments"){
+    body = renderSubDepartmentsTable();
+  } else if(tab==="ranks"){
+    body = renderSimpleListTable("ranks");
+  } else if(tab==="grades"){
+    body = renderSimpleListTable("grades");
   } else if(tab==="misc"){
     body = renderCodeTablesTab();
   }
@@ -2772,6 +3169,14 @@ function renderAdminScreen(){
     '<button class="btn-add-green" onclick="openAddCompanyModal()">+ הוסף חברה</button>' :
     tab==="worksites" ?
     '<button class="btn-add-green" onclick="openAddWorksiteModal()">+ הוסף אתר עבודה</button>' :
+    tab==="departments" ?
+    '<button class="btn-add-green" onclick="openAddSimpleItem(\'departments\')">+ הוסף מחלקה</button>' :
+    tab==="subDepartments" ?
+    '<button class="btn-add-green" onclick="openAddSubDepartmentModal()">+ הוסף תת-מחלקה</button>' :
+    tab==="ranks" ?
+    '<button class="btn-add-green" onclick="openAddSimpleItem(\'ranks\')">+ הוסף דירוג</button>' :
+    tab==="grades" ?
+    '<button class="btn-add-green" onclick="openAddSimpleItem(\'grades\')">+ הוסף דרגה</button>' :
     '';
   const pageDesc = tab==="misc" ?
     'עבור כל ערך, יש להזין את הקוד המתאים לו במערכת שנבחרה למטה. הקוד הזה הוא שיישלח בפועל בקובץ האקסל (במקום שם הערך עצמו).' :
@@ -2787,7 +3192,11 @@ function renderAdminScreen(){
   (tab==="companies" ? renderAddCompanyModal() : "") +
   (tab==="companies" ? renderDeleteCompanyModal() : "") +
   (tab==="worksites" ? renderAddWorksiteModal() : "") +
-  (tab==="worksites" ? renderDeleteWorksiteModal() : "");
+  (tab==="worksites" ? renderDeleteWorksiteModal() : "") +
+  ((tab==="departments"||tab==="ranks"||tab==="grades") ? renderAddSimpleItemModal() : "") +
+  ((tab==="departments"||tab==="ranks"||tab==="grades") ? renderDeleteSimpleItemModal() : "") +
+  (tab==="subDepartments" ? renderAddSubDepartmentModal() : "") +
+  (tab==="subDepartments" ? renderDeleteSubDepartmentModal() : "");
 }
 function adminTable(headers,rows){
   if(!rows.length) return '<div class="empty-state">אין רשומות.</div>';

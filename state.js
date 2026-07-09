@@ -87,6 +87,7 @@ function emptyCase(){
   return {
     id:nextId("case"),
     taxYear:2026, companyId:"", worksiteId:"",
+    departmentId:"", subDepartmentId:"", rankId:"", gradeId:"",
     startDate:"", formLanguage:"he",
     needsForm101:true, needsBankForm:true,
     formSelection: defaultFormSelection(),
@@ -305,5 +306,9 @@ function getCase(id){ return DB.cases.find(c=>c.id===id); }
 function currentCase(){ return getCase(ui.currentCaseId); }
 function companyName(id){ const c=CODE_TABLES.companies.find(x=>x.id===id); return c?c.name:""; }
 function worksiteName(id){ const w=CODE_TABLES.worksites.find(x=>x.id===id); return w?w.name:""; }
+function departmentName(id){ const d=CODE_TABLES.departments.find(x=>x.id===id); return d?d.name:""; }
+function subDepartmentName(id){ const s=CODE_TABLES.subDepartments.find(x=>x.id===id); return s?s.name:""; }
+function rankName(id){ const r=CODE_TABLES.ranks.find(x=>x.id===id); return r?r.name:""; }
+function gradeName(id){ const g=CODE_TABLES.grades.find(x=>x.id===id); return g?g.name:""; }
 function bankName(code){ return BankBranchesService.getBankName(code); }
 function branchName(bankCode,branchCode){ return BankBranchesService.getBranchName(bankCode,branchCode); }
