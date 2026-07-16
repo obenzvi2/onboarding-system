@@ -1164,9 +1164,16 @@ function renderGenericChecklistItem(){
   const key = ui.activeChecklistKey;
   const def = FORM_CHECKLIST_DEFS.find(f=>f.key===key);
   if(!c || !def) return '<div class="empty-state">טופס לא נמצא.</div>';
-  // טופס "אישור על כניסה לתיבת דוא"ל" קיבל תוכן אמיתי (ר' renderEmailAccessForm) -
-  // שאר הפריטים ה-generic עדיין מוצגים במסך האחיד הזמני שממשיך למטה.
+  // טופס "אישור על כניסה לתיבת דוא"ל", "אישור עובד לביצוע בדיקת תאי אחסון", "הסכמה
+  // בדבר מסירת מידע אישי" ו"נוהל מוסכם לבדיקת פוליגרף" קיבלו תוכן אמיתי (ר'
+  // renderEmailAccessForm / renderLockerCheckForm / renderDataConsentForm /
+  // renderPolygraphForm) - שאר הפריטים ה-generic עדיין מוצגים במסך האחיד הזמני
+  // שממשיך למטה.
   if(key==="emailAccess") return renderEmailAccessForm();
+  if(key==="lockerCheck") return renderLockerCheckForm();
+  if(key==="dataConsent") return renderDataConsentForm();
+  if(key==="polygraph") return renderPolygraphForm();
+  if(key==="safety") return renderSafetyForm();
   const done = !!c.checklist[key];
   return '' +
   '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
@@ -1189,6 +1196,10 @@ function renderPrintGeneric(){
   const backOnclick = isEmp ? "ui.screen='genericForm';render()" : ("openCase('"+c.id+"','case-home')");
   const backLabel = isEmp ? "חזרה לטופס" : "חזרה לתיק הקליטה";
   if(key==="emailAccess") return renderPrintEmailAccess(c, backOnclick, backLabel);
+  if(key==="lockerCheck") return renderPrintLockerCheck(c, backOnclick, backLabel);
+  if(key==="dataConsent") return renderPrintDataConsent(c, backOnclick, backLabel);
+  if(key==="polygraph") return renderPrintPolygraph(c, backOnclick, backLabel);
+  if(key==="safety") return renderPrintSafety(c, backOnclick, backLabel);
   return '' +
   '<div class="print-toolbar no-print">' +
     '<button class="btn-link" onclick="'+backOnclick+'">&rarr; '+backLabel+'</button>' +
@@ -1289,6 +1300,475 @@ function renderPrintEmailAccess(c, backOnclick, backLabel){
       '<div>תאריך: '+escapeHtml(dateVal?formatDateHe(dateVal):"__________________")+'</div>' +
       '<div>חתימה: __________________</div>' +
     '</div>' +
+  '</div>';
+}
+
+/* ---------- אישור עובד לביצוע בדיקת תאי אחסון - תוכן אמיתי (זהה במבנה לטופס
+   "אישור על כניסה לתיבת דוא"ל" לעיל, רק הנוסח שונה) ---------- */
+function updateLockerCheckDate(val){
+  const c = currentCase();
+  if(!c) return;
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.lockerCheck) c.checklistData.lockerCheck = {date:""};
+  c.checklistData.lockerCheck.date = val;
+  render();
+}
+function finishLockerCheckForm(){
+  const c = currentCase();
+  if(!c) return;
+  const dateVal = c.checklistData && c.checklistData.lockerCheck && c.checklistData.lockerCheck.date;
+  if(!dateVal){
+    showToast("יש להזין תאריך לפני סיום.");
+    return;
+  }
+  c.checklist.lockerCheck = true;
+  showToast('הטופס "אישור עובד לביצוע בדיקת תאי אחסון" סומן כהושלם.');
+  ui.screen = "checklist";
+  render();
+}
+const LOCKER_CHECK_CLAUSES = [
+  'במסגרת עבודתי, החברה מעמידה לרשותי תא איחסון ("לוקר") לצורך אחסנת חפציי האישיים במהלך המשמרת.',
+  'בחתימתי מטה אני מצהיר שידוע לי שכתנאי להעמדת הלוקר לרשותי, באפשרות החברה לבצע מעת לעת בדיקות יזומות של הלוקר, בנוכחותי, בין אם בדיקות שהחברה תודיע עליהן מראש ו/או בדיקות פתע, עבור פיקוח על מלאי החברה ומניעת עבירות רכוש.'
+];
+function lockerCheckLetterHtml(c){
+  const emp = c.employee;
+  const idLabel = emp.idType==="id" ? "ת.ז." : "מספר דרכון";
+  const idValue = emp.idType==="id" ? emp.idNumber : emp.passportNumber;
+  const name = ((emp.firstName||"")+" "+(emp.lastName||"")).trim();
+  return '' +
+  '<div style="text-align:right;font-weight:800;margin-bottom:20px;">לכבוד,<br>'+escapeHtml(companyName(c.companyId))+'</div>' +
+  '<div style="font-weight:700;text-decoration:underline;text-align:center;margin-bottom:18px;">הנדון: אישור עובד לביצוע בדיקות תאי אחסון "לוקרים"</div>' +
+  '<div style="margin-bottom:14px;">אני החתום מטה <b>'+escapeHtml(name||"—")+'</b> '+idLabel+' <b>'+escapeHtml(idValue||"—")+'</b> מצהיר/ה ומאשר/ת בזאת כדלקמן:</div>' +
+  '<ol style="padding-right:20px;margin:0;display:flex;flex-direction:column;gap:10px;">' +
+    LOCKER_CHECK_CLAUSES.map(t=>'<li>'+escapeHtml(t)+'</li>').join("") +
+  '</ol>' +
+  '<div style="margin-top:22px;">ולראיה באתי על החתום:</div>';
+}
+function renderLockerCheckForm(){
+  const c = currentCase();
+  if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
+  const done = !!c.checklist.lockerCheck;
+  const dateVal = (c.checklistData && c.checklistData.lockerCheck && c.checklistData.lockerCheck.date) || "";
+  return '' +
+  '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<h1 style="margin-top:14px;">אישור עובד לביצוע בדיקת תאי אחסון</h1>' +
+  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש להזין תאריך; החתימה תתבצע בכתב יד על הטופס המודפס.</div>' +
+  '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
+    lockerCheckLetterHtml(c) +
+    '<div class="form-grid cols-2" style="margin-top:14px;max-width:420px;">' +
+      f101FieldWrap("lockerCheck_date","תאריך",true,'<input type="date" id="lockerCheck_date" value="'+escapeHtml(dateVal)+'" max="'+todayIso()+'" onchange="updateLockerCheckDate(this.value)">') +
+    '</div>' +
+    '<div class="field-hint-static" style="margin-top:6px;">אין חתימה דיגיטלית — הטופס יודפס ויחתם פיזית על ידי העובד/ת.</div>' +
+  '</div>' +
+  (done ? '<div class="alert alert-info" style="max-width:720px;">טופס זה כבר סומן כהושלם.</div>' : '') +
+  '<div class="btn-row">' +
+    '<button class="btn btn-secondary" onclick="openGenericPreview()">תצוגה מקדימה</button>' +
+    '<button class="btn btn-primary" onclick="finishLockerCheckForm()">סיימתי</button>' +
+  '</div>';
+}
+function renderPrintLockerCheck(c, backOnclick, backLabel){
+  const dateVal = c.checklistData && c.checklistData.lockerCheck && c.checklistData.lockerCheck.date;
+  return '' +
+  '<div class="print-toolbar no-print">' +
+    '<button class="btn-link" onclick="'+backOnclick+'">&rarr; '+backLabel+'</button>' +
+    '<div style="font-weight:700;color:var(--header-text);">אישור עובד לביצוע בדיקת תאי אחסון — תצוגה מקדימה</div>' +
+    '<button class="btn btn-primary btn-sm" onclick="window.print()">הדפס / שמור כ-PDF</button>' +
+  '</div>' +
+  '<div class="print-frame" style="font-size:13px;line-height:1.9;">' +
+    lockerCheckLetterHtml(c) +
+    '<div style="margin-top:60px;display:flex;justify-content:space-between;max-width:420px;">' +
+      '<div>תאריך: '+escapeHtml(dateVal?formatDateHe(dateVal):"__________________")+'</div>' +
+      '<div>חתימה: __________________</div>' +
+    '</div>' +
+  '</div>';
+}
+
+/* ---------- הסכמה בדבר מסירת מידע אישי - תוכן אמיתי (מבוסס הטופס המודפס המקורי:
+   "הודעה והסכמה בדבר איסוף, עיבוד ומסירת מידע אישי – מאגר עובדים") ----------
+   שם החברה נמשך מפרטי התיק, ח.פ נמשך מפרטי החברה כפי שהוזנו בהגדרות המערכת,
+   ושם/מספר הזהות של העובד/ת נמשכים מכרטיס העובד - כל השדות הללו לקריאה בלבד. */
+function updateDataConsentDate(val){
+  const c = currentCase();
+  if(!c) return;
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.dataConsent) c.checklistData.dataConsent = {date:""};
+  c.checklistData.dataConsent.date = val;
+  render();
+}
+function finishDataConsentForm(){
+  const c = currentCase();
+  if(!c) return;
+  const dateVal = c.checklistData && c.checklistData.dataConsent && c.checklistData.dataConsent.date;
+  if(!dateVal){
+    showToast("יש להזין תאריך לפני סיום.");
+    return;
+  }
+  c.checklist.dataConsent = true;
+  showToast('הטופס "הסכמה בדבר מסירת מידע אישי" סומן כהושלם.');
+  ui.screen = "checklist";
+  render();
+}
+const DATA_CONSENT_PURPOSES = [
+  'ניהול משאבי אנוש, ובכלל זה גיוס, קליטה, שיבוץ, הערכה, קידום, העסקה וסיום יחסי עבודה.',
+  'תשלום שכר, הפרשות סוציאליות, הטבות, ותשלומים נלווים.',
+  'עמידה בדרישות חוקיות ורגולטוריות (כגון דיני עבודה, ביטוח לאומי, רשויות המס).',
+  'ניהול מערכות מידע ואבטחתן (כולל גישה למערכות המחשוב, דואר אלקטרוני, תקשורת, מצלמות אבטחה במידת הצורך).'
+];
+const DATA_CONSENT_CATEGORIES = [
+  'פרטי זיהוי והתקשרות: שם, ת"ז, כתובת, טלפון, דוא"ל, מצב משפחתי.',
+  'פרטי העסקה ושכר: תפקיד, דרגה, ותק, שעות עבודה (נוכחות), נתוני שכר, חשבון בנק, ניכויי מס.',
+  'מידע השכלתי ומקצועי: קורות חיים, תעודות, רישיונות, תוצאות מבחני מיון והערכה.',
+  'מידע רגיש: מצב בריאותי (לצורך עמידה בחוקי עבודה להתאמות נגישות, אישורי מחלה וכו\').',
+  'מידע ביומטרי (אם משתמשים בשעון נוכחות ביומטרי – דבר המצריך בדיקת מידתיות מיוחדת והסכמה מפורשת ומודעת ביותר).'
+];
+const DATA_CONSENT_SHARING_TEXT = 'חלק מהמידע נדרש מכוח חובה חוקית (כגון דיני מס, ביטוח לאומי) או מכוח החוזה/יחסי עבודה (כגון פרטי חשבון בנק, נתוני נוכחות). המידע האישי הנאסף עשוי להיות מועבר לגורמים שונים לצורך מימוש מטרות המאגר (כגון רשויות המדינה, כגון רשות המיסים, המוסד לביטוח לאומי), וכן לספקי שירות חיצוניים של החברה (כגון מנהל חשבונות, חשב שכר, יועצים משפטיים, חברות ביטוח ופנסיה, ספקי שירותי IT, ספקי שירותי שכר), ובהתאם להוראות החוק ולצרכים שיפוטיים המורשים לחברה על העברת מידע, ככל שיוצאו כאלו שיחייבו את החברה להעברת מידע בהתאם לחוק.';
+const DATA_CONSENT_DECLARATION_TEXT = 'אני החתום/ה מטה, מאשר/ת כי קראתי את ההודעה המפורטת לעיל בדבר איסוף, עיבוד והעברת המידע האישי שלי במאגר עובדי החברה, לרבות מטרות האיסוף, סוגי המידע הנאספים והעברת המידע לצדדים שלישיים. לאחר שקראתי את כל סעיפי ופרטי הודעה זו אני מסכים/ה באופן מפורש לאיסוף, עיבוד והעברת המידע האישי שלי על ידי החברה למטרות המפורטות ובהתאם להוראות חוק הגנת הפרטיות וכל דין או צו שיפוטי. אני מאשר/ת כי ניתנה לי האפשרות לשאול שאלות בנוגע לתוכן ההודעה וכי אני מודע/ת לזכויותיי כנושא המידע.';
+function dataConsentLetterHtml(c){
+  const emp = c.employee;
+  const idLabel = emp.idType==="id" ? "מס ת.ז" : "מספר דרכון";
+  const idValue = emp.idType==="id" ? emp.idNumber : emp.passportNumber;
+  const name = ((emp.firstName||"")+" "+(emp.lastName||"")).trim();
+  const company = CODE_TABLES.companies.find(x=>x.id===c.companyId) || {};
+  return '' +
+  '<div style="font-weight:700;text-decoration:underline;text-align:center;margin-bottom:18px;">הודעה והסכמה בדבר איסוף, עיבוד ומסירת מידע אישי – מאגר עובדים</div>' +
+  '<div style="margin-bottom:16px;">החברה: <b style="text-decoration:underline;">'+escapeHtml(companyName(c.companyId))+'</b> &nbsp;&nbsp; ח.פ <b style="text-decoration:underline;">'+escapeHtml(company.companyRegNum||"—")+'</b> מנהלת מאגר מידע אודות עובדיה, לרבות עובדים לשעבר ומועמדים לעבודה.</div>' +
+  '<div style="margin-bottom:8px;">המאגר הינו לשימוש בלעדי של החברה למטרות המפורטות להלן:</div>' +
+  '<ul style="padding-right:20px;margin:0 0 16px;display:flex;flex-direction:column;gap:6px;">' +
+    DATA_CONSENT_PURPOSES.map(t=>'<li>'+escapeHtml(t)+'</li>').join("") +
+  '</ul>' +
+  '<div style="margin-bottom:8px;">סוגי המידע הנאספים ונשמרים במאגר העובדים של החברה:</div>' +
+  '<ul style="padding-right:20px;margin:0 0 16px;display:flex;flex-direction:column;gap:6px;">' +
+    DATA_CONSENT_CATEGORIES.map(t=>'<li>'+escapeHtml(t)+'</li>').join("") +
+  '</ul>' +
+  '<div style="margin-bottom:14px;">'+escapeHtml(DATA_CONSENT_SHARING_TEXT)+'</div>' +
+  '<div style="margin-bottom:20px;">'+escapeHtml(DATA_CONSENT_DECLARATION_TEXT)+'</div>' +
+  '<div class="form-grid cols-2" style="max-width:500px;">' +
+    '<div><b>שם מלא:</b> <span style="text-decoration:underline;">'+escapeHtml(name||"—")+'</span></div>' +
+    '<div><b>'+idLabel+':</b> <span style="text-decoration:underline;">'+escapeHtml(idValue||"—")+'</span></div>' +
+  '</div>';
+}
+function renderDataConsentForm(){
+  const c = currentCase();
+  if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
+  const done = !!c.checklist.dataConsent;
+  const dateVal = (c.checklistData && c.checklistData.dataConsent && c.checklistData.dataConsent.date) || "";
+  return '' +
+  '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<h1 style="margin-top:14px;">הודעה והסכמה בדבר איסוף, עיבוד ומסירת מידע אישי – מאגר עובדים</h1>' +
+  '<div class="page-desc">הפרטים האישיים ופרטי החברה מולאו אוטומטית מפרטי תיק הקליטה ומהגדרות המערכת. יש להזין תאריך; החתימה תתבצע בכתב יד על הטופס המודפס.</div>' +
+  '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
+    dataConsentLetterHtml(c) +
+    '<div class="form-grid cols-2" style="margin-top:14px;max-width:420px;">' +
+      f101FieldWrap("dataConsent_date","תאריך",true,'<input type="date" id="dataConsent_date" value="'+escapeHtml(dateVal)+'" max="'+todayIso()+'" onchange="updateDataConsentDate(this.value)">') +
+    '</div>' +
+    '<div class="field-hint-static" style="margin-top:6px;">אין חתימה דיגיטלית — הטופס יודפס ויחתם פיזית על ידי העובד/ת.</div>' +
+  '</div>' +
+  (done ? '<div class="alert alert-info" style="max-width:720px;">טופס זה כבר סומן כהושלם.</div>' : '') +
+  '<div class="btn-row">' +
+    '<button class="btn btn-secondary" onclick="openGenericPreview()">תצוגה מקדימה</button>' +
+    '<button class="btn btn-primary" onclick="finishDataConsentForm()">סיימתי</button>' +
+  '</div>';
+}
+function renderPrintDataConsent(c, backOnclick, backLabel){
+  const dateVal = c.checklistData && c.checklistData.dataConsent && c.checklistData.dataConsent.date;
+  return '' +
+  '<div class="print-toolbar no-print">' +
+    '<button class="btn-link" onclick="'+backOnclick+'">&rarr; '+backLabel+'</button>' +
+    '<div style="font-weight:700;color:var(--header-text);">הסכמה בדבר מסירת מידע אישי — תצוגה מקדימה</div>' +
+    '<button class="btn btn-primary btn-sm" onclick="window.print()">הדפס / שמור כ-PDF</button>' +
+  '</div>' +
+  '<div class="print-frame" style="font-size:13px;line-height:1.9;">' +
+    dataConsentLetterHtml(c) +
+    '<div style="margin-top:40px;display:flex;justify-content:space-between;max-width:420px;">' +
+      '<div>תאריך: '+escapeHtml(dateVal?formatDateHe(dateVal):"__________________")+'</div>' +
+      '<div>חתימת העובד: __________________</div>' +
+    '</div>' +
+  '</div>';
+}
+
+/* ---------- נוהל מוסכם לבדיקת פוליגרף - תוכן אמיתי (מבוסס הטופס המודפס המקורי:
+   "נספח נוהל מוסכם לעריכת בדיקת פוליגרף") ----------
+   שם פרטי, שם משפחה ומספר הזהות/דרכון נמשכים מכרטיס העובד/ת ומוצגים לקריאה בלבד.
+   "מספר עובד" ו"מס' כרטיס" הם שדות טקסט חופשיים וריקים (לא נשלפים משום מקום -
+   ייתכן ויוסרו בהמשך אם יתברר שאינם נחוצים). שם החברה בגוף הטופס הוא קבוע
+   ("אורשר מחסני ערובה 1985 בע"מ") ואינו תלוי בחברה המעסיקה של התיק. */
+const POLYGRAPH_TITLE = 'נספח נוהל מוסכם לעריכת בדיקת פוליגרף';
+/* לוגו וכותרת תחתונה של אורשר - משותפים לכל הטפסים שבהם צריך להציג אותם
+   (למשל פוליגרף, הנחיות בטיחות). */
+const COMPANY_LOGO_HTML = '<div style="text-align:right;margin-bottom:10px;"><img src="assets/orshar_logo.png" alt="אורשר" style="height:20px;"></div>';
+const COMPANY_FOOTER_HTML = '<div style="margin-top:26px;padding-top:8px;border-top:1px solid #ccc;text-align:center;font-size:9.5px;color:#333;">' +
+  '<div>אורשר מחסני ערובה (1985) בע"מ | ח.פ 511050783</div>' +
+  '<div>ת.ד 4033 מיקוד 77140 אשדוד | טלפון: 08-8516000 | פקס: 08-8516009 | www.orshar.co.il | info@orshar.co.il</div>' +
+'</div>';
+const POLYGRAPH_COMPANY_NAME = 'אורשר מחסני ערובה 1985 בע"מ';
+function updatePolygraphDate(val){
+  const c = currentCase();
+  if(!c) return;
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.polygraph) c.checklistData.polygraph = {date:"", employeeNumber:"", cardNumber:""};
+  c.checklistData.polygraph.date = val;
+  render();
+}
+function updatePolygraphField(field,val){
+  const c = currentCase();
+  if(!c) return;
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.polygraph) c.checklistData.polygraph = {date:"", employeeNumber:"", cardNumber:""};
+  c.checklistData.polygraph[field] = val;
+  render();
+}
+function finishPolygraphForm(){
+  const c = currentCase();
+  if(!c) return;
+  const dateVal = c.checklistData && c.checklistData.polygraph && c.checklistData.polygraph.date;
+  if(!dateVal){
+    showToast("יש להזין תאריך לפני סיום.");
+    return;
+  }
+  c.checklist.polygraph = true;
+  showToast('הטופס "נוהל מוסכם לבדיקת פוליגרף" סומן כהושלם.');
+  ui.screen = "checklist";
+  render();
+}
+const POLYGRAPH_PARAGRAPHS_1 = [
+  'אני החתום/ה בזה נותן את הסכמתי המפורשת והבלתי-מסויגת להיבדק במכונת פוליגרף, במועד ובמקום ככל שתורה לי חברת '+POLYGRAPH_COMPANY_NAME+' (להלן: "החברה"), בהתגלע חשד ו/או חשש כלשהו למעשה ו/או מחדל העולים לכדי מרמה ו/או הטעיה ו/או הפרת אמונים ו/או הפרת חובת נאמנות ו/או גניבה ו/או סיוע לגניבה ו/או זיוף ו/או סיוע לזיוף ו/או התנהגות אחרת שאינה הולמת עובד ו/או קשירת קשר לביצוע מעשה או מחדל כאמור [להלן: "החשד ו/או החשש"].',
+  'אני מקבל על עצמי באופן מוחלט ובלתי חוזר את תוצאות בדיקת הפוליגרף והנני מסכים כי החברה תהא רשאית להגיש את ממצאי בדיקת הפוליגרף בכל הליך שיפוטי ו/או מעין שיפוטי ו/או משמעתי, לרבות הליך המתקיים בפני בית משפט ו/או בית דין ו/או בפני בורר, בין אם במסגרת ההליך המתנהל, חלים דיני הראיות ובין אם הם אינם חלים. הנני מוותר בזאת על כל טענה בדבר חוסר קבילות ו/או רלוונטיות, ולא יהיה לי כל פתחון פה בנוגע להגשת ממצאי בדיקת הפוליגרף, לרלוונטיות ו/או לקבילות ממצאי הבדיקה הנ"ל.',
+  'הנני נותן בזה את הסכמתי המפורשת והבלתי חוזרת לכך שממצאי הפוליגרף, ככל שהן מבססות את החשד ו/או החשש, ישמשו ראיה קונקלוסיבית לאמיתות תוכנם, ויהוו הוכחה בלעדית ומכרעת, בכל הליך כאמור לעיל, ובפני כל ערכאה משפטית ו/או גוף שלטוני ו/או מעין שיפוטי.',
+  'מוסכם עלי כי החברה תגיש את ממצאי בדיקת הפוליגרף באם תבחר לעשות כן ולפי שיקול דעתה הבלעדי. וכי אין החברה מחויבת להגיש את ממצאי בדיקת הפוליגרף לכל ערכאה ו/או גוף שהם ואף אינה מחויבת לגלותם לח"מ או לכל אדם ו/או גוף אחר.',
+  'מוסכם עלי כי אם אסרב מכל סיבה שהיא להיבדק בבדיקת פוליגרף, יהווה סירובי, ראיה מכרעת לביסוס החשד ו/או החשש, וכי הנטל להוכחת גרסתי השונה, יוטל עלי. מוסכם כי אם לא הוכחתי להנחת דעת החברה את גרסתי השונה, יהא דיני כפי הקבוע להלן למקרה בו הוכח החשד ו/או החשש.'
+];
+const POLYGRAPH_LIST_INTRO = 'הוכח החשד ו/או החשש באמצעות בדיקת הפוליגרף ו/או בכל אמצעי אחר, הנני מסכים כי תהא החברה רשאית לנהוג בי כאמור להלן, לחילופין או במצטבר, הכל לפי שיקול דעתה הבלעדי:';
+const POLYGRAPH_LIST_ITEMS = [
+  'לפטרני ללא צורך בהודעה מוקדמת בדבר פיטורין.',
+  'לפטרני ללא תשלום דמי הודעה מוקדמת וכן ללא תשלום פיצויי פיטורין בסכום כלשהו או בתשלום דמי הודעה מוקדמת ו/או פיצויי פיטורין חלקיים.',
+  'להטיל עלי קנס/ות בשיעור שיראה בעיניה סביר ומקובל בנסיבות העניין, בקביעת שיעור הקנס/ות תביא החברה בחשבון את הנהוג בהטלת קנסות ושיעורן, בהסכמים הקיבוציים הכלליים החלים עלי.'
+];
+const POLYGRAPH_PARAGRAPHS_2 = [
+  'הובאה סוגיית פיטורי ו/או תשלום פיצויי פיטורין ו/או מתן הודעה מוקדמת על פיטורין ו/או דמי הודעה מוקדמת ו/או הטלת קנסות ו/או שיעוריהן ו/או כל עניין אחר הקשור ו/או נובע מן העניינים האמורים, לדיון בפני ערכאה משפטית כלשהי לרבות בית דין ו/או גוף מעין שיפוטי, לרבות בורר, דינם של ממצאי הפוליגרף בעניינים אלה, כפי דינם האמור לעיל להוכחת קיומו של החשד ו/או החשש, דהיינו ישמשו ראיה קונקלוסיבית, בלעדית ומכרעת לאמיתות תוכנם.',
+  'אני מתחייב לשאת בעלות מלאה של בדיקת הפוליגרף אם לפי ממצאיה לא ברור באופן מוחלט וחד משמעי, כי כל דברי אמת וכי מסרתי בכתב את כל הפרטים ו/או הנתונים הרלוונטיים לחברה בין מיוזמתי ובין לפי דרישת החברה, וכן ובמצטבר כי נוכח הממצאים החד משמעיים (בגבולות האפשר) של בדיקת הפוליגרף, אין ולא היה כל בסיס לחשד ו/או לחשש.',
+  'הנני מאשר בזאת כי אני חותם על מסמך זה לאחר שחקרתי ובררתי את המשמעות המדויקת של חתימתי על נספח, ולאחר שהוסברה לי משמעות תוצאות בדיקת הפוליגרף לפיהן אינני דובר אמת, וכן לאחר שהוסבר לי כי אינני מחויב לחתום כלל על נספח זה.'
+];
+const POLYGRAPH_CLOSING_LINE = 'לאחר שקראתי היטב את האמור לעיל, ולאחר שנחה דעתי כי הבנתי את ההסברים שקיבלתי, ולאחר שגמרתי בדעתי להתחייב כאמור לעיל, הנני חותם על נספח זה:';
+function polygraphBodyHtml(){
+  return '' +
+  POLYGRAPH_PARAGRAPHS_1.map(t=>'<div style="margin-bottom:14px;break-inside:avoid;">'+escapeHtml(t)+'</div>').join("") +
+  '<div style="margin-bottom:8px;break-inside:avoid;">'+escapeHtml(POLYGRAPH_LIST_INTRO)+'</div>' +
+  '<ol style="padding-right:20px;margin:0 0 16px;">' +
+    POLYGRAPH_LIST_ITEMS.map(t=>'<li style="margin-bottom:6px;break-inside:avoid;">'+escapeHtml(t)+'</li>').join("") +
+  '</ol>' +
+  POLYGRAPH_PARAGRAPHS_2.map(t=>'<div style="margin-bottom:14px;break-inside:avoid;">'+escapeHtml(t)+'</div>').join("") +
+  '<div style="margin-top:6px;break-inside:avoid;">'+escapeHtml(POLYGRAPH_CLOSING_LINE)+'</div>';
+}
+function polygraphHeaderFieldsHtml(c){
+  const emp = c.employee;
+  const idLabel = emp.idType==="id" ? "מספר ת.ז" : "מספר דרכון";
+  const idValue = emp.idType==="id" ? emp.idNumber : emp.passportNumber;
+  return '' +
+    '<div><b>שם פרטי:</b> '+escapeHtml(emp.firstName||"—")+'</div>' +
+    '<div><b>שם משפחה:</b> '+escapeHtml(emp.lastName||"—")+'</div>' +
+    '<div><b>'+idLabel+':</b> '+escapeHtml(idValue||"—")+'</div>';
+}
+function renderPolygraphForm(){
+  const c = currentCase();
+  if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
+  const done = !!c.checklist.polygraph;
+  const data = (c.checklistData && c.checklistData.polygraph) || {};
+  return '' +
+  '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<h1 style="margin-top:14px;">'+POLYGRAPH_TITLE+'</h1>' +
+  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. "מספר עובד" ו"מס\' כרטיס" ניתנים למילוי חופשי. יש להזין תאריך; החתימה תתבצע בכתב יד על הטופס המודפס.</div>' +
+  '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
+    COMPANY_LOGO_HTML +
+    '<div class="form-grid cols-5" style="margin-bottom:16px;">' +
+      polygraphHeaderFieldsHtml(c) +
+      f101FieldWrap("polygraph_employeeNumber","מספר עובד",false,'<input type="text" id="polygraph_employeeNumber" value="'+escapeHtml(data.employeeNumber||"")+'" onchange="updatePolygraphField(\'employeeNumber\',this.value)">') +
+      f101FieldWrap("polygraph_cardNumber","מס\' כרטיס",false,'<input type="text" id="polygraph_cardNumber" value="'+escapeHtml(data.cardNumber||"")+'" onchange="updatePolygraphField(\'cardNumber\',this.value)">') +
+    '</div>' +
+    polygraphBodyHtml() +
+    '<div class="form-grid cols-2" style="margin-top:14px;max-width:420px;">' +
+      f101FieldWrap("polygraph_date","תאריך",true,'<input type="date" id="polygraph_date" value="'+escapeHtml(data.date||"")+'" max="'+todayIso()+'" onchange="updatePolygraphDate(this.value)">') +
+    '</div>' +
+    '<div class="field-hint-static" style="margin-top:6px;">אין חתימה דיגיטלית — הטופס יודפס ויחתם פיזית על ידי העובד/ת.</div>' +
+    COMPANY_FOOTER_HTML +
+  '</div>' +
+  (done ? '<div class="alert alert-info" style="max-width:720px;">טופס זה כבר סומן כהושלם.</div>' : '') +
+  '<div class="btn-row">' +
+    '<button class="btn btn-secondary" onclick="openGenericPreview()">תצוגה מקדימה</button>' +
+    '<button class="btn btn-primary" onclick="finishPolygraphForm()">סיימתי</button>' +
+  '</div>';
+}
+function renderPrintPolygraph(c, backOnclick, backLabel){
+  const data = (c.checklistData && c.checklistData.polygraph) || {};
+  return '' +
+  '<div class="print-toolbar no-print">' +
+    '<button class="btn-link" onclick="'+backOnclick+'">&rarr; '+backLabel+'</button>' +
+    '<div style="font-weight:700;color:var(--header-text);">נוהל מוסכם לבדיקת פוליגרף — תצוגה מקדימה</div>' +
+    '<button class="btn btn-primary btn-sm" onclick="window.print()">הדפס / שמור כ-PDF</button>' +
+  '</div>' +
+  '<div class="print-frame" style="font-size:11.5px;line-height:1.55;">' +
+    COMPANY_LOGO_HTML +
+    '<div style="font-weight:700;text-decoration:underline;text-align:center;margin-bottom:14px;">'+POLYGRAPH_TITLE+'</div>' +
+    '<div class="form-grid cols-5" style="margin-bottom:14px;">' +
+      polygraphHeaderFieldsHtml(c) +
+      '<div><b>מספר עובד:</b> '+escapeHtml(data.employeeNumber||"__________")+'</div>' +
+      '<div><b>מס\' כרטיס:</b> '+escapeHtml(data.cardNumber||"__________")+'</div>' +
+    '</div>' +
+    '<div style="column-count:2;column-gap:26px;column-rule:1px solid #d5dbe1;">' +
+      polygraphBodyHtml() +
+    '</div>' +
+    '<div style="margin-top:24px;display:flex;justify-content:space-between;max-width:420px;">' +
+      '<div>תאריך: '+escapeHtml(data.date?formatDateHe(data.date):"__________________")+'</div>' +
+      '<div>חתימה: __________________</div>' +
+    '</div>' +
+    COMPANY_FOOTER_HTML +
+  '</div>';
+}
+
+/* ---------- הנחיות בטיחות בעבודה - תוכן אמיתי (מבוסס הטופס המודפס המקורי:
+   "הנחיות בטיחות בעבודה לעובד/ת חדש/ה") ----------
+   שם חברה נמשך דינמית מהחברה של התיק, שם ומשפחה ותעודת זהות/דרכון נמשכים
+   מכרטיס העובד/ת (לקריאה בלבד), אותה תבנית לוגו/כותרת תחתונה כמו בטופס
+   הפוליגרף (ר' COMPANY_LOGO_HTML / COMPANY_FOOTER_HTML). */
+const SAFETY_TITLE = 'הנחיות בטיחות בעבודה לעובד/ת חדש/ה';
+function updateSafetyDate(val){
+  const c = currentCase();
+  if(!c) return;
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.safety) c.checklistData.safety = {date:""};
+  c.checklistData.safety.date = val;
+  render();
+}
+function finishSafetyForm(){
+  const c = currentCase();
+  if(!c) return;
+  const dateVal = c.checklistData && c.checklistData.safety && c.checklistData.safety.date;
+  if(!dateVal){
+    showToast("יש להזין תאריך לפני סיום.");
+    return;
+  }
+  c.checklist.safety = true;
+  showToast('הטופס "הנחיות בטיחות בעבודה" סומן כהושלם.');
+  ui.screen = "checklist";
+  render();
+}
+const SAFETY_DUTIES = [
+  'לבצע בדייקנות את ההוראות שנותן מנהל העבודה.',
+  'לא להתרשל בעבודה.',
+  'אשתמש ואשמור על כל ציוד הבטיחות שנופק לי.',
+  'לא לגרום נזק לציוד, חומרים או כלי-עבודה.',
+  'לא לבצע עבודה שלא ניתן לך הסבר מפורט לאופן ביצוע העבודה.',
+  'לא להסתובב בתחומי המפעל שלא לצורך.',
+  'שמור על סביבת עבודה נקיה ומסודרת.',
+  'אסור לעשן במחסנים.',
+  'חל איסור על עבודה מעל 12 שעות ביום.',
+  'אסור למשוך אריזות ברצועות הקשירה.',
+  'אין להשתמש בטלפון בשעת העבודה.',
+  'אין לשים אוזניה בשעות העבודה (מותר מוסיקה חלשה ברקע).',
+  'אין לרוץ במחסן ובעלייה או בירידה במדרגות חובה לאחוז במעקה.',
+  'במקרה של תאונה, נזק לציוד וכד\', חובה לדווח מיד לראש הצוות.'
+];
+const SAFETY_CLOTHING = [
+  'חולצה נקיה ומכנסיים נקיים.',
+  'נעלי עבודה עם כיפת ברזל (אסורים כל סוגי הסנדלים).',
+  'נעליים שלמות רק לעובדים משרדים שלא נכנסים למחסן.'
+];
+const SAFETY_ELECTRICAL = [
+  'אל תיגש ללוחות חשמל.',
+  'אל תנסה לתקן או לפרק כלי עבודה המופעל בחשמל.',
+  'אל תנסה לתקן תקלות בחשמל (כולל הרמת מא"ז).'
+];
+const SAFETY_FORKLIFT_NOTICE = 'עבודה עם מלגזת אדם עומד מחייב רישיון נהיגה ופתיחת כרטיס נהג';
+const SAFETY_GENERAL_ITEM1 = 'יש לקבל תדריך לעובד החדש מראש הצוות ליד פינת העבודה שלך.';
+const SAFETY_GENERAL_ITEM2_INTRO = 'התדריך יכול לסיים עם הנושאים הבאים:';
+const SAFETY_GENERAL_SUBITEMS = [
+  'הכרת המתחם (דלתות מילוט)',
+  'תחום המחלקה כולל ר"צ.',
+  'חדר אוכל וזמני הפסקות.',
+  'חדרי מנהלים וראשי צוותים.',
+  'בעיות או סיכונים מיוחדים במחלקה.'
+];
+function safetySectionTitleHtml(t){
+  return '<div style="font-weight:700;font-size:14px;margin:12px 0 6px;">'+escapeHtml(t)+'</div>';
+}
+function safetyBodyHtml(){
+  return '' +
+  safetySectionTitleHtml('חובות העובד:') +
+  '<ol style="padding-right:20px;margin:0;display:flex;flex-direction:column;gap:4px;">' +
+    SAFETY_DUTIES.map(t=>'<li>'+escapeHtml(t)+'</li>').join("") +
+  '</ol>' +
+  safetySectionTitleHtml('בגדי עבודה:') +
+  '<ol style="padding-right:20px;margin:0;display:flex;flex-direction:column;gap:4px;">' +
+    SAFETY_CLOTHING.map(t=>'<li>'+escapeHtml(t)+'</li>').join("") +
+  '</ol>' +
+  safetySectionTitleHtml('בטיחות בחשמל:') +
+  '<ol style="padding-right:20px;margin:0;display:flex;flex-direction:column;gap:4px;">' +
+    SAFETY_ELECTRICAL.map(t=>'<li>'+escapeHtml(t)+'</li>').join("") +
+  '</ol>' +
+  '<div class="alert alert-warning-yellow" style="text-align:center;font-weight:700;margin-top:12px;padding:8px 12px;">'+escapeHtml(SAFETY_FORKLIFT_NOTICE)+'</div>' +
+  safetySectionTitleHtml('כללי:') +
+  '<ol style="padding-right:20px;margin:0;display:flex;flex-direction:column;gap:4px;">' +
+    '<li>'+escapeHtml(SAFETY_GENERAL_ITEM1)+'</li>' +
+    '<li>'+escapeHtml(SAFETY_GENERAL_ITEM2_INTRO)+
+      '<ul style="padding-right:20px;margin:6px 0 0;display:flex;flex-direction:column;gap:4px;list-style-type:disc;">' +
+        SAFETY_GENERAL_SUBITEMS.map(t=>'<li>'+escapeHtml(t)+'</li>').join("") +
+      '</ul>' +
+    '</li>' +
+  '</ol>';
+}
+function safetyStaticFieldsHtml(c){
+  const emp = c.employee;
+  const idLabel = emp.idType==="id" ? "תעודת זהות" : "מספר דרכון";
+  const idValue = emp.idType==="id" ? emp.idNumber : emp.passportNumber;
+  const name = ((emp.firstName||"")+" "+(emp.lastName||"")).trim();
+  return '' +
+    '<div><b>שם חברה:</b> '+escapeHtml(companyName(c.companyId))+'</div>' +
+    '<div><b>שם ומשפחה:</b> '+escapeHtml(name||"—")+'</div>' +
+    '<div><b>'+idLabel+':</b> '+escapeHtml(idValue||"—")+'</div>';
+}
+function renderSafetyForm(){
+  const c = currentCase();
+  if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
+  const done = !!c.checklist.safety;
+  const data = (c.checklistData && c.checklistData.safety) || {};
+  return '' +
+  '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<h1 style="margin-top:14px;">'+SAFETY_TITLE+'</h1>' +
+  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש להזין תאריך; החתימה תתבצע בכתב יד על הטופס המודפס.</div>' +
+  '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
+    COMPANY_LOGO_HTML +
+    safetyBodyHtml() +
+    '<div class="form-grid cols-5" style="margin-top:12px;">' +
+      f101FieldWrap("safety_date","תאריך",true,'<input type="date" id="safety_date" value="'+escapeHtml(data.date||"")+'" max="'+todayIso()+'" onchange="updateSafetyDate(this.value)">') +
+      safetyStaticFieldsHtml(c) +
+      '<div><b>חתימת העובד:</b> ייחתם בכתב יד</div>' +
+    '</div>' +
+    '<div class="field-hint-static" style="margin-top:6px;">אין חתימה דיגיטלית — הטופס יודפס ויחתם פיזית על ידי העובד/ת.</div>' +
+    COMPANY_FOOTER_HTML +
+  '</div>' +
+  (done ? '<div class="alert alert-info" style="max-width:720px;">טופס זה כבר סומן כהושלם.</div>' : '') +
+  '<div class="btn-row">' +
+    '<button class="btn btn-secondary" onclick="openGenericPreview()">תצוגה מקדימה</button>' +
+    '<button class="btn btn-primary" onclick="finishSafetyForm()">סיימתי</button>' +
+  '</div>';
+}
+function renderPrintSafety(c, backOnclick, backLabel){
+  const data = (c.checklistData && c.checklistData.safety) || {};
+  return '' +
+  '<div class="print-toolbar no-print">' +
+    '<button class="btn-link" onclick="'+backOnclick+'">&rarr; '+backLabel+'</button>' +
+    '<div style="font-weight:700;color:var(--header-text);">הנחיות בטיחות בעבודה — תצוגה מקדימה</div>' +
+    '<button class="btn btn-primary btn-sm" onclick="window.print()">הדפס / שמור כ-PDF</button>' +
+  '</div>' +
+  '<div class="print-frame" style="font-size:11px;line-height:1.4;">' +
+    COMPANY_LOGO_HTML +
+    '<div style="font-weight:700;text-decoration:underline;text-align:center;margin-bottom:10px;">'+SAFETY_TITLE+'</div>' +
+    safetyBodyHtml() +
+    '<div class="form-grid cols-5" style="margin-top:12px;">' +
+      '<div><b>תאריך:</b> '+escapeHtml(data.date?formatDateHe(data.date):"__________")+'</div>' +
+      safetyStaticFieldsHtml(c) +
+      '<div><b>חתימת העובד:</b> __________</div>' +
+    '</div>' +
+    COMPANY_FOOTER_HTML +
   '</div>';
 }
 
@@ -2305,7 +2785,7 @@ function nextCodeId(prefix, arr){
    ui.companyModalLeaveConfirm: true כאשר מוצג אישור "לצאת בלי לשמור".
    ui.highlightCompanyId: מזהה החברה שנוספה לאחרונה, להדגשה זמנית בטבלה. */
 function openAddCompanyModal(){
-  ui.companyModalDraft = {name:"",address:"",phone:"",deductionFileNum:""};
+  ui.companyModalDraft = {name:"",companyRegNum:"",address:"",phone:"",deductionFileNum:""};
   ui.companyModalOriginal = null;
   ui.companyModalEditId = null;
   ui.companyModalErrors = {};
@@ -2315,8 +2795,8 @@ function openAddCompanyModal(){
 function openEditCompanyModal(id){
   const c = CODE_TABLES.companies.find(x=>x.id===id);
   if(!c) return;
-  ui.companyModalDraft = {name:c.name, address:c.address, phone:c.phone, deductionFileNum:c.deductionFileNum};
-  ui.companyModalOriginal = {name:c.name, address:c.address, phone:c.phone, deductionFileNum:c.deductionFileNum};
+  ui.companyModalDraft = {name:c.name, companyRegNum:c.companyRegNum, address:c.address, phone:c.phone, deductionFileNum:c.deductionFileNum};
+  ui.companyModalOriginal = {name:c.name, companyRegNum:c.companyRegNum, address:c.address, phone:c.phone, deductionFileNum:c.deductionFileNum};
   ui.companyModalEditId = id;
   ui.companyModalErrors = {};
   ui.companyModalLeaveConfirm = false;
@@ -2336,14 +2816,14 @@ function updateCompanyModalField(field,value){
      ברגע הלחיצה, וגורם ללחיצה הראשונה "להיבלע" בלי להפעיל את
      onclick (זו הייתה תקלת "צריך ללחוץ פעמיים על שמור"). צמצום
      קריאות render() המיותרות מסיר את הבעיה מהשורש. */
-  if(field==="deductionFileNum"){
+  if(field==="deductionFileNum" || field==="companyRegNum"){
     /* בדיקת פורמט חיה (תוך כדי הקלדה) - ספרות בלבד. שאר הבדיקות (חובה,
-       ייחודיות שם/מספר תיק) הן בדיקות "השלמה" ורצות רק ב-blur/בשליחה,
+       אורך, ייחודיות שם/מספר) הן בדיקות "השלמה" ורצות רק ב-blur/בשליחה,
        כדי לא להציג שגיאה מוקדם מדי - עקרון זהה לשאר הטופס. */
-    const hadErr = !!ui.companyModalErrors.deductionFileNum;
-    if(value && !/^\d*$/.test(value)) ui.companyModalErrors.deductionFileNum = "נא להשתמש בספרות בלבד.";
-    else delete ui.companyModalErrors.deductionFileNum;
-    if(hadErr || ui.companyModalErrors.deductionFileNum) render();
+    const hadErr = !!ui.companyModalErrors[field];
+    if(value && !/^\d*$/.test(value)) ui.companyModalErrors[field] = "נא להשתמש בספרות בלבד.";
+    else delete ui.companyModalErrors[field];
+    if(hadErr || ui.companyModalErrors[field]) render();
   } else if(ui.companyModalErrors[field] && value && value.trim()){
     /* מסירים שגיאה קודמת מיד כשמתחילים להזין תוכן תקין - כדי שהודעת
        השגיאה תיעלם תוך כדי הקלדה ולא תישאר עד לעזיבת השדה. רק אם
@@ -2359,6 +2839,13 @@ function validateCompanyModalField(field){
     if(!v){ ui.companyModalErrors.name = "יש למלא שם חברה."; return false; }
     if(CODE_TABLES.companies.some(c=>c.name.trim()===v && c.id!==ui.companyModalEditId)){ ui.companyModalErrors.name = "קיימת כבר חברה בשם זה."; return false; }
     delete ui.companyModalErrors.name; return true;
+  }
+  if(field==="companyRegNum"){
+    if(!v){ ui.companyModalErrors.companyRegNum = "יש למלא מספר ח.פ."; return false; }
+    if(!/^\d+$/.test(v)){ ui.companyModalErrors.companyRegNum = "נא להשתמש בספרות בלבד."; return false; }
+    if(v.length!==9){ ui.companyModalErrors.companyRegNum = "מספר ח.פ צריך לכלול 9 ספרות."; return false; }
+    if(CODE_TABLES.companies.some(c=>c.companyRegNum===v && c.id!==ui.companyModalEditId)){ ui.companyModalErrors.companyRegNum = "מספר ח.פ זה כבר משויך לחברה אחרת."; return false; }
+    delete ui.companyModalErrors.companyRegNum; return true;
   }
   if(field==="address"){
     if(!v){ ui.companyModalErrors.address = "יש למלא כתובת."; return false; }
@@ -2394,7 +2881,7 @@ function finalizeCompanyModalField(field){
 }
 function saveCompanyModal(){
   flushPendingRender();
-  const fields = ["name","address","phone","deductionFileNum"];
+  const fields = ["name","companyRegNum","address","phone","deductionFileNum"];
   let firstInvalid = null;
   fields.forEach(f=>{
     const ok = validateCompanyModalField(f);
@@ -2411,10 +2898,10 @@ function saveCompanyModal(){
   if(isEdit){
     id = ui.companyModalEditId;
     const c = CODE_TABLES.companies.find(x=>x.id===id);
-    if(c){ c.name=d.name.trim(); c.address=d.address.trim(); c.phone=d.phone.trim(); c.deductionFileNum=d.deductionFileNum.trim(); }
+    if(c){ c.name=d.name.trim(); c.companyRegNum=d.companyRegNum.trim(); c.address=d.address.trim(); c.phone=d.phone.trim(); c.deductionFileNum=d.deductionFileNum.trim(); }
   } else {
     id = nextCodeId("c", CODE_TABLES.companies);
-    CODE_TABLES.companies.push({id, name:d.name.trim(), address:d.address.trim(), phone:d.phone.trim(), deductionFileNum:d.deductionFileNum.trim()});
+    CODE_TABLES.companies.push({id, name:d.name.trim(), companyRegNum:d.companyRegNum.trim(), address:d.address.trim(), phone:d.phone.trim(), deductionFileNum:d.deductionFileNum.trim()});
   }
   CODE_TABLES.companies.sort((a,b)=>a.name.localeCompare(b.name,"he"));
   saveDB();
@@ -2435,9 +2922,9 @@ function closeCompanyModalRequest(){
   let touched;
   if(ui.companyModalEditId){
     const o = ui.companyModalOriginal || {};
-    touched = d.name!==o.name || d.address!==o.address || d.phone!==o.phone || d.deductionFileNum!==o.deductionFileNum;
+    touched = d.name!==o.name || d.companyRegNum!==o.companyRegNum || d.address!==o.address || d.phone!==o.phone || d.deductionFileNum!==o.deductionFileNum;
   } else {
-    touched = (d.name&&d.name.trim()) || (d.address&&d.address.trim()) || (d.phone&&d.phone.trim()) || (d.deductionFileNum&&d.deductionFileNum.trim());
+    touched = (d.name&&d.name.trim()) || (d.companyRegNum&&d.companyRegNum.trim()) || (d.address&&d.address.trim()) || (d.phone&&d.phone.trim()) || (d.deductionFileNum&&d.deductionFileNum.trim());
   }
   if(!touched){ ui.companyModalDraft=null; ui.companyModalOriginal=null; ui.companyModalEditId=null; ui.companyModalErrors={}; render(); return; }
   ui.companyModalLeaveConfirm = true;
@@ -2506,10 +2993,11 @@ function renderDeleteCompanyModal(){
 function renderCompaniesTable(){
   if(!CODE_TABLES.companies.length) return '<div class="empty-state">אין רשומות.</div>';
   return '<div class="table-wrap" style="margin-bottom:20px;"><table class="data-table zebra-table"><thead><tr>'+
-    '<th>שם חברה</th><th>כתובת</th><th>טלפון</th><th>מספר תיק ניכויים</th><th>פעולות</th>'+
+    '<th>שם חברה</th><th>ח.פ</th><th>כתובת</th><th>טלפון</th><th>מספר תיק ניכויים</th><th>פעולות</th>'+
   '</tr></thead><tbody>'+
     CODE_TABLES.companies.map(c=>'<tr'+(ui.highlightCompanyId===c.id?' class="row-highlight"':'')+' ondblclick="if(!event.target.closest(\'.row-actions\')) openEditCompanyModal(\''+c.id+'\')" style="cursor:pointer;">'+
       '<td><b>'+escapeHtml(c.name)+'</b></td>'+
+      '<td>'+escapeHtml(c.companyRegNum)+'</td>'+
       '<td>'+escapeHtml(c.address)+'</td>'+
       '<td>'+escapeHtml(c.phone)+'</td>'+
       '<td>'+escapeHtml(c.deductionFileNum)+'</td>'+
@@ -2532,6 +3020,7 @@ function renderAddCompanyModal(){
       '</div>' +
       '<div class="form-grid cols-2" style="margin-top:16px;">' +
         fld("name","שם החברה",'<input type="text" id="companyModal_name" class="'+cls("name")+'" value="'+escapeHtml(d.name)+'" oninput="updateCompanyModalField(\'name\',this.value)" onblur="finalizeCompanyModalField(\'name\')">') +
+        fld("companyRegNum","ח.פ",'<input type="text" id="companyModal_companyRegNum" class="'+cls("companyRegNum")+'" value="'+escapeHtml(d.companyRegNum)+'" maxlength="9" oninput="updateCompanyModalField(\'companyRegNum\',this.value)" onblur="finalizeCompanyModalField(\'companyRegNum\')">') +
         fld("address","כתובת",'<input type="text" id="companyModal_address" class="'+cls("address")+'" value="'+escapeHtml(d.address)+'" oninput="updateCompanyModalField(\'address\',this.value)" onblur="finalizeCompanyModalField(\'address\')">') +
         fld("phone","טלפון",'<input type="text" id="companyModal_phone" class="'+cls("phone")+'" value="'+escapeHtml(d.phone)+'" oninput="updateCompanyModalField(\'phone\',this.value)" onblur="finalizeCompanyModalField(\'phone\')">') +
         fld("deductionFileNum","מספר תיק ניכויים",'<input type="text" id="companyModal_deductionFileNum" class="'+cls("deductionFileNum")+'" value="'+escapeHtml(d.deductionFileNum)+'" oninput="updateCompanyModalField(\'deductionFileNum\',this.value)" onblur="finalizeCompanyModalField(\'deductionFileNum\')">') +

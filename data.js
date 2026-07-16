@@ -9,12 +9,12 @@
    ============================================================ */
 const CODE_TABLES = {
   companies:[
-    {id:"c1",name:"אורשר לוגיסטיקה",address:"התאנה 2, אשדוד",phone:"08-851-6000",deductionFileNum:"916234501"},
-    {id:"c2",name:"אורשר שילוח",address:"היהלומים 19, אשדוד",phone:"08-851-6000",deductionFileNum:"927345612"},
-    {id:"c3",name:"ברותים שיווק בע\"מ",address:"אזור התעשייה הצפוני 4, אשדוד",phone:"08-8563321",deductionFileNum:"938456723"},
-    {id:"c4",name:"אורשר אנרגיה",address:"התאנה 2, אשדוד",phone:"08-851-6000",deductionFileNum:"949567834"},
-    {id:"c5",name:"אורשר ייזום",address:"היהלומים 19, אשדוד",phone:"08-851-6000",deductionFileNum:"950678945"},
-    {id:"c6",name:"OROC",address:"היהלומים 19, אשדוד",phone:"08-851-6000",deductionFileNum:"961789056"}
+    {id:"c1",name:"אורשר לוגיסטיקה",companyRegNum:"512345671",address:"התאנה 2, אשדוד",phone:"08-851-6000",deductionFileNum:"916234501"},
+    {id:"c2",name:"אורשר שילוח",companyRegNum:"512345682",address:"היהלומים 19, אשדוד",phone:"08-851-6000",deductionFileNum:"927345612"},
+    {id:"c3",name:"ברותים שיווק בע\"מ",companyRegNum:"512345693",address:"אזור התעשייה הצפוני 4, אשדוד",phone:"08-8563321",deductionFileNum:"938456723"},
+    {id:"c4",name:"אורשר אנרגיה",companyRegNum:"512345604",address:"התאנה 2, אשדוד",phone:"08-851-6000",deductionFileNum:"949567834"},
+    {id:"c5",name:"אורשר ייזום",companyRegNum:"512345615",address:"היהלומים 19, אשדוד",phone:"08-851-6000",deductionFileNum:"950678945"},
+    {id:"c6",name:"OROC",companyRegNum:"512345626",address:"היהלומים 19, אשדוד",phone:"08-851-6000",deductionFileNum:"961789056"}
   ],
   worksites:[
     {id:"w1",companyId:"c1",name:"ירוחם"},
