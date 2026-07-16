@@ -1033,14 +1033,12 @@ function progressRingSvg(done,total,size,ringColor,textColor){
     '<text x="'+c+'" y="'+(c+6)+'" text-anchor="middle" font-size="17" font-weight="700" fill="'+textColor+'">'+Math.round(pct*100)+'%</text>' +
   '</svg>';
 }
-/* אייקון תיבת סימון (משמש רק במסך מילוי הטפסים של העובד/ת - ר'
-   checklistRowsHtml עם mode==="actions") - ירוק מסומן / אפור ריק,
-   במקום תגית טקסט "הושלם"/"לא הושלם". */
+/* אייקון "הושלם" (משמש רק במסך מילוי הטפסים של העובד/ת - ר'
+   checklistRowsHtml עם mode==="actions") - וי בודד ללא מסגרת (לא נראה כמו
+   checkbox לחיץ), ותו ריק כשהטופס לא הושלם - במקום תגית טקסט. */
 function checklistCheckIcon(checked){
-  if(checked){
-    return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="5" fill="#fff" stroke="#2FA745" stroke-width="2"/><path d="M7 12.5l3 3 7-7" stroke="#2FA745" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
-  }
-  return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="#D9DEE3" stroke-width="2"/></svg>';
+  if(!checked) return '';
+  return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 12.5l6 6L20 6" stroke="#2FA745" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
 }
 function renderCaseHome(){
   const c = currentCase();
@@ -1174,6 +1172,7 @@ function renderGenericChecklistItem(){
   if(key==="dataConsent") return renderDataConsentForm();
   if(key==="polygraph") return renderPolygraphForm();
   if(key==="safety") return renderSafetyForm();
+  if(key==="pensionConfirm") return renderPensionConfirmForm();
   const done = !!c.checklist[key];
   return '' +
   '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
@@ -1200,6 +1199,7 @@ function renderPrintGeneric(){
   if(key==="dataConsent") return renderPrintDataConsent(c, backOnclick, backLabel);
   if(key==="polygraph") return renderPrintPolygraph(c, backOnclick, backLabel);
   if(key==="safety") return renderPrintSafety(c, backOnclick, backLabel);
+  if(key==="pensionConfirm") return renderPrintPensionConfirm(c, backOnclick, backLabel);
   return '' +
   '<div class="print-toolbar no-print">' +
     '<button class="btn-link" onclick="'+backOnclick+'">&rarr; '+backLabel+'</button>' +
@@ -1769,6 +1769,116 @@ function renderPrintSafety(c, backOnclick, backLabel){
       '<div><b>חתימת העובד:</b> __________</div>' +
     '</div>' +
     COMPANY_FOOTER_HTML +
+  '</div>';
+}
+
+/* ---------- אישור בדבר תשלומי מעביד לקרן פנסיה - תוכן אמיתי (מבוסס הטופס המודפס
+   המקורי: "אישור כללי בדבר תשלומי מעבידים לקרן פנסיה ולקופת ביטוח ולקופות פיצויי
+   פיטורים במקום פיצויי פיטורים, לפי סעיף 14 לחוק פיצויי פיטורים") ----------
+   טופס זה הוא נוסח משפטי-סטטוטורי קבוע (ללא פרטי עובד/ת בגוף הטקסט) הדורש שתי
+   חתימות - עובד/ת ומעביד; שתיהן פיזיות בשלב זה (ר' גם ההערה בפונקציית ה-render
+   הראשית של הטופס). האחוזים השבריים (1/3, 1/2) מוצגים בכתיב עשרוני (למשל 14.333%)
+   לפי בקשת המשתמשת, במקום כתיב שברי מוערם. */
+const PENSION_CONFIRM_TITLE = 'אישור כללי בדבר תשלומי מעבידים לקרן פנסיה ולקופת ביטוח ולקופות פיצויי פיטורים במקום פיצויי פיטורים';
+const PENSION_CONFIRM_SUBTITLE = 'לפי סעיף 14 לחוק פיצויי פיטורים';
+const PENSION_CONFIRM_INTRO = 'בתוקף סמכותי לפי סעיף 14 לחוק פיצויי פיטורים, התשכ"ג-1963 (להלן - החוק), אני מאשר כי תשלומים ששילם מעביד החל מיום פרסומו של אישור זה, בעד עובדו לפנסיה מקיפה בקופת גמל לקצבה שאינה קופת ביטוח כמשמעותה בתקנות מס הכנסה (כללים לאישור ולניהול קופות גמל), התשכ"ד-1964 (להלן - קרן פנסיה), או לביטוח מנהלים הכולל אפשרות לקבלה או שילוב של תשלומים לתכנית ותכנית קצבה בקופת ביטוח כאמור (להלן - קופת ביטוח), לרבות תשלומים ששילם תוך שילוב תכנית פנסיה וקופת ביטוח בין אם יש בקופת הביטוח תכנית לקצבה ובין לאו (להלן - תשלומי המעביד), יבואו במקום פיצויי הפיטורים המגיעים לעובד בגין השכר האמור שממנו שולמו התשלומים האמורים ולתקופה ששולמו (להלן - השכר המופטר), ובלבד שנתקיימו כל אלה:';
+const PENSION_CONFIRM_CLAUSE_1_HEADER = 'תשלומי המעביד -';
+const PENSION_CONFIRM_CLAUSE_1A = 'לקרן פנסיה אינם פחותים מ-14.333% מן השכר המופטר או 12% מן השכר המופטר אם משלם המעביד בעד עובדו בנוסף לכך גם תשלומים להשלמת פיצויי פיטורים לקופת גמל בשיעור של 2.333% מן השכר המופטר. לא שילם המעביד בנוסף ל-12% גם 2.333% כאמור, יבואו תשלומיו במקום פיצויי הפיטורים של העובד, בלבד;';
+const PENSION_CONFIRM_CLAUSE_1B_INTRO = 'לקופת ביטוח אינם פחותים מאחד מאלה:';
+const PENSION_CONFIRM_CLAUSE_1B1 = '13.333% מן השכר המופטר, אם משלם המעביד בעד עובדו בנוסף לכך גם תשלומים להבטחת הכנסה חודשית במקרה נכות שאירע אובדן כושר עבודה, בתכנית שאישר הממונה על שוק ההון ביטוח וחסכון במשרד האוצר, בשיעור הדרוש להבטחת 75% מהשכר המופטר לפחות או בשיעור של 2.5% מן השכר המופטר, לפי הנמוך מביניהם (להלן - תשלום לביטוח אובדן כושר עבודה);';
+const PENSION_CONFIRM_CLAUSE_1B2 = '11% מן השכר המופטר, אם שילם המעביד גם תשלום לביטוח אובדן כושר עבודה, ובמקרה זה יבואו תשלומי המעביד במקום 72% מפיצויי הפיטורים של העובד, בלבד; שילם המעביד נוסף על אלה גם תשלומים להשלמת פיצויי פיטורים לקופת גמל בשיעור של 2.333% מן השכר המופטר, יבואו תשלומי המעביד לקופת ביטוח 100% מפיצויי הפיטורים של העובד.';
+const PENSION_CONFIRM_CLAUSE_2_HEADER = 'לא יאוחר משלושה חודשים מתחילת ביצוע תשלומי המעביד ייערך הסכם בכתב בין המעביד לבין העובד ובו -';
+const PENSION_CONFIRM_CLAUSE_2A = 'הסכמת העובד להסדר לפי אישור זה בנוסח המפרט את תשלומי המעביד ואת קרן הפנסיה וקופת הביטוח, לפי העניין; בהסכם האמור ייכלל גם נוסחו של אישור זה;';
+const PENSION_CONFIRM_CLAUSE_2B = 'ויתור המעביד מראש על כל זכות שיכולה להיות לו להחזיר כספים מתוך תשלומיו, אלא אם כן נשללה זכות העובד לפיצויי פיטורים בפסק דין מכוח סעיפים 16 או 17 לחוק פיצויי פיטורים או שהעובד משך כספים מקרן הפנסיה שלא במקרה מזכה; לעניין זה, "אירוע מזכה" - מוות, נכות, פרישה או פרישה בגיל שישים או יותר.';
+const PENSION_CONFIRM_CLAUSE_3 = 'אין באישור זה כדי לגרוע מזכותו של עובד לפיצויי פיטורים לפי החוק, צו הרחבה או חוזה עבודה, בגין שכר שמעבר לשכר המופטר.';
+function pensionClauseHtml(label,text){
+  return '<div style="margin:0 0 10px;padding-right:26px;position:relative;">'+
+    '<span style="position:absolute;right:0;">'+escapeHtml(label)+'</span>'+escapeHtml(text)+
+  '</div>';
+}
+function updatePensionConfirmDate(val){
+  const c = currentCase();
+  if(!c) return;
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.pensionConfirm) c.checklistData.pensionConfirm = {date:""};
+  c.checklistData.pensionConfirm.date = val;
+  render();
+}
+function finishPensionConfirmForm(){
+  const c = currentCase();
+  if(!c) return;
+  const dateVal = c.checklistData && c.checklistData.pensionConfirm && c.checklistData.pensionConfirm.date;
+  if(!dateVal){
+    showToast("יש להזין תאריך לפני סיום.");
+    return;
+  }
+  c.checklist.pensionConfirm = true;
+  showToast('הטופס "אישור בדבר תשלומי מעביד לקרן פנסיה" סומן כהושלם.');
+  ui.screen = "checklist";
+  render();
+}
+function pensionConfirmBodyHtml(){
+  return '' +
+  '<div style="margin-bottom:12px;">'+escapeHtml(PENSION_CONFIRM_INTRO)+'</div>' +
+  '<div style="font-weight:700;margin-bottom:8px;">'+escapeHtml(PENSION_CONFIRM_CLAUSE_1_HEADER)+'</div>' +
+  pensionClauseHtml('(א)  ',PENSION_CONFIRM_CLAUSE_1A) +
+  pensionClauseHtml('(ב)  ',PENSION_CONFIRM_CLAUSE_1B_INTRO) +
+  '<div style="padding-right:22px;">' +
+    pensionClauseHtml('(1)  ',PENSION_CONFIRM_CLAUSE_1B1) +
+    pensionClauseHtml('(2)  ',PENSION_CONFIRM_CLAUSE_1B2) +
+  '</div>' +
+  '<div style="font-weight:700;margin:14px 0 8px;">'+escapeHtml('(2)  ')+escapeHtml(PENSION_CONFIRM_CLAUSE_2_HEADER)+'</div>' +
+  pensionClauseHtml('(א)  ',PENSION_CONFIRM_CLAUSE_2A) +
+  pensionClauseHtml('(ב)  ',PENSION_CONFIRM_CLAUSE_2B) +
+  '<div style="font-weight:700;margin:14px 0 8px;">'+escapeHtml('(3)  ')+escapeHtml(PENSION_CONFIRM_CLAUSE_3)+'</div>';
+}
+function renderPensionConfirmForm(){
+  const c = currentCase();
+  if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
+  const done = !!c.checklist.pensionConfirm;
+  const data = (c.checklistData && c.checklistData.pensionConfirm) || {};
+  return '' +
+  '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<h1 style="margin-top:14px;">'+escapeHtml(PENSION_CONFIRM_TITLE)+'</h1>' +
+  '<div class="page-desc">זהו נוסח משפטי-סטטוטורי קבוע. יש להזין תאריך; שתי החתימות (עובד/ת ומעביד) יתבצעו בכתב יד על הטופס המודפס.</div>' +
+  '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
+    '<div style="font-weight:700;text-decoration:underline;text-align:center;margin-bottom:6px;">'+escapeHtml(PENSION_CONFIRM_TITLE)+'</div>' +
+    '<div style="font-weight:700;text-align:center;margin-bottom:14px;">'+escapeHtml(PENSION_CONFIRM_SUBTITLE)+'</div>' +
+    pensionConfirmBodyHtml() +
+    '<div class="form-grid cols-2" style="margin-top:16px;max-width:300px;">' +
+      f101FieldWrap("pensionConfirm_date","תאריך",true,'<input type="date" id="pensionConfirm_date" value="'+escapeHtml(data.date||"")+'" max="'+todayIso()+'" onchange="updatePensionConfirmDate(this.value)">') +
+    '</div>' +
+    '<div class="field-hint-static" style="margin-top:6px;">אין חתימה דיגיטלית — שתי החתימות (עובד/ת ומעביד) יתבצעו בכתב יד על הטופס המודפס.</div>' +
+    '<div style="margin-top:30px;display:flex;justify-content:space-between;max-width:420px;">' +
+      '<div>העובד/ת: __________________</div>' +
+      '<div>המעביד: __________________</div>' +
+    '</div>' +
+  '</div>' +
+  (done ? '<div class="alert alert-info" style="max-width:720px;">טופס זה כבר סומן כהושלם.</div>' : '') +
+  '<div class="btn-row">' +
+    '<button class="btn btn-secondary" onclick="openGenericPreview()">תצוגה מקדימה</button>' +
+    '<button class="btn btn-primary" onclick="finishPensionConfirmForm()">סיימתי</button>' +
+  '</div>';
+}
+function renderPrintPensionConfirm(c, backOnclick, backLabel){
+  const data = (c.checklistData && c.checklistData.pensionConfirm) || {};
+  return '' +
+  '<div class="print-toolbar no-print">' +
+    '<button class="btn-link" onclick="'+backOnclick+'">&rarr; '+backLabel+'</button>' +
+    '<div style="font-weight:700;color:var(--header-text);">אישור בדבר תשלומי מעביד לקרן פנסיה — תצוגה מקדימה</div>' +
+    '<button class="btn btn-primary btn-sm" onclick="window.print()">הדפס / שמור כ-PDF</button>' +
+  '</div>' +
+  '<div class="print-frame" style="font-size:11px;line-height:1.5;">' +
+    '<div style="font-weight:700;text-decoration:underline;text-align:center;margin-bottom:6px;">'+escapeHtml(PENSION_CONFIRM_TITLE)+'</div>' +
+    '<div style="font-weight:700;text-align:center;margin-bottom:12px;">'+escapeHtml(PENSION_CONFIRM_SUBTITLE)+'</div>' +
+    pensionConfirmBodyHtml() +
+    '<div style="margin-top:26px;display:flex;justify-content:space-between;max-width:420px;">' +
+      '<div>תאריך: '+escapeHtml(data.date?formatDateHe(data.date):"__________________")+'</div>' +
+    '</div>' +
+    '<div style="margin-top:20px;display:flex;justify-content:space-between;max-width:420px;">' +
+      '<div>העובד/ת: __________________</div>' +
+      '<div>המעביד: __________________</div>' +
+    '</div>' +
   '</div>';
 }
 
