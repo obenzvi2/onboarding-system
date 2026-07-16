@@ -247,7 +247,7 @@ table.code-table td:last-child, table.code-table th:last-child{width:90px;}
 .kid-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
 .kid-card-head b{color:var(--header-text);}
 .print-frame{background:#fff;box-shadow:0 0 0 1px #ddd, var(--shadow);width:210mm;min-height:297mm;margin:20px auto;padding:14mm 12mm;font-size:11.5px;color:#111;}
-.print-toolbar{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border-teal);padding:12px 28px;display:flex;justify-content:space-between;align-items:center;z-index:50;}
+.print-toolbar{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border-teal);padding:12px 28px;display:flex;justify-content:space-between;align-items:center;z-index:50;width:210mm;margin:0 auto;box-sizing:border-box;}
 @media print{
   .no-print{display:none!important;}
   body{background:#fff;}

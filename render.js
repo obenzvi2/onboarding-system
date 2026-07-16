@@ -226,6 +226,10 @@ function saveAndPauseEmployeeForm(){
 }
 function afterRenderHook(){
   // הפעלת טולטיפים פתוחים מחדש אם צריך, וכן פוקוס בשדה שגיאה ראשון
+  initSignaturePad("emailAccess_sigCanvas","emailAccess");
+  initSignaturePad("lockerCheck_sigCanvas","lockerCheck");
+  initSignaturePad("safety_sigCanvas","safety");
+  initSignaturePad("dataConsent_sigCanvas","dataConsent");
 }
 
 function renderHrShell(){
@@ -1013,7 +1017,8 @@ function checklistRowsHtml(items, mode){
         : '<span class="status-pill pill-yellow">לא הושלם</span>';
       if(it.completed) action = '<button class="checklist-print-btn" onclick="viewCompletedChecklistItem(\''+it.key+'\')" title="לצפייה והדפסה">'+ICON_SVGS.printer+'<span>הדפסה</span></button>';
     }
-    return '<div class="checklist-row">' +
+    const dblclick = mode==="actions" ? ' ondblclick="if(!event.target.closest(\'.checklist-action-col\')) openChecklistItem(\''+it.key+'\')" style="cursor:pointer;"' : '';
+    return '<div class="checklist-row"'+dblclick+'>' +
       '<span style="font-weight:700;">'+escapeHtml(it.label)+'</span>' +
       '<span class="checklist-status-col">'+badge+'</span>' +
       '<span class="checklist-action-col">'+action+'</span>' +
@@ -1220,10 +1225,96 @@ function renderPrintGeneric(){
   '</div>';
 }
 
+/* ============================================================
+   9-א. חתימה גרפית (Canvas) - רכיב לשימוש חוזר בטפסים נבחרים (לא כל הטפסים -
+   ר' דוגמה בטופס "אישור על כניסה לתיבת דוא"ל" למטה). נשמרת כתמונת PNG (data
+   URL) בתוך c.checklistData[key].signature, וכך משוחזרת בכל רינדור (הקנבס
+   עצמו נוצר מחדש בכל render() כי app.innerHTML מוחלף לגמרי - ר' afterRenderHook
+   למטה) ומוצגת גם בתצוגת ההדפסה במקום שורת "חתימה: ____" ריקה. זו חתימה
+   גרפית פשוטה (תמונה) ולא חתימה אלקטרונית מאושרת בעלת תוקף משפטי אוטומטי. */
+function signaturePadHtml(canvasId,key){
+  return '<div style="position:relative;max-width:420px;">' +
+    '<canvas id="'+canvasId+'" width="420" height="110" style="width:100%;height:110px;border:0.5px solid var(--border-teal);border-radius:8px;background:#fff;touch-action:none;cursor:crosshair;display:block;"></canvas>' +
+    '<button type="button" class="btn-link" style="position:absolute;top:6px;left:8px;font-size:12px;" onclick="clearSignaturePad(\''+canvasId+'\',\''+key+'\')">נקה</button>' +
+  '</div>';
+}
+function signaturePadDrawGuideline(ctx,canvas){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle = "#C9D4DB";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(16, canvas.height-4);
+  ctx.lineTo(canvas.width-16, canvas.height-4);
+  ctx.stroke();
+}
+function initSignaturePad(canvasId,key){
+  const canvas = document.getElementById(canvasId);
+  if(!canvas || canvas.dataset.sigInit) return;
+  canvas.dataset.sigInit = "1";
+  const ctx = canvas.getContext("2d");
+  const c = currentCase();
+  const saved = c && c.checklistData && c.checklistData[key] && c.checklistData[key].signature;
+  if(saved){
+    const img = new Image();
+    img.onload = function(){ ctx.drawImage(img,0,0,canvas.width,canvas.height); };
+    img.src = saved;
+  } else {
+    signaturePadDrawGuideline(ctx,canvas);
+  }
+  ctx.strokeStyle = "#111";
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  let drawing = false;
+  function pos(e){
+    const rect = canvas.getBoundingClientRect();
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+    return { x: cx*(canvas.width/rect.width), y: cy*(canvas.height/rect.height) };
+  }
+  function start(e){ drawing = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); e.preventDefault(); }
+  function move(e){ if(!drawing) return; const p = pos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); e.preventDefault(); }
+  function end(){
+    if(!drawing) return;
+    drawing = false;
+    const cc = currentCase();
+    if(!cc) return;
+    if(!cc.checklistData) cc.checklistData = {};
+    if(!cc.checklistData[key]) cc.checklistData[key] = {};
+    const hadSig = !!cc.checklistData[key].signature;
+    cc.checklistData[key].signature = canvas.toDataURL("image/png");
+    saveDB();
+    // רינדור רק במעבר מ"אין חתימה" ל"יש חתימה" - כדי לעדכן את מצב הכפתור
+    // "סיימתי" (enabled/disabled), בלי לגרום להבהוב מיותר על כל משיכת קו.
+    if(!hadSig) render();
+  }
+  canvas.addEventListener("mousedown",start);
+  canvas.addEventListener("mousemove",move);
+  window.addEventListener("mouseup",end);
+  canvas.addEventListener("touchstart",start,{passive:false});
+  canvas.addEventListener("touchmove",move,{passive:false});
+  canvas.addEventListener("touchend",end);
+}
+function clearSignaturePad(canvasId,key){
+  const c = currentCase();
+  if(c && c.checklistData && c.checklistData[key]) c.checklistData[key].signature = "";
+  const canvas = document.getElementById(canvasId);
+  if(canvas){
+    const ctx = canvas.getContext("2d");
+    signaturePadDrawGuideline(ctx,canvas);
+    // איפוס העט לצבע/עובי החתימה - signaturePadDrawGuideline משנה את strokeStyle/lineWidth
+    // לצורך קו ההנחיה הבהיר, וה-ctx הוא אותו אובייקט שבו ממשיכים לצייר את החתימה הבאה.
+    ctx.strokeStyle = "#111";
+    ctx.lineWidth = 2.2;
+  }
+  saveDB();
+  render(); // מעדכן את מצב הכפתור "סיימתי" בחזרה ל-disabled
+}
+
 /* ---------- אישור על כניסה לתיבת דוא"ל - תוכן אמיתי (מבוסס הטופס המודפס המקורי) ----------
    שם, סוג זיהוי ומספר זהות/דרכון נמשכים מפרטי התיק (כמו בטופס 101/טופס הבנק) ומוצגים
-   לקריאה בלבד. השדה היחיד למילוי הוא תאריך המילוי; החתימה עצמה פיזית על הדף המודפס
-   (אין חתימה דיגיטלית - כמו בכל הטפסים האחרים במערכת). */
+   לקריאה בלבד. יש למלא תאריך ולחתום בקנבס החתימה (ר' signaturePadHtml למעלה) -
+   שני אלה נדרשים לפני שניתן לסמן את הטופס כהושלם. */
 function updateEmailAccessDate(val){
   const c = currentCase();
   if(!c) return;
@@ -1238,6 +1329,11 @@ function finishEmailAccessForm(){
   const dateVal = c.checklistData && c.checklistData.emailAccess && c.checklistData.emailAccess.date;
   if(!dateVal){
     showToast("יש להזין תאריך לפני סיום.");
+    return;
+  }
+  const sigVal = c.checklistData && c.checklistData.emailAccess && c.checklistData.emailAccess.signature;
+  if(!sigVal){
+    showToast("יש לחתום לפני סיום.");
     return;
   }
   c.checklist.emailAccess = true;
@@ -1268,26 +1364,38 @@ function renderEmailAccessForm(){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
   const done = !!c.checklist.emailAccess;
-  const dateVal = (c.checklistData && c.checklistData.emailAccess && c.checklistData.emailAccess.date) || "";
+  // בכניסה ראשונה לטופס (לפני שהוזן תאריך כלשהו) - ברירת המחדל היא תאריך
+  // היום, אך ניתן לשנות אותה כרגיל.
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.emailAccess) c.checklistData.emailAccess = {date:"", signature:""};
+  if(!c.checklistData.emailAccess.date) c.checklistData.emailAccess.date = todayIso();
+  const dateVal = c.checklistData.emailAccess.date;
+  const sigVal = (c.checklistData && c.checklistData.emailAccess && c.checklistData.emailAccess.signature) || "";
+  const canFinish = !!dateVal && !!sigVal;
   return '' +
   '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">אישור על כניסה לתיבת דוא"ל</h1>' +
-  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש להזין תאריך; החתימה תתבצע בכתב יד על הטופס המודפס.</div>' +
+  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש להזין תאריך ולחתום למטה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
     emailAccessLetterHtml(c) +
     '<div class="form-grid cols-2" style="margin-top:14px;max-width:420px;">' +
       f101FieldWrap("emailAccess_date","תאריך",true,'<input type="date" id="emailAccess_date" value="'+escapeHtml(dateVal)+'" max="'+todayIso()+'" onchange="updateEmailAccessDate(this.value)">') +
     '</div>' +
-    '<div class="field-hint-static" style="margin-top:6px;">אין חתימה דיגיטלית — הטופס יודפס ויחתם פיזית על ידי העובד/ת.</div>' +
+    '<div style="margin-top:14px;">' +
+      '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימה <span class="req-star">*</span></label>' +
+      signaturePadHtml("emailAccess_sigCanvas","emailAccess") +
+      '<div style="text-align:center;font-size:11.5px;color:#9AA5B1;margin-top:2px;max-width:420px;">חתום/חתמי מעל הקו</div>' +
+    '</div>' +
   '</div>' +
   (done ? '<div class="alert alert-info" style="max-width:720px;">טופס זה כבר סומן כהושלם.</div>' : '') +
   '<div class="btn-row">' +
     '<button class="btn btn-secondary" onclick="openGenericPreview()">תצוגה מקדימה</button>' +
-    '<button class="btn btn-primary" onclick="finishEmailAccessForm()">סיימתי</button>' +
+    '<button class="btn btn-primary" '+(canFinish?'':'disabled')+' onclick="finishEmailAccessForm()">סיימתי</button>' +
   '</div>';
 }
 function renderPrintEmailAccess(c, backOnclick, backLabel){
   const dateVal = c.checklistData && c.checklistData.emailAccess && c.checklistData.emailAccess.date;
+  const sigVal = c.checklistData && c.checklistData.emailAccess && c.checklistData.emailAccess.signature;
   return '' +
   '<div class="print-toolbar no-print">' +
     '<button class="btn-link" onclick="'+backOnclick+'">&rarr; '+backLabel+'</button>' +
@@ -1296,9 +1404,9 @@ function renderPrintEmailAccess(c, backOnclick, backLabel){
   '</div>' +
   '<div class="print-frame" style="font-size:13px;line-height:1.9;">' +
     emailAccessLetterHtml(c) +
-    '<div style="margin-top:60px;display:flex;justify-content:space-between;max-width:420px;">' +
+    '<div style="margin-top:60px;display:flex;justify-content:space-between;align-items:baseline;max-width:420px;">' +
       '<div>תאריך: '+escapeHtml(dateVal?formatDateHe(dateVal):"__________________")+'</div>' +
-      '<div>חתימה: __________________</div>' +
+      '<div>חתימה: '+(sigVal ? ('<img src="'+sigVal+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
     '</div>' +
   '</div>';
 }
@@ -1319,6 +1427,11 @@ function finishLockerCheckForm(){
   const dateVal = c.checklistData && c.checklistData.lockerCheck && c.checklistData.lockerCheck.date;
   if(!dateVal){
     showToast("יש להזין תאריך לפני סיום.");
+    return;
+  }
+  const sigVal = c.checklistData && c.checklistData.lockerCheck && c.checklistData.lockerCheck.signature;
+  if(!sigVal){
+    showToast("יש לחתום לפני סיום.");
     return;
   }
   c.checklist.lockerCheck = true;
@@ -1348,26 +1461,38 @@ function renderLockerCheckForm(){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
   const done = !!c.checklist.lockerCheck;
-  const dateVal = (c.checklistData && c.checklistData.lockerCheck && c.checklistData.lockerCheck.date) || "";
+  // בכניסה ראשונה לטופס (לפני שהוזן תאריך כלשהו) - ברירת המחדל היא תאריך
+  // היום, אך ניתן לשנות אותה כרגיל.
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.lockerCheck) c.checklistData.lockerCheck = {date:"", signature:""};
+  if(!c.checklistData.lockerCheck.date) c.checklistData.lockerCheck.date = todayIso();
+  const dateVal = c.checklistData.lockerCheck.date;
+  const sigVal = c.checklistData.lockerCheck.signature || "";
+  const canFinish = !!dateVal && !!sigVal;
   return '' +
   '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">אישור עובד לביצוע בדיקת תאי אחסון</h1>' +
-  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש להזין תאריך; החתימה תתבצע בכתב יד על הטופס המודפס.</div>' +
+  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש להזין תאריך ולחתום למטה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
     lockerCheckLetterHtml(c) +
     '<div class="form-grid cols-2" style="margin-top:14px;max-width:420px;">' +
       f101FieldWrap("lockerCheck_date","תאריך",true,'<input type="date" id="lockerCheck_date" value="'+escapeHtml(dateVal)+'" max="'+todayIso()+'" onchange="updateLockerCheckDate(this.value)">') +
     '</div>' +
-    '<div class="field-hint-static" style="margin-top:6px;">אין חתימה דיגיטלית — הטופס יודפס ויחתם פיזית על ידי העובד/ת.</div>' +
+    '<div style="margin-top:14px;">' +
+      '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימה <span class="req-star">*</span></label>' +
+      signaturePadHtml("lockerCheck_sigCanvas","lockerCheck") +
+      '<div style="text-align:center;font-size:11.5px;color:#9AA5B1;margin-top:2px;max-width:420px;">חתום/חתמי מעל הקו</div>' +
+    '</div>' +
   '</div>' +
   (done ? '<div class="alert alert-info" style="max-width:720px;">טופס זה כבר סומן כהושלם.</div>' : '') +
   '<div class="btn-row">' +
     '<button class="btn btn-secondary" onclick="openGenericPreview()">תצוגה מקדימה</button>' +
-    '<button class="btn btn-primary" onclick="finishLockerCheckForm()">סיימתי</button>' +
+    '<button class="btn btn-primary" '+(canFinish?'':'disabled')+' onclick="finishLockerCheckForm()">סיימתי</button>' +
   '</div>';
 }
 function renderPrintLockerCheck(c, backOnclick, backLabel){
   const dateVal = c.checklistData && c.checklistData.lockerCheck && c.checklistData.lockerCheck.date;
+  const sigVal = c.checklistData && c.checklistData.lockerCheck && c.checklistData.lockerCheck.signature;
   return '' +
   '<div class="print-toolbar no-print">' +
     '<button class="btn-link" onclick="'+backOnclick+'">&rarr; '+backLabel+'</button>' +
@@ -1376,9 +1501,9 @@ function renderPrintLockerCheck(c, backOnclick, backLabel){
   '</div>' +
   '<div class="print-frame" style="font-size:13px;line-height:1.9;">' +
     lockerCheckLetterHtml(c) +
-    '<div style="margin-top:60px;display:flex;justify-content:space-between;max-width:420px;">' +
+    '<div style="margin-top:60px;display:flex;justify-content:space-between;align-items:baseline;max-width:420px;">' +
       '<div>תאריך: '+escapeHtml(dateVal?formatDateHe(dateVal):"__________________")+'</div>' +
-      '<div>חתימה: __________________</div>' +
+      '<div>חתימה: '+(sigVal ? ('<img src="'+sigVal+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
     '</div>' +
   '</div>';
 }
@@ -1403,8 +1528,13 @@ function finishDataConsentForm(){
     showToast("יש להזין תאריך לפני סיום.");
     return;
   }
+  const sigVal = c.checklistData && c.checklistData.dataConsent && c.checklistData.dataConsent.signature;
+  if(!sigVal){
+    showToast("יש לחתום לפני סיום.");
+    return;
+  }
   c.checklist.dataConsent = true;
-  showToast('הטופס "הסכמה בדבר מסירת מידע אישי" סומן כהושלם.');
+  showToast('הטופס "הסכמה בדבר איסוף, עיבוד ומסירת מידע אישי" סומן כהושלם.');
   ui.screen = "checklist";
   render();
 }
@@ -1451,37 +1581,49 @@ function renderDataConsentForm(){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
   const done = !!c.checklist.dataConsent;
-  const dateVal = (c.checklistData && c.checklistData.dataConsent && c.checklistData.dataConsent.date) || "";
+  // בכניסה ראשונה לטופס (לפני שהוזן תאריך כלשהו) - ברירת המחדל היא תאריך
+  // היום, אך ניתן לשנות אותה כרגיל.
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.dataConsent) c.checklistData.dataConsent = {date:"", signature:""};
+  if(!c.checklistData.dataConsent.date) c.checklistData.dataConsent.date = todayIso();
+  const dateVal = c.checklistData.dataConsent.date;
+  const sigVal = c.checklistData.dataConsent.signature || "";
+  const canFinish = !!dateVal && !!sigVal;
   return '' +
   '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">הודעה והסכמה בדבר איסוף, עיבוד ומסירת מידע אישי – מאגר עובדים</h1>' +
-  '<div class="page-desc">הפרטים האישיים ופרטי החברה מולאו אוטומטית מפרטי תיק הקליטה ומהגדרות המערכת. יש להזין תאריך; החתימה תתבצע בכתב יד על הטופס המודפס.</div>' +
+  '<div class="page-desc">הפרטים האישיים ופרטי החברה מולאו אוטומטית מפרטי תיק הקליטה ומהגדרות המערכת. יש להזין תאריך ולחתום למטה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
     dataConsentLetterHtml(c) +
     '<div class="form-grid cols-2" style="margin-top:14px;max-width:420px;">' +
       f101FieldWrap("dataConsent_date","תאריך",true,'<input type="date" id="dataConsent_date" value="'+escapeHtml(dateVal)+'" max="'+todayIso()+'" onchange="updateDataConsentDate(this.value)">') +
     '</div>' +
-    '<div class="field-hint-static" style="margin-top:6px;">אין חתימה דיגיטלית — הטופס יודפס ויחתם פיזית על ידי העובד/ת.</div>' +
+    '<div style="margin-top:14px;">' +
+      '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימה <span class="req-star">*</span></label>' +
+      signaturePadHtml("dataConsent_sigCanvas","dataConsent") +
+      '<div style="text-align:center;font-size:11.5px;color:#9AA5B1;margin-top:2px;max-width:420px;">חתום/חתמי מעל הקו</div>' +
+    '</div>' +
   '</div>' +
   (done ? '<div class="alert alert-info" style="max-width:720px;">טופס זה כבר סומן כהושלם.</div>' : '') +
   '<div class="btn-row">' +
     '<button class="btn btn-secondary" onclick="openGenericPreview()">תצוגה מקדימה</button>' +
-    '<button class="btn btn-primary" onclick="finishDataConsentForm()">סיימתי</button>' +
+    '<button class="btn btn-primary" '+(canFinish?'':'disabled')+' onclick="finishDataConsentForm()">סיימתי</button>' +
   '</div>';
 }
 function renderPrintDataConsent(c, backOnclick, backLabel){
   const dateVal = c.checklistData && c.checklistData.dataConsent && c.checklistData.dataConsent.date;
+  const sigVal = c.checklistData && c.checklistData.dataConsent && c.checklistData.dataConsent.signature;
   return '' +
   '<div class="print-toolbar no-print">' +
     '<button class="btn-link" onclick="'+backOnclick+'">&rarr; '+backLabel+'</button>' +
-    '<div style="font-weight:700;color:var(--header-text);">הסכמה בדבר מסירת מידע אישי — תצוגה מקדימה</div>' +
+    '<div style="font-weight:700;color:var(--header-text);">הסכמה בדבר איסוף, עיבוד ומסירת מידע אישי — תצוגה מקדימה</div>' +
     '<button class="btn btn-primary btn-sm" onclick="window.print()">הדפס / שמור כ-PDF</button>' +
   '</div>' +
   '<div class="print-frame" style="font-size:13px;line-height:1.9;">' +
     dataConsentLetterHtml(c) +
-    '<div style="margin-top:40px;display:flex;justify-content:space-between;max-width:420px;">' +
+    '<div style="margin-top:40px;display:flex;justify-content:space-between;align-items:baseline;max-width:420px;">' +
       '<div>תאריך: '+escapeHtml(dateVal?formatDateHe(dateVal):"__________________")+'</div>' +
-      '<div>חתימת העובד: __________________</div>' +
+      '<div>חתימת העובד: '+(sigVal ? ('<img src="'+sigVal+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
     '</div>' +
   '</div>';
 }
@@ -1646,6 +1788,11 @@ function finishSafetyForm(){
     showToast("יש להזין תאריך לפני סיום.");
     return;
   }
+  const sigVal = c.checklistData && c.checklistData.safety && c.checklistData.safety.signature;
+  if(!sigVal){
+    showToast("יש לחתום לפני סיום.");
+    return;
+  }
   c.checklist.safety = true;
   showToast('הטופס "הנחיות בטיחות בעבודה" סומן כהושלם.');
   ui.screen = "checklist";
@@ -1729,26 +1876,35 @@ function renderSafetyForm(){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
   const done = !!c.checklist.safety;
-  const data = (c.checklistData && c.checklistData.safety) || {};
+  // בכניסה ראשונה לטופס (לפני שהוזן תאריך כלשהו) - ברירת המחדל היא תאריך
+  // היום, אך ניתן לשנות אותה כרגיל.
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.safety) c.checklistData.safety = {date:"", signature:""};
+  if(!c.checklistData.safety.date) c.checklistData.safety.date = todayIso();
+  const data = c.checklistData.safety;
+  const canFinish = !!data.date && !!data.signature;
   return '' +
   '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">'+SAFETY_TITLE+'</h1>' +
-  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש להזין תאריך; החתימה תתבצע בכתב יד על הטופס המודפס.</div>' +
+  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש להזין תאריך ולחתום למטה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
     COMPANY_LOGO_HTML +
     safetyBodyHtml() +
-    '<div class="form-grid cols-5" style="margin-top:12px;">' +
+    '<div class="form-grid cols-4" style="margin-top:12px;">' +
       f101FieldWrap("safety_date","תאריך",true,'<input type="date" id="safety_date" value="'+escapeHtml(data.date||"")+'" max="'+todayIso()+'" onchange="updateSafetyDate(this.value)">') +
       safetyStaticFieldsHtml(c) +
-      '<div><b>חתימת העובד:</b> ייחתם בכתב יד</div>' +
     '</div>' +
-    '<div class="field-hint-static" style="margin-top:6px;">אין חתימה דיגיטלית — הטופס יודפס ויחתם פיזית על ידי העובד/ת.</div>' +
+    '<div style="margin-top:14px;">' +
+      '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימת העובד <span class="req-star">*</span></label>' +
+      signaturePadHtml("safety_sigCanvas","safety") +
+      '<div style="text-align:center;font-size:11.5px;color:#9AA5B1;margin-top:2px;max-width:420px;">חתום/חתמי מעל הקו</div>' +
+    '</div>' +
     COMPANY_FOOTER_HTML +
   '</div>' +
   (done ? '<div class="alert alert-info" style="max-width:720px;">טופס זה כבר סומן כהושלם.</div>' : '') +
   '<div class="btn-row">' +
     '<button class="btn btn-secondary" onclick="openGenericPreview()">תצוגה מקדימה</button>' +
-    '<button class="btn btn-primary" onclick="finishSafetyForm()">סיימתי</button>' +
+    '<button class="btn btn-primary" '+(canFinish?'':'disabled')+' onclick="finishSafetyForm()">סיימתי</button>' +
   '</div>';
 }
 function renderPrintSafety(c, backOnclick, backLabel){
@@ -1763,10 +1919,12 @@ function renderPrintSafety(c, backOnclick, backLabel){
     COMPANY_LOGO_HTML +
     '<div style="font-weight:700;text-decoration:underline;text-align:center;margin-bottom:10px;">'+SAFETY_TITLE+'</div>' +
     safetyBodyHtml() +
-    '<div class="form-grid cols-5" style="margin-top:12px;">' +
+    '<div class="form-grid cols-4" style="margin-top:12px;">' +
       '<div><b>תאריך:</b> '+escapeHtml(data.date?formatDateHe(data.date):"__________")+'</div>' +
       safetyStaticFieldsHtml(c) +
-      '<div><b>חתימת העובד:</b> __________</div>' +
+    '</div>' +
+    '<div style="margin-top:20px;display:flex;align-items:baseline;">' +
+      '<div><b>חתימת העובד:</b> '+(data.signature ? ('<img src="'+data.signature+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
     '</div>' +
     COMPANY_FOOTER_HTML +
   '</div>';

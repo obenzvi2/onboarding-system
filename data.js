@@ -130,7 +130,7 @@ const FORM_CHECKLIST_DEFS = [
   {key:"safety", label:"הנחיות בטיחות בעבודה", kind:"generic"},
   {key:"lockerCheck", label:"אישור עובד לביצוע בדיקת תאי אחסון", kind:"generic"},
   {key:"emailAccess", label:"אישור על כניסה לתיבת דוא\"ל", kind:"generic"},
-  {key:"dataConsent", label:"הסכמה בדבר מסירת מידע אישי", kind:"generic"},
+  {key:"dataConsent", label:"הסכמה בדבר איסוף, עיבוד ומסירת מידע אישי", kind:"generic"},
   {key:"polygraph", label:"נוהל מוסכם לבדיקת פוליגרף", kind:"generic"}
 ];
 function defaultFormSelection(){
