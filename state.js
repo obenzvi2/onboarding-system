@@ -170,6 +170,15 @@ function migrateCaseChecklist(caseObj){
   else FORM_CHECKLIST_DEFS.forEach(d=>{ if(d.kind==="generic" && !(d.key in caseObj.checklist)) caseObj.checklist[d.key]=false; });
   if(!caseObj.checklistData) caseObj.checklistData = {};
   if(!caseObj.checklistData.emailAccess) caseObj.checklistData.emailAccess = {date:""};
+  /* מיגרציה: תיקים שנשמרו לפני שנאכף האינווריאנט "הושלם רק אם יש
+     חתימה בפועל" (למשל תיקי הדמו הישנים, שסימנו את כל הצ'ק-ליסט כ-true
+     גורף) - מבטלת סימון "הושלם" בטופסי חתימה דיגיטלית שאין להם בפועל
+     תאריך+חתימה שמורים, כדי שהמצב המוצג יתאים למציאות (ר' SIGNED_CHECKLIST_KEYS). */
+  SIGNED_CHECKLIST_KEYS.forEach(key=>{
+    if(!caseObj.checklist[key]) return;
+    const data = caseObj.checklistData[key];
+    if(!data || !data.date || !data.signature) caseObj.checklist[key] = false;
+  });
 }
 /* מיגרציה: תיקים שנשמרו לפני שסעיף 4 (עולה חדש/ה) קיבל שדות תאריך
    נוספים החזיקו בו ערך בוליאני (true/false) בלבד. יש להמיר אותו למבנה
@@ -189,6 +198,14 @@ function migrateCaseTaxCredits(caseObj){
   }
 }
 
+/* מפתחות הצ'ק-ליסט שדורשים חתימה דיגיטלית ממשית (ר' signaturePadHtml
+   ב-render.js) - עבור אלה יש לשמור על האינווריאנט: checklist[key]===true
+   רק אם checklistData[key] מכיל date+signature בפועל (זו בדיוק הבדיקה
+   שמבצע כפתור "סיימתי" בכל טופס כזה - ר' canFinish בכל renderXxxForm).
+   אחרת נוצר מצב מטעה שבו הטופס מוצג כ"הושלם" למרות שדה החתימה ריק - ר'
+   migrateSignedChecklistItems למטה, שמתקנת תיקים קיימים שנשמרו לפני
+   שהאינווריאנט הזה נאכף (וכן דואגת שנתוני הדמו למטה לא יפרו אותו). */
+const SIGNED_CHECKLIST_KEYS = ["pensionConfirm","safety","lockerCheck","emailAccess","dataConsent","polygraph"];
 function seedData(){
   // תיק 1: הושלם במלואו, מוכן ליצוא
   const c1 = emptyCase();
@@ -210,7 +227,10 @@ function seedData(){
   c1.employee.taxCredits.c1=true;
   c1.employee.taxCredits.c7={checked:true,bornThisYear:"0",age1to2:"0",age3:"0",age4to5:"0",age6to17:"1",age18:"0"};
   c1.bank = {bankCode:"12",branchCode:"600",accountNumber:"123456",confirmed:true,status:"completed",completedAt:new Date().toISOString()};
-  Object.keys(c1.checklist).forEach(k=>c1.checklist[k]=true);
+  // טפסי חתימה דיגיטלית (SIGNED_CHECKLIST_KEYS) לא מסומנים כאן כ"הושלמו" -
+  // ר' הערה מעל SIGNED_CHECKLIST_KEYS: אסור לסמן טופס כהושלם בלי חתימה
+  // בפועל, ולכן גם בתיק דמו זה יש לחתום עליהם דרך המסך כדי לסמנם.
+  Object.keys(c1.checklist).forEach(k=>{ if(!SIGNED_CHECKLIST_KEYS.includes(k)) c1.checklist[k]=true; });
   c1.documents = buildDocuments(c1);
   c1.documents.forEach(d=>d.status="delivered");
   DB.cases.push(c1);
@@ -237,7 +257,7 @@ function seedData(){
   });
   c3.employee.otherIncome.has="no";
   c3.employee.taxCredits.c1=true;
-  Object.assign(c3.checklist,{terms:true,insurance:true,safety:true});
+  Object.assign(c3.checklist,{terms:true,insurance:true});
   c3.documents = buildDocuments(c3);
   c3.documents[0].status="delivered";
   DB.cases.push(c3);
@@ -259,7 +279,7 @@ function seedData(){
   c4.employee.taxCredits.c1=true; c4.employee.taxCredits.c6=true;
   c4.employee.taxCredits.c7={checked:true,bornThisYear:"0",age1to2:"0",age3:"0",age4to5:"0",age6to17:"1",age18:"0"};
   c4.bank={bankCode:"10",branchCode:"800",accountNumber:"998877",confirmed:true,status:"completed",completedAt:new Date().toISOString()};
-  Object.keys(c4.checklist).forEach(k=>c4.checklist[k]=true);
+  Object.keys(c4.checklist).forEach(k=>{ if(!SIGNED_CHECKLIST_KEYS.includes(k)) c4.checklist[k]=true; });
   c4.documents = buildDocuments(c4);
   c4.documents.forEach(d=>d.status="delivered");
   DB.cases.push(c4);
