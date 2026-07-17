@@ -1384,7 +1384,7 @@ function renderEmailAccessForm(){
       f101FieldWrap("emailAccess_date","תאריך",true,'<input type="date" id="emailAccess_date" value="'+escapeHtml(dateVal)+'" max="'+todayIso()+'" onchange="updateEmailAccessDate(this.value)">') +
     '</div>' +
     '<div style="margin-top:14px;">' +
-      '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימה <span class="req-star">*</span></label>' +
+      '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימת העובד/ת <span class="req-star">*</span></label>' +
       signaturePadHtml("emailAccess_sigCanvas","emailAccess") +
       '<div style="text-align:center;font-size:11.5px;color:#9AA5B1;margin-top:2px;max-width:420px;">חתום/חתמי מעל הקו</div>' +
     '</div>' +
@@ -1481,7 +1481,7 @@ function renderLockerCheckForm(){
       f101FieldWrap("lockerCheck_date","תאריך",true,'<input type="date" id="lockerCheck_date" value="'+escapeHtml(dateVal)+'" max="'+todayIso()+'" onchange="updateLockerCheckDate(this.value)">') +
     '</div>' +
     '<div style="margin-top:14px;">' +
-      '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימה <span class="req-star">*</span></label>' +
+      '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימת העובד/ת <span class="req-star">*</span></label>' +
       signaturePadHtml("lockerCheck_sigCanvas","lockerCheck") +
       '<div style="text-align:center;font-size:11.5px;color:#9AA5B1;margin-top:2px;max-width:420px;">חתום/חתמי מעל הקו</div>' +
     '</div>' +
@@ -1601,7 +1601,7 @@ function renderDataConsentForm(){
       f101FieldWrap("dataConsent_date","תאריך",true,'<input type="date" id="dataConsent_date" value="'+escapeHtml(dateVal)+'" max="'+todayIso()+'" onchange="updateDataConsentDate(this.value)">') +
     '</div>' +
     '<div style="margin-top:14px;">' +
-      '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימה <span class="req-star">*</span></label>' +
+      '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימת העובד/ת <span class="req-star">*</span></label>' +
       signaturePadHtml("dataConsent_sigCanvas","dataConsent") +
       '<div style="text-align:center;font-size:11.5px;color:#9AA5B1;margin-top:2px;max-width:420px;">חתום/חתמי מעל הקו</div>' +
     '</div>' +
@@ -1625,7 +1625,7 @@ function renderPrintDataConsent(c, backOnclick, backLabel){
     dataConsentLetterHtml(c) +
     '<div style="margin-top:40px;display:flex;justify-content:space-between;align-items:baseline;max-width:420px;">' +
       '<div>תאריך: '+escapeHtml(dateVal?formatDateHe(dateVal):"__________________")+'</div>' +
-      '<div>חתימת העובד: '+(sigVal ? ('<img src="'+sigVal+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
+      '<div>חתימת העובד/ת: '+(sigVal ? ('<img src="'+sigVal+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
     '</div>' +
   '</div>';
 }
@@ -1744,7 +1744,7 @@ function renderPolygraphForm(){
       f101FieldWrap("polygraph_date","תאריך",true,'<input type="date" id="polygraph_date" value="'+escapeHtml(data.date||"")+'" max="'+todayIso()+'" onchange="updatePolygraphDate(this.value)">') +
     '</div>' +
     '<div style="margin-top:14px;">' +
-      '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימה <span class="req-star">*</span></label>' +
+      '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימת העובד/ת <span class="req-star">*</span></label>' +
       signaturePadHtml("polygraph_sigCanvas","polygraph") +
       '<div style="text-align:center;font-size:11.5px;color:#9AA5B1;margin-top:2px;max-width:420px;">חתום/חתמי מעל הקו</div>' +
     '</div>' +
@@ -1912,7 +1912,7 @@ function renderSafetyForm(){
       safetyStaticFieldsHtml(c) +
     '</div>' +
     '<div style="margin-top:14px;">' +
-      '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימת העובד <span class="req-star">*</span></label>' +
+      '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימת העובד/ת <span class="req-star">*</span></label>' +
       signaturePadHtml("safety_sigCanvas","safety") +
       '<div style="text-align:center;font-size:11.5px;color:#9AA5B1;margin-top:2px;max-width:420px;">חתום/חתמי מעל הקו</div>' +
     '</div>' +
@@ -1941,7 +1941,7 @@ function renderPrintSafety(c, backOnclick, backLabel){
       safetyStaticFieldsHtml(c) +
     '</div>' +
     '<div style="margin-top:20px;display:flex;align-items:baseline;">' +
-      '<div><b>חתימת העובד:</b> '+(data.signature ? ('<img src="'+data.signature+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
+      '<div><b>חתימת העובד/ת:</b> '+(data.signature ? ('<img src="'+data.signature+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
     '</div>' +
     COMPANY_FOOTER_HTML +
   '</div>';
