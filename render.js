@@ -1300,6 +1300,9 @@ function initSignaturePad(canvasId,key){
 function clearSignaturePad(canvasId,key){
   const c = currentCase();
   if(c && c.checklistData && c.checklistData[key]) c.checklistData[key].signature = "";
+  // ניקוי החתימה מבטל את סימון "הושלם" - כך שלחצן "סיימתי" ננעל שוב עד
+  // לחתימה מחדש ולחיצה חוזרת עליו.
+  if(c && c.checklist && c.checklist[key]) c.checklist[key] = false;
   const canvas = document.getElementById(canvasId);
   if(canvas){
     const ctx = canvas.getContext("2d");
@@ -1373,7 +1376,7 @@ function renderEmailAccessForm(){
   if(!c.checklistData.emailAccess.date) c.checklistData.emailAccess.date = todayIso();
   const dateVal = c.checklistData.emailAccess.date;
   const sigVal = (c.checklistData && c.checklistData.emailAccess && c.checklistData.emailAccess.signature) || "";
-  const canFinish = !!dateVal && !!sigVal;
+  const canFinish = !!dateVal && !!sigVal && !done;
   return '' +
   '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">אישור על כניסה לתיבת דוא"ל</h1>' +
@@ -1470,7 +1473,7 @@ function renderLockerCheckForm(){
   if(!c.checklistData.lockerCheck.date) c.checklistData.lockerCheck.date = todayIso();
   const dateVal = c.checklistData.lockerCheck.date;
   const sigVal = c.checklistData.lockerCheck.signature || "";
-  const canFinish = !!dateVal && !!sigVal;
+  const canFinish = !!dateVal && !!sigVal && !done;
   return '' +
   '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">אישור עובד לביצוע בדיקת תאי אחסון</h1>' +
@@ -1590,7 +1593,7 @@ function renderDataConsentForm(){
   if(!c.checklistData.dataConsent.date) c.checklistData.dataConsent.date = todayIso();
   const dateVal = c.checklistData.dataConsent.date;
   const sigVal = c.checklistData.dataConsent.signature || "";
-  const canFinish = !!dateVal && !!sigVal;
+  const canFinish = !!dateVal && !!sigVal && !done;
   return '' +
   '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">הודעה והסכמה בדבר איסוף, עיבוד ומסירת מידע אישי – מאגר עובדים</h1>' +
@@ -1727,7 +1730,7 @@ function renderPolygraphForm(){
   if(!c.checklistData.polygraph) c.checklistData.polygraph = {date:"", employeeNumber:"", cardNumber:"", signature:""};
   if(!c.checklistData.polygraph.date) c.checklistData.polygraph.date = todayIso();
   const data = c.checklistData.polygraph;
-  const canFinish = !!data.date && !!data.signature;
+  const canFinish = !!data.date && !!data.signature && !done;
   return '' +
   '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">'+POLYGRAPH_TITLE+'</h1>' +
@@ -1899,7 +1902,7 @@ function renderSafetyForm(){
   if(!c.checklistData.safety) c.checklistData.safety = {date:"", signature:""};
   if(!c.checklistData.safety.date) c.checklistData.safety.date = todayIso();
   const data = c.checklistData.safety;
-  const canFinish = !!data.date && !!data.signature;
+  const canFinish = !!data.date && !!data.signature && !done;
   return '' +
   '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">'+SAFETY_TITLE+'</h1>' +
@@ -2019,7 +2022,7 @@ function renderPensionConfirmForm(){
   if(!c.checklistData.pensionConfirm) c.checklistData.pensionConfirm = {date:"",signature:""};
   if(!c.checklistData.pensionConfirm.date) c.checklistData.pensionConfirm.date = todayIso();
   const data = c.checklistData.pensionConfirm;
-  const canFinish = !!data.date && !!data.signature;
+  const canFinish = !!data.date && !!data.signature && !done;
   return '' +
   '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">'+escapeHtml(PENSION_CONFIRM_TITLE)+'</h1>' +
