@@ -1221,8 +1221,8 @@ function renderPrintGeneric(){
     '<div class="pf-section-title">תוכן הטופס</div>' +
     '<div style="padding:14px 4px;color:#4b5765;">תוכן הטופס המלא ייקבע בהמשך הפיתוח, בהתאם לאופי הטופס הספציפי (מילוי פרטים ואז חתימה, או חתימה בלבד).</div>' +
     '<div style="margin-top:50px;display:flex;justify-content:space-between;max-width:420px;">' +
-      '<div>חתימת העובד/ת: __________________</div>' +
-      '<div>תאריך: __________________</div>' +
+      '<div><b>חתימת העובד/ת:</b> __________________</div>' +
+      '<div><b>תאריך:</b> __________________</div>' +
     '</div>' +
   '</div>';
 }
@@ -1407,8 +1407,8 @@ function renderPrintEmailAccess(c, backOnclick, backLabel){
   '<div class="print-frame" style="font-size:13px;line-height:1.9;">' +
     emailAccessLetterHtml(c) +
     '<div style="margin-top:60px;display:flex;justify-content:space-between;align-items:baseline;max-width:420px;">' +
-      '<div>תאריך: '+escapeHtml(dateVal?formatDateHe(dateVal):"__________________")+'</div>' +
-      '<div>חתימה: '+(sigVal ? ('<img src="'+sigVal+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
+      '<div><b>תאריך:</b> '+escapeHtml(dateVal?formatDateHe(dateVal):"__________________")+'</div>' +
+      '<div><b>חתימת העובד/ת:</b> '+(sigVal ? ('<img src="'+sigVal+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
     '</div>' +
   '</div>';
 }
@@ -1504,8 +1504,8 @@ function renderPrintLockerCheck(c, backOnclick, backLabel){
   '<div class="print-frame" style="font-size:13px;line-height:1.9;">' +
     lockerCheckLetterHtml(c) +
     '<div style="margin-top:60px;display:flex;justify-content:space-between;align-items:baseline;max-width:420px;">' +
-      '<div>תאריך: '+escapeHtml(dateVal?formatDateHe(dateVal):"__________________")+'</div>' +
-      '<div>חתימה: '+(sigVal ? ('<img src="'+sigVal+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
+      '<div><b>תאריך:</b> '+escapeHtml(dateVal?formatDateHe(dateVal):"__________________")+'</div>' +
+      '<div><b>חתימת העובד/ת:</b> '+(sigVal ? ('<img src="'+sigVal+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
     '</div>' +
   '</div>';
 }
@@ -1624,8 +1624,8 @@ function renderPrintDataConsent(c, backOnclick, backLabel){
   '<div class="print-frame" style="font-size:13px;line-height:1.9;">' +
     dataConsentLetterHtml(c) +
     '<div style="margin-top:40px;display:flex;justify-content:space-between;align-items:baseline;max-width:420px;">' +
-      '<div>תאריך: '+escapeHtml(dateVal?formatDateHe(dateVal):"__________________")+'</div>' +
-      '<div>חתימת העובד/ת: '+(sigVal ? ('<img src="'+sigVal+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
+      '<div><b>תאריך:</b> '+escapeHtml(dateVal?formatDateHe(dateVal):"__________________")+'</div>' +
+      '<div><b>חתימת העובד/ת:</b> '+(sigVal ? ('<img src="'+sigVal+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
     '</div>' +
   '</div>';
 }
@@ -1776,8 +1776,8 @@ function renderPrintPolygraph(c, backOnclick, backLabel){
       polygraphBodyHtml() +
     '</div>' +
     '<div style="margin-top:24px;display:flex;justify-content:space-between;align-items:baseline;max-width:420px;">' +
-      '<div>תאריך: '+escapeHtml(data.date?formatDateHe(data.date):"__________________")+'</div>' +
-      '<div>חתימה: '+(data.signature ? ('<img src="'+data.signature+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
+      '<div><b>תאריך:</b> '+escapeHtml(data.date?formatDateHe(data.date):"__________________")+'</div>' +
+      '<div><b>חתימת העובד/ת:</b> '+(data.signature ? ('<img src="'+data.signature+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
     '</div>' +
     COMPANY_FOOTER_HTML +
   '</div>';
@@ -2056,11 +2056,11 @@ function renderPrintPensionConfirm(c, backOnclick, backLabel){
     '<div style="font-weight:700;text-decoration:underline;text-align:center;margin-bottom:6px;">'+escapeHtml(PENSION_CONFIRM_TITLE)+'</div>' +
     '<div style="font-weight:700;text-align:center;margin-bottom:12px;">'+escapeHtml(PENSION_CONFIRM_SUBTITLE)+'</div>' +
     pensionConfirmBodyHtml() +
-    '<div style="margin-top:26px;">תאריך: '+escapeHtml(data.date?formatDateHe(data.date):"__________________")+'</div>' +
+    '<div style="margin-top:26px;"><b>תאריך:</b> '+escapeHtml(data.date?formatDateHe(data.date):"__________________")+'</div>' +
     '<div style="margin-top:16px;display:flex;justify-content:space-between;align-items:flex-end;gap:24px;">' +
       '<div style="text-align:center;">' +
         (data.signature ? '<img src="'+data.signature+'" style="height:44px;">' : '<div style="min-width:160px;">__________________</div>') +
-        '<div style="margin-top:6px;">חתימת העובד/ת:</div>' +
+        '<div style="margin-top:6px;"><b>חתימת העובד/ת:</b></div>' +
       '</div>' +
       '<div style="text-align:center;">' +
         '<div>'+pensionConfirmEmployerLineHtml(c)+'</div>' +
