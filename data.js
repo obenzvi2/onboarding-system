@@ -126,7 +126,7 @@ const FORM_CHECKLIST_DEFS = [
   {key:"bank", label:"פרטי חשבון בנק", kind:"bank"},
   {key:"insurance", label:"כיסוי ביטוח זמני לעובד אורשר", kind:"generic"},
   {key:"advisorAuth", label:"הרשאה חד פעמית ליועץ פיננסי לקבלת מידע", kind:"generic"},
-  {key:"pensionConfirm", label:"אישור בדבר תשלומי מעביד לקרן פנסיה", kind:"generic"},
+  {key:"pensionConfirm", label:"אישור בדבר תשלומי מעבידים לקרן פנסיה ולקופת ביטוח", kind:"generic"},
   {key:"safety", label:"הנחיות בטיחות בעבודה", kind:"generic"},
   {key:"lockerCheck", label:"אישור עובד לביצוע בדיקת תאי אחסון", kind:"generic"},
   {key:"emailAccess", label:"אישור על כניסה לתיבת דוא\"ל", kind:"generic"},

@@ -230,6 +230,8 @@ function afterRenderHook(){
   initSignaturePad("lockerCheck_sigCanvas","lockerCheck");
   initSignaturePad("safety_sigCanvas","safety");
   initSignaturePad("dataConsent_sigCanvas","dataConsent");
+  initSignaturePad("polygraph_sigCanvas","polygraph");
+  initSignaturePad("pensionConfirm_sigCanvas","pensionConfirm");
 }
 
 function renderHrShell(){
@@ -1667,6 +1669,11 @@ function finishPolygraphForm(){
     showToast("יש להזין תאריך לפני סיום.");
     return;
   }
+  const sigVal = c.checklistData && c.checklistData.polygraph && c.checklistData.polygraph.signature;
+  if(!sigVal){
+    showToast("יש לחתום לפני סיום.");
+    return;
+  }
   c.checklist.polygraph = true;
   showToast('הטופס "נוהל מוסכם לבדיקת פוליגרף" סומן כהושלם.');
   ui.screen = "checklist";
@@ -1714,11 +1721,17 @@ function renderPolygraphForm(){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
   const done = !!c.checklist.polygraph;
-  const data = (c.checklistData && c.checklistData.polygraph) || {};
+  // בכניסה ראשונה לטופס (לפני שהוזן תאריך כלשהו) - ברירת המחדל היא תאריך
+  // היום, אך ניתן לשנות אותה כרגיל.
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.polygraph) c.checklistData.polygraph = {date:"", employeeNumber:"", cardNumber:"", signature:""};
+  if(!c.checklistData.polygraph.date) c.checklistData.polygraph.date = todayIso();
+  const data = c.checklistData.polygraph;
+  const canFinish = !!data.date && !!data.signature;
   return '' +
   '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">'+POLYGRAPH_TITLE+'</h1>' +
-  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. "מספר עובד" ו"מס\' כרטיס" ניתנים למילוי חופשי. יש להזין תאריך; החתימה תתבצע בכתב יד על הטופס המודפס.</div>' +
+  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. "מספר עובד" ו"מס\' כרטיס" ניתנים למילוי חופשי. יש להזין תאריך ולחתום למטה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
     COMPANY_LOGO_HTML +
     '<div class="form-grid cols-5" style="margin-bottom:16px;">' +
@@ -1730,13 +1743,17 @@ function renderPolygraphForm(){
     '<div class="form-grid cols-2" style="margin-top:14px;max-width:420px;">' +
       f101FieldWrap("polygraph_date","תאריך",true,'<input type="date" id="polygraph_date" value="'+escapeHtml(data.date||"")+'" max="'+todayIso()+'" onchange="updatePolygraphDate(this.value)">') +
     '</div>' +
-    '<div class="field-hint-static" style="margin-top:6px;">אין חתימה דיגיטלית — הטופס יודפס ויחתם פיזית על ידי העובד/ת.</div>' +
+    '<div style="margin-top:14px;">' +
+      '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימה <span class="req-star">*</span></label>' +
+      signaturePadHtml("polygraph_sigCanvas","polygraph") +
+      '<div style="text-align:center;font-size:11.5px;color:#9AA5B1;margin-top:2px;max-width:420px;">חתום/חתמי מעל הקו</div>' +
+    '</div>' +
     COMPANY_FOOTER_HTML +
   '</div>' +
   (done ? '<div class="alert alert-info" style="max-width:720px;">טופס זה כבר סומן כהושלם.</div>' : '') +
   '<div class="btn-row">' +
     '<button class="btn btn-secondary" onclick="openGenericPreview()">תצוגה מקדימה</button>' +
-    '<button class="btn btn-primary" onclick="finishPolygraphForm()">סיימתי</button>' +
+    '<button class="btn btn-primary" '+(canFinish?'':'disabled')+' onclick="finishPolygraphForm()">סיימתי</button>' +
   '</div>';
 }
 function renderPrintPolygraph(c, backOnclick, backLabel){
@@ -1758,9 +1775,9 @@ function renderPrintPolygraph(c, backOnclick, backLabel){
     '<div style="column-count:2;column-gap:26px;column-rule:1px solid #d5dbe1;">' +
       polygraphBodyHtml() +
     '</div>' +
-    '<div style="margin-top:24px;display:flex;justify-content:space-between;max-width:420px;">' +
+    '<div style="margin-top:24px;display:flex;justify-content:space-between;align-items:baseline;max-width:420px;">' +
       '<div>תאריך: '+escapeHtml(data.date?formatDateHe(data.date):"__________________")+'</div>' +
-      '<div>חתימה: __________________</div>' +
+      '<div>חתימה: '+(data.signature ? ('<img src="'+data.signature+'" style="height:44px;vertical-align:-3.2px;">') : '__________________')+'</div>' +
     '</div>' +
     COMPANY_FOOTER_HTML +
   '</div>';
@@ -1937,7 +1954,7 @@ function renderPrintSafety(c, backOnclick, backLabel){
    חתימות - עובד/ת ומעביד; שתיהן פיזיות בשלב זה (ר' גם ההערה בפונקציית ה-render
    הראשית של הטופס). האחוזים השבריים (1/3, 1/2) מוצגים בכתיב עשרוני (למשל 14.333%)
    לפי בקשת המשתמשת, במקום כתיב שברי מוערם. */
-const PENSION_CONFIRM_TITLE = 'אישור כללי בדבר תשלומי מעבידים לקרן פנסיה ולקופת ביטוח ולקופות פיצויי פיטורים במקום פיצויי פיטורים';
+const PENSION_CONFIRM_TITLE = 'אישור כללי בדבר תשלומי מעבידים לקרן פנסיה ולקופת ביטוח במקום פיצויי פיטורים';
 const PENSION_CONFIRM_SUBTITLE = 'לפי סעיף 14 לחוק פיצויי פיטורים';
 const PENSION_CONFIRM_INTRO = 'בתוקף סמכותי לפי סעיף 14 לחוק פיצויי פיטורים, התשכ"ג-1963 (להלן - החוק), אני מאשר כי תשלומים ששילם מעביד החל מיום פרסומו של אישור זה, בעד עובדו לפנסיה מקיפה בקופת גמל לקצבה שאינה קופת ביטוח כמשמעותה בתקנות מס הכנסה (כללים לאישור ולניהול קופות גמל), התשכ"ד-1964 (להלן - קרן פנסיה), או לביטוח מנהלים הכולל אפשרות לקבלה או שילוב של תשלומים לתכנית ותכנית קצבה בקופת ביטוח כאמור (להלן - קופת ביטוח), לרבות תשלומים ששילם תוך שילוב תכנית פנסיה וקופת ביטוח בין אם יש בקופת הביטוח תכנית לקצבה ובין לאו (להלן - תשלומי המעביד), יבואו במקום פיצויי הפיטורים המגיעים לעובד בגין השכר האמור שממנו שולמו התשלומים האמורים ולתקופה ששולמו (להלן - השכר המופטר), ובלבד שנתקיימו כל אלה:';
 const PENSION_CONFIRM_CLAUSE_1_HEADER = 'תשלומי המעביד -';
@@ -1958,20 +1975,20 @@ function updatePensionConfirmDate(val){
   const c = currentCase();
   if(!c) return;
   if(!c.checklistData) c.checklistData = {};
-  if(!c.checklistData.pensionConfirm) c.checklistData.pensionConfirm = {date:""};
+  if(!c.checklistData.pensionConfirm) c.checklistData.pensionConfirm = {date:"",signature:""};
   c.checklistData.pensionConfirm.date = val;
   render();
 }
 function finishPensionConfirmForm(){
   const c = currentCase();
   if(!c) return;
-  const dateVal = c.checklistData && c.checklistData.pensionConfirm && c.checklistData.pensionConfirm.date;
-  if(!dateVal){
-    showToast("יש להזין תאריך לפני סיום.");
+  const data = c.checklistData && c.checklistData.pensionConfirm;
+  if(!data || !data.date || !data.signature){
+    showToast("יש להזין תאריך ולחתום לפני סיום.");
     return;
   }
   c.checklist.pensionConfirm = true;
-  showToast('הטופס "אישור בדבר תשלומי מעביד לקרן פנסיה" סומן כהושלם.');
+  showToast('הטופס "אישור בדבר תשלומי מעבידים לקרן פנסיה ולקופת ביטוח" סומן כהושלם.');
   ui.screen = "checklist";
   render();
 }
@@ -1990,15 +2007,23 @@ function pensionConfirmBodyHtml(){
   pensionClauseHtml('(ב)  ',PENSION_CONFIRM_CLAUSE_2B) +
   '<div style="font-weight:700;margin:14px 0 8px;">'+escapeHtml('(3)  ')+escapeHtml(PENSION_CONFIRM_CLAUSE_3)+'</div>';
 }
+function pensionConfirmEmployerLineHtml(c){
+  const company = CODE_TABLES.companies.find(x=>x.id===c.companyId) || {};
+  return escapeHtml(company.name||"—")+', ח.פ '+escapeHtml(company.companyRegNum||"—");
+}
 function renderPensionConfirmForm(){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
   const done = !!c.checklist.pensionConfirm;
-  const data = (c.checklistData && c.checklistData.pensionConfirm) || {};
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.pensionConfirm) c.checklistData.pensionConfirm = {date:"",signature:""};
+  if(!c.checklistData.pensionConfirm.date) c.checklistData.pensionConfirm.date = todayIso();
+  const data = c.checklistData.pensionConfirm;
+  const canFinish = !!data.date && !!data.signature;
   return '' +
   '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">'+escapeHtml(PENSION_CONFIRM_TITLE)+'</h1>' +
-  '<div class="page-desc">זהו נוסח משפטי-סטטוטורי קבוע. יש להזין תאריך; שתי החתימות (עובד/ת ומעביד) יתבצעו בכתב יד על הטופס המודפס.</div>' +
+  '<div class="page-desc">זהו נוסח משפטי-סטטוטורי קבוע. יש להזין תאריך ולחתום למטה; חתימת המעביד מוצגת אוטומטית לפי פרטי החברה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
     '<div style="font-weight:700;text-decoration:underline;text-align:center;margin-bottom:6px;">'+escapeHtml(PENSION_CONFIRM_TITLE)+'</div>' +
     '<div style="font-weight:700;text-align:center;margin-bottom:14px;">'+escapeHtml(PENSION_CONFIRM_SUBTITLE)+'</div>' +
@@ -2006,16 +2031,17 @@ function renderPensionConfirmForm(){
     '<div class="form-grid cols-2" style="margin-top:16px;max-width:300px;">' +
       f101FieldWrap("pensionConfirm_date","תאריך",true,'<input type="date" id="pensionConfirm_date" value="'+escapeHtml(data.date||"")+'" max="'+todayIso()+'" onchange="updatePensionConfirmDate(this.value)">') +
     '</div>' +
-    '<div class="field-hint-static" style="margin-top:6px;">אין חתימה דיגיטלית — שתי החתימות (עובד/ת ומעביד) יתבצעו בכתב יד על הטופס המודפס.</div>' +
-    '<div style="margin-top:30px;display:flex;justify-content:space-between;max-width:420px;">' +
-      '<div>העובד/ת: __________________</div>' +
-      '<div>המעביד: __________________</div>' +
+    '<div style="margin-top:14px;">' +
+      '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימת העובד/ת <span class="req-star">*</span></label>' +
+      signaturePadHtml("pensionConfirm_sigCanvas","pensionConfirm") +
+      '<div style="text-align:center;font-size:11.5px;color:#9AA5B1;margin-top:2px;max-width:420px;">חתום/חתמי מעל הקו</div>' +
     '</div>' +
+    '<div style="margin-top:20px;"><b style="text-decoration:underline;">חתימת המעביד</b>: '+pensionConfirmEmployerLineHtml(c)+'</div>' +
   '</div>' +
   (done ? '<div class="alert alert-info" style="max-width:720px;">טופס זה כבר סומן כהושלם.</div>' : '') +
   '<div class="btn-row">' +
     '<button class="btn btn-secondary" onclick="openGenericPreview()">תצוגה מקדימה</button>' +
-    '<button class="btn btn-primary" onclick="finishPensionConfirmForm()">סיימתי</button>' +
+    '<button class="btn btn-primary" '+(canFinish?'':'disabled')+' onclick="finishPensionConfirmForm()">סיימתי</button>' +
   '</div>';
 }
 function renderPrintPensionConfirm(c, backOnclick, backLabel){
@@ -2023,19 +2049,23 @@ function renderPrintPensionConfirm(c, backOnclick, backLabel){
   return '' +
   '<div class="print-toolbar no-print">' +
     '<button class="btn-link" onclick="'+backOnclick+'">&rarr; '+backLabel+'</button>' +
-    '<div style="font-weight:700;color:var(--header-text);">אישור בדבר תשלומי מעביד לקרן פנסיה — תצוגה מקדימה</div>' +
+    '<div style="font-weight:700;color:var(--header-text);">אישור בדבר תשלומי מעבידים לקרן פנסיה ולקופת ביטוח — תצוגה מקדימה</div>' +
     '<button class="btn btn-primary btn-sm" onclick="window.print()">הדפס / שמור כ-PDF</button>' +
   '</div>' +
   '<div class="print-frame" style="font-size:11px;line-height:1.5;">' +
     '<div style="font-weight:700;text-decoration:underline;text-align:center;margin-bottom:6px;">'+escapeHtml(PENSION_CONFIRM_TITLE)+'</div>' +
     '<div style="font-weight:700;text-align:center;margin-bottom:12px;">'+escapeHtml(PENSION_CONFIRM_SUBTITLE)+'</div>' +
     pensionConfirmBodyHtml() +
-    '<div style="margin-top:26px;display:flex;justify-content:space-between;max-width:420px;">' +
-      '<div>תאריך: '+escapeHtml(data.date?formatDateHe(data.date):"__________________")+'</div>' +
-    '</div>' +
-    '<div style="margin-top:20px;display:flex;justify-content:space-between;max-width:420px;">' +
-      '<div>העובד/ת: __________________</div>' +
-      '<div>המעביד: __________________</div>' +
+    '<div style="margin-top:26px;">תאריך: '+escapeHtml(data.date?formatDateHe(data.date):"__________________")+'</div>' +
+    '<div style="margin-top:16px;display:flex;justify-content:space-between;align-items:flex-end;gap:24px;">' +
+      '<div style="text-align:center;">' +
+        (data.signature ? '<img src="'+data.signature+'" style="height:44px;">' : '<div style="min-width:160px;">__________________</div>') +
+        '<div style="margin-top:6px;">חתימת העובד/ת:</div>' +
+      '</div>' +
+      '<div style="text-align:center;">' +
+        '<div>'+pensionConfirmEmployerLineHtml(c)+'</div>' +
+        '<div style="border-top:1px solid #333;min-width:160px;margin-top:6px;padding-top:4px;">חתימת המעביד:</div>' +
+      '</div>' +
     '</div>' +
   '</div>';
 }
