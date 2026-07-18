@@ -83,6 +83,9 @@ function form101OfficialValues(c){
   const emp = c.employee, co = CODE_TABLES.companies.find(x=>x.id===c.companyId) || {};
   const idVal = emp.idType==="id" ? emp.idNumber : emp.passportNumber;
   return {
+    taxYear: { value: String(c.taxYear||"") },
+    employeeIdNumberPage2: { value: form101PadDigits(idVal,9) },
+
     employerName:         { value: co.name },
     employerAddress:      { value: co.address },
     employerPhone:         { value: co.phone },

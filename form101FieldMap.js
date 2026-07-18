@@ -31,6 +31,13 @@
    ו-residentNoCheckbox עדיין מחזיקים בערכי ההשערה המקוריים (זהים למה
    שהוצע לפני הכיול, בשני ייצואים ברציפות) - כנראה עדיין לא נבדקו בפועל. */
 const FORM101_FIELD_MAP = {
+  /* שדה "שנת המס" בראש עמוד 1 (תיבת ספרות קצרה, לא קשורה לסעיף א') ומספר
+     הזהות שחוזר בראש עמוד 2 (כותרת חלק ח') - מיקום ראשוני בלבד, חושב מזיהוי
+     קווי המסגרת בתמונת הרקע (לא מטקסט, כי אלה שדות ריקים ללא תווית טקסט
+     צמודה למדוד ממנה) - טעון כיול. */
+  taxYear: { type:"digits", digits:4, top:11.219, right:52.107, width:10.886, fontSize:8 },
+  employeeIdNumberPage2: { type:"digits", digits:9, page:2, top:2.951, right:71.372, width:12.539, fontSize:8 },
+
   employerName: { type:"text", top:20.19, right:9.286, width:21.839, fontSize:9 },
   employerAddress: { type:"text", top:20.19, right:31.124, width:34.606, fontSize:9 },
   employerPhone: { type:"text", top:20.101, right:65.604, width:11.171, fontSize:9, ltr:true },
