@@ -151,7 +151,16 @@ function form101OfficialValues(c){
     spouseAliyaDate:     { value: form101DateDigits8(emp.spouse.aliyaDate) },
     spousePassportNumber: { value: emp.spouse.idType==="passport" ? emp.spouse.passportNumber : "" },
     spouseHasNoIncomeCheckbox: { checked: emp.spouse.incomeStatus==="none" },
-    spouseHasIncomeCheckbox:   { checked: emp.spouse.incomeStatus==="has" }
+    spouseHasIncomeCheckbox:   { checked: emp.spouse.incomeStatus==="has" },
+
+    // ---------- עמוד 2, ח. פטור או זיכוי ממס (17 תיבות סימון בלבד -
+    // תת-שדות כמו יישוב/תאריכים/מספר ילדים לכל סעיף עדיין לא ממופים,
+    // ר' ההערה מעל FORM101_FIELD_MAP בעמוד 2 ב-form101FieldMap.js) ----------
+    ...Object.fromEntries(TAX_CREDIT_META.map(function(meta){
+      const val = emp.taxCredits[meta.key];
+      const checked = (typeof val==="object") ? !!(val && val.checked) : !!val;
+      return ["taxCredit"+meta.key.charAt(0).toUpperCase()+meta.key.slice(1)+"Checkbox", { checked: checked }];
+    }))
   };
 }
 function renderF101ODigitBoxes(def,value){
@@ -258,14 +267,23 @@ function renderForm101OfficialPage(c){
   const values = form101OfficialValues(c);
   const editMode = !!FORM101_EDIT_MODE;
   const calibrate = !!FORM101_CALIBRATE || editMode;
-  const fieldsHtml = Object.keys(FORM101_FIELD_MAP).map(key=>renderF101OField(key,FORM101_FIELD_MAP[key],values,calibrate,editMode)).join("")
+  // חלוקה לפי def.page (חסר/1 = עמוד 1, 2 = עמוד 2) - ר' ההערה מעל
+  // .form101-official-page.f101-page2 ב-styles.css ו-FORM101_FIELD_MAP
+  // ב-form101FieldMap.js. טבלת הילדים תמיד בעמוד 1.
+  const page1Keys = Object.keys(FORM101_FIELD_MAP).filter(k=>(FORM101_FIELD_MAP[k].page||1)===1);
+  const page2Keys = Object.keys(FORM101_FIELD_MAP).filter(k=>FORM101_FIELD_MAP[k].page===2);
+  const page1Html = page1Keys.map(key=>renderF101OField(key,FORM101_FIELD_MAP[key],values,calibrate,editMode)).join("")
     + renderF101ChildrenTable(c,calibrate,editMode);
+  const page2Html = page2Keys.map(key=>renderF101OField(key,FORM101_FIELD_MAP[key],values,calibrate,editMode)).join("");
   return '' +
-  '<div class="form101-official-page'+(calibrate?" calibrate":"")+(editMode?" editing":"")+'" id="form101OfficialPage">' +
-    fieldsHtml +
+  '<div class="form101-official-page f101-page1'+(calibrate?" calibrate":"")+(editMode?" editing":"")+'" id="form101OfficialPage1">' +
+    page1Html +
+  '</div>' +
+  '<div class="form101-official-page f101-page2'+(calibrate?" calibrate":"")+(editMode?" editing":"")+'" id="form101OfficialPage2">' +
+    page2Html +
   '</div>' +
   (editMode ? renderForm101EditPanel() :
-    '<div class="pf-note no-print" style="max-width:210mm;margin:8px auto;">עמוד 1 מתוך 1 (השדות הרשמיים) - טופס 101, שנת מס '+c.taxYear+'. שלב 2: פרטי מעסיק, זהות/יצירת קשר של העובד/ת, ילדים, הכנסה ממעסיק זה והכנסות אחרות ממופים כרגע; בן/בת זוג ושינויים במהלך השנה יתווספו בשלב הבא.</div>');
+    '<div class="pf-note no-print" style="max-width:210mm;margin:8px auto;">טופס 101 (השדות הרשמיים), שנת מס '+c.taxYear+'. עמוד 1: פרטי מעסיק, זהות/יצירת קשר של העובד/ת, ילדים, הכנסה ממעסיק זה, הכנסות אחרות ופרטי בן/בת הזוג ממופים; שינויים במהלך השנה (חלק ז) נותר ריק בכוונה (אין לו שדה מקביל בטופס הדיגיטלי). עמוד 2: חלק ח (פטור/זיכוי ממס) ממופה ברמת תיבת הסימון הראשית בלבד; תת-שדות (יישוב, תאריכים, מספר ילדים) וחלקים ט/י עדיין לא ממופים.</div>');
 }
 
 /* ============================================================
@@ -333,12 +351,20 @@ function form101ResolveDef(key){
   }
   return FORM101_FIELD_MAP[key];
 }
+/* טבלת הילדים תמיד בעמוד 1 (ר' renderF101ChildrenTable); שדה רגיל - לפי
+   def.page (חסר/1 = עמוד 1, 2 = עמוד 2) - ר' renderForm101OfficialPage. */
+function form101ContainerIdForKey(key){
+  const child = form101ParseChildKey(key);
+  if(child) return "form101OfficialPage1";
+  const def = FORM101_FIELD_MAP[key];
+  return (def && def.page===2) ? "form101OfficialPage2" : "form101OfficialPage1";
+}
 let f101Drag = null;
 function form101StartDrag(e,key){
   if(!FORM101_EDIT_MODE) return;
   e.preventDefault();
   if(FORM101_SELECTED_KEY!==key){ FORM101_SELECTED_KEY = key; render(); }
-  const container = document.getElementById("form101OfficialPage");
+  const container = document.getElementById(form101ContainerIdForKey(key));
   const rect = container.getBoundingClientRect();
   const def = form101ResolveDef(key);
   const child = form101ParseChildKey(key);
@@ -353,7 +379,7 @@ function form101StartResize(e,key){
   if(!FORM101_EDIT_MODE) return;
   e.preventDefault();
   if(FORM101_SELECTED_KEY!==key){ FORM101_SELECTED_KEY = key; render(); }
-  const container = document.getElementById("form101OfficialPage");
+  const container = document.getElementById(form101ContainerIdForKey(key));
   const rect = container.getBoundingClientRect();
   const def = form101ResolveDef(key);
   f101Drag = { key:key, mode:"resize", startX:e.clientX, startY:e.clientY,
@@ -486,6 +512,7 @@ function form101FormatFieldDef(d,includeTop){
   if(d.fontSize!==undefined) props.push("fontSize:"+d.fontSize);
   if(d.ltr) props.push("ltr:true");
   if(d.topOffset) props.push("topOffset:"+d.topOffset);
+  if(d.page===2) props.push("page:2");
   return props.join(", ");
 }
 function form101ExportMapping(){

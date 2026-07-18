@@ -257,8 +257,14 @@ table.code-table td:last-child, table.code-table th:last-child{width:90px;}
 }
 
 /* ===== טופס 101 - תצוגת הדפסה רשמית (רקע הטופס האמיתי + שכבת overlay) =====
-   ר' form101FieldMap.js למיפוי הקואורדינטות המלא ולהסבר הכללי. */
-.form101-official-page{position:relative;width:210mm;height:297mm;margin:20px auto;background-image:url('assets/form101_official_bg.png');background-size:100% 100%;background-repeat:no-repeat;background-color:#fff;box-shadow:0 0 0 1px #ddd, var(--shadow);page-break-after:auto;}
+   ר' form101FieldMap.js למיפוי הקואורדינטות המלא ולהסבר הכללי. שני עמודי
+   PDF = שני div.form101-official-page נפרדים (כל אחד עם תמונת הרקע שלו
+   ו-id נפרד, ר' renderForm101OfficialPage ב-print.js) - עמוד 1 עובר
+   page-break-after:always כדי שעמוד 2 יתחיל בדף הדפסה חדש; עמוד 2 (האחרון)
+   מקבל auto. */
+.form101-official-page{position:relative;width:210mm;height:297mm;margin:20px auto;background-size:100% 100%;background-repeat:no-repeat;background-color:#fff;box-shadow:0 0 0 1px #ddd, var(--shadow);page-break-after:always;}
+.form101-official-page.f101-page1{background-image:url('assets/form101_official_bg.png');}
+.form101-official-page.f101-page2{background-image:url('assets/form101_official_bg_page2.png');page-break-after:auto;}
 /* צבע כחול-עט - מדמה מילוי הטופס בעט כחול ע"י העובד/ת (בניגוד לטקסט
    השחור המודפס-מראש של הטופס הרשמי עצמו, שנשאר בתמונת הרקע). */
 .f101o-field{position:absolute;direction:rtl;text-align:right;unicode-bidi:plaintext;white-space:nowrap;overflow:hidden;line-height:1.15;color:#1a3fa8;font-family:Arial,sans-serif;}

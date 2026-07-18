@@ -1,9 +1,13 @@
 "use strict";
 /* ============================================================
    מיפוי קואורדינטות לתצוגת ההדפסה הרשמית של טופס 101 - שכבת HTML
-   שקופה שמונחת מעל תמונת הרקע של הטופס הרשמי עצמו
-   (assets/form101_official_bg.png, עמוד 1 בלבד - עמוד 2 של ה-PDF
-   המקורי הוא דברי הסבר בלבד וללא שדות מילוי, ולכן אינו זקוק לרקע/מיפוי).
+   שקופה שמונחת מעל תמונת הרקע של הטופס הרשמי עצמו. יש שתי תמונות רקע -
+   assets/form101_official_bg.png (עמוד 1) ו-assets/form101_official_bg_page2.png
+   (עמוד 2, שנוסף ב-2026-07-18: בגרסת הטופס הנוכחית עמוד 2 כולל תוכן אמיתי
+   למילוי - חלקים ח/ט/י - ורק החלק התחתון שלו, מתחת לתיבת ההצהרה, הוא
+   דברי הסבר גרידא) - ר' renderForm101OfficialPage ב-print.js ששתי
+   התמונות שלה container נפרד (form101OfficialPage1/2). כל שדה שייך לעמוד
+   1 כברירת מחדל; page:2 מעביר אותו לתמונת הרקע/container של עמוד 2.
 
    כל הקואורדינטות באחוזים (%) יחסית לעמוד A4 שלם (210x297mm) - כך
    שהמיקום נשאר תקף בלי קשר לרזולוציית התמונה בפועל (ר' renderForm101OfficialPage
@@ -98,7 +102,30 @@ const FORM101_FIELD_MAP = {
   spouseHasNoIncomeCheckbox: { type:"checkbox", top:85.047, right:29.78, width:0.924, height:0.653 },
   spouseHasIncomeCheckbox:   { type:"checkbox", top:85.047, right:51.283, width:0.924, height:0.653 },
   spouseIncomeWorkPensionBusinessCheckbox: { type:"checkbox", top:85.166, right:71.946, width:0.924, height:0.653 },
-  spouseIncomeOtherCheckbox: { type:"checkbox", top:85.166, right:82.025, width:0.924, height:0.653 }
+  spouseIncomeOtherCheckbox: { type:"checkbox", top:85.166, right:82.025, width:0.924, height:0.653 },
+
+  /* ---------- עמוד 2: ח. פטור או זיכוי ממס - 17 תיבות סימון ראשיות
+     (הסעיף "2" בטופס מתפצל לשתי תיבות 2א/2ב, ולכן 17 ולא 16) - ר' TAX_CREDIT_META
+     ב-data.js לרשימת המפתחות/הכותרות המלאה. מיקומים ראשוניים בלבד, טעונים
+     כיול. תת-שדות של כל סעיף (יישוב מזכה, תאריכים, מספר ילדים בטווחי גיל
+     וכו') אינם ממופים כאן עדיין - התיבה הראשית בלבד. */
+  taxCreditC1Checkbox:  { type:"checkbox", page:2, top:4.87,  right:12.645, width:0.924, height:0.653 },
+  taxCreditC2aCheckbox: { type:"checkbox", page:2, top:6.533, right:12.645, width:0.924, height:0.653 },
+  taxCreditC2bCheckbox: { type:"checkbox", page:2, top:9.265, right:12.645, width:0.924, height:0.653 },
+  taxCreditC3Checkbox:  { type:"checkbox", page:2, top:11.165,right:12.645, width:0.924, height:0.653 },
+  taxCreditC4Checkbox:  { type:"checkbox", page:2, top:14.491,right:12.645, width:0.924, height:0.653 },
+  taxCreditC5Checkbox:  { type:"checkbox", page:2, top:19.361,right:12.645, width:0.924, height:0.653 },
+  taxCreditC6Checkbox:  { type:"checkbox", page:2, top:21.974,right:12.645, width:0.924, height:0.653 },
+  taxCreditC7Checkbox:  { type:"checkbox", page:2, top:24.706,right:12.645, width:0.924, height:0.653 },
+  taxCreditC8Checkbox:  { type:"checkbox", page:2, top:31.596,right:12.645, width:0.924, height:0.653 },
+  taxCreditC9Checkbox:  { type:"checkbox", page:2, top:37.535,right:12.645, width:0.924, height:0.653 },
+  taxCreditC10Checkbox: { type:"checkbox", page:2, top:39.554,right:12.645, width:0.924, height:0.653 },
+  taxCreditC11Checkbox: { type:"checkbox", page:2, top:42.523,right:12.645, width:0.924, height:0.653 },
+  taxCreditC12Checkbox: { type:"checkbox", page:2, top:45.137,right:12.645, width:0.924, height:0.653 },
+  taxCreditC13Checkbox: { type:"checkbox", page:2, top:47.156,right:12.645, width:0.924, height:0.653 },
+  taxCreditC14Checkbox: { type:"checkbox", page:2, top:48.938,right:12.645, width:0.924, height:0.653 },
+  taxCreditC15Checkbox: { type:"checkbox", page:2, top:51.788,right:12.645, width:0.924, height:0.653 },
+  taxCreditC16Checkbox: { type:"checkbox", page:2, top:53.332,right:12.645, width:0.924, height:0.653 }
 };
 
 /* ============================================================
