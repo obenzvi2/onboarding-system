@@ -35,8 +35,8 @@ const FORM101_FIELD_MAP = {
      הזהות שחוזר בראש עמוד 2 (כותרת חלק ח') - מיקום ראשוני בלבד, חושב מזיהוי
      קווי המסגרת בתמונת הרקע (לא מטקסט, כי אלה שדות ריקים ללא תווית טקסט
      צמודה למדוד ממנה) - טעון כיול. */
-  taxYear: { type:"digits", digits:4, top:11.219, right:52.107, width:10.886, fontSize:8 },
-  employeeIdNumberPage2: { type:"digits", digits:9, page:2, top:2.951, right:71.372, width:12.539, fontSize:8 },
+  taxYear: { type:"digits", digits:4, top:10.595, right:52.107, width:10.886, fontSize:8 },
+  employeeIdNumberPage2: { type:"digits", digits:9, page:2, top:2.15, right:71.372, width:12.413, fontSize:8 },
 
   employerName: { type:"text", top:20.19, right:9.286, width:21.839, fontSize:9 },
   employerAddress: { type:"text", top:20.19, right:31.124, width:34.606, fontSize:9 },
@@ -116,9 +116,9 @@ const FORM101_FIELD_MAP = {
      כיול. תת-שדות של כל סעיף (יישוב מזכה, תאריכים, מספר ילדים בטווחי גיל
      וכו') אינם ממופים כאן עדיין - התיבה הראשית בלבד. */
   taxCreditC1Checkbox:  { type:"checkbox", page:2, top:4.87,  right:12.645, width:0.924, height:0.653 },
-  taxCreditC2aCheckbox: { type:"checkbox", page:2, top:6.533, right:12.645, width:0.924, height:0.653 },
+  taxCreditC2aCheckbox: { type:"checkbox", page:2, top:6.533, right:12.645, width:1.05,  height:0.92 },
   taxCreditC2bCheckbox: { type:"checkbox", page:2, top:9.265, right:12.645, width:0.924, height:0.653 },
-  taxCreditC3Checkbox:  { type:"checkbox", page:2, top:11.165,right:12.645, width:0.924, height:0.653 },
+  taxCreditC3Checkbox:  { type:"checkbox", page:2, top:11.165,right:12.645, width:1.05,  height:1.009 },
   taxCreditC4Checkbox:  { type:"checkbox", page:2, top:14.491,right:12.645, width:0.924, height:0.653 },
   taxCreditC5Checkbox:  { type:"checkbox", page:2, top:19.361,right:12.645, width:0.924, height:0.653 },
   taxCreditC6Checkbox:  { type:"checkbox", page:2, top:21.974,right:12.645, width:0.924, height:0.653 },
