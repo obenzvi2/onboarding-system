@@ -38,7 +38,487 @@ function closeEmployeeTab(){
 function renderPrintForm101(){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
-  return printToolbar(c.id,"case-home","טופס 101 — תצוגת הדפסה") + form101PrintFramesHtml(c,true);
+  return printToolbar(c.id,"case-home","טופס 101 — תצוגת הדפסה") + renderForm101OfficialPage(c);
+}
+
+/* ============================================================
+   16-א. תצוגת הדפסה רשמית של טופס 101 - שכבת HTML שקופה מעל תמונת
+   הרקע של הטופס הרשמי עצמו (ר' form101FieldMap.js למיפוי הקואורדינטות
+   המלא, ולהערה שם על שלב 1 מול שלבים הבאים). כל שדה בעל type:
+   "text"/"digits"/"checkbox" מטופל כאן לפי אותו type - ר' renderF101OField.
+   ============================================================ */
+/* פורמט תאריך ל-8 ספרות רצופות (יום-חודש-שנה) לתיבות בודדות - הספרה
+   הראשונה (יום) מוצגת בתיבה הימנית ביותר, בהתאם לכיוון הכתיבה בטופס
+   הרשמי (מספרים נכתבים משמאל לימין בתוך אזור מוקצה מימין לשמאל). */
+function form101DateDigits8(iso){
+  if(!iso) return "";
+  const parts = String(iso).split("-");
+  if(parts.length!==3) return "";
+  const [y,m,d] = parts;
+  return (d||"")+(m||"")+(y||"");
+}
+function form101PadDigits(val,n){
+  const s = String(val||"").replace(/\D/g,"");
+  // אם לא הוזן ערך בפועל - יש להשאיר את התיבות ריקות, לא למלא באפסים
+  // (ר' התיקון על שדה המיקוד בשיחה עם המשתמשת: "0000000" מטעה כאילו הוזן מיקוד).
+  if(!s) return "";
+  return s.slice(-n).padStart(n,"0");
+}
+/* מפרקת מספר טלפון מאוחסן כמו "050-1234567" או "08-851-6000" לקידומת
+   (עד המקף הראשון) ולמספר (כל מה שאחריו, בלי מקפים נוספים) - כדי להציג
+   כל חלק בתיבה הנפרדת שלו בטופס הרשמי (ר' ההערה ב-form101FieldMap.js). */
+/* מפרקת לפי מספר הספרות של הקידומת (03 - נייד, 02 - קווי), לא לפי מיקום
+   מקף - כי לא כל המספרים המאוחסנים כוללים מקף (ר' התיקון בשיחה עם
+   המשתמשת: "מספר טלפון" ללא מקף גרם לכל הערך ליפול לתוך שדה הקידומת). */
+function form101SplitPhone(val){
+  const s = String(val||"").replace(/\D/g,"");
+  if(!s) return { prefix:"", number:"" };
+  const prefixLen = s.slice(0,2)==="05" ? 3 : 2;
+  return { prefix: s.slice(0,prefixLen), number: s.slice(prefixLen) };
+}
+/* ערכי כל שדות המיפוי (שלב 1 בלבד) - כל key תואם בדיוק ל-key המקביל לו
+   ב-FORM101_FIELD_MAP (ר' form101FieldMap.js). type:"text"/"digits" מקבלים
+   value; type:"checkbox" מקבל checked בלבד. */
+function form101OfficialValues(c){
+  const emp = c.employee, co = CODE_TABLES.companies.find(x=>x.id===c.companyId) || {};
+  const idVal = emp.idType==="id" ? emp.idNumber : emp.passportNumber;
+  return {
+    employerName:         { value: co.name },
+    employerAddress:      { value: co.address },
+    employerPhone:         { value: co.phone },
+    // הספרה הראשונה ("9") מודפסת מראש על גבי הטופס - יש להציג רק את 8
+    // הספרות שאחריה (ר' ההערה ליד employerDeductionFile ב-form101FieldMap.js).
+    employerDeductionFile: { value: co.deductionFileNum ? co.deductionFileNum.slice(1) : "" },
+
+    employeeIdNumber:  { value: form101PadDigits(idVal,9) },
+    employeeLastName:  { value: emp.lastName },
+    employeeFirstName: { value: emp.firstName },
+    employeeBirthDate: { value: form101DateDigits8(emp.birthDate) },
+    employeeAliyaDate: { value: form101DateDigits8(emp.aliyaDate) },
+    genderMaleCheckbox:   { checked: emp.gender==="male" },
+    genderFemaleCheckbox: { checked: emp.gender==="female" },
+
+    // בגרסת הטופס הנוכחית "מספר" (בית) הוא תיבה נפרדת מ"רחוב/שכונה" - ר'
+    // ההערה למעלה ב-form101FieldMap.js על השינוי במבנה סעיף ב'.
+    employeeStreet:      { value: emp.street },
+    employeeHouseNumber: { value: emp.houseNumber },
+    employeeCity:         { value: emp.city },
+    employeeZip:           { value: form101PadDigits(emp.zip,7) },
+    employeePhonePrefix:       { value: form101SplitPhone(emp.phone2).prefix },
+    employeePhoneNumber:       { value: form101SplitPhone(emp.phone2).number },
+    employeeMobilePhonePrefix: { value: form101SplitPhone(emp.mobilePhone).prefix },
+    employeeMobilePhoneNumber: { value: form101SplitPhone(emp.mobilePhone).number },
+    employeeEmail:              { value: emp.email },
+
+    residentYesCheckbox: { checked: emp.isIsraeliResident==="yes" },
+    residentNoCheckbox:  { checked: emp.isIsraeliResident==="no" },
+
+    maritalSingleCheckbox:    { checked: emp.maritalStatus==="single" },
+    maritalMarriedCheckbox:   { checked: emp.maritalStatus==="married" },
+    maritalDivorcedCheckbox:  { checked: emp.maritalStatus==="divorced" },
+    maritalWidowedCheckbox:   { checked: emp.maritalStatus==="widowed" },
+    maritalSeparatedCheckbox: { checked: emp.maritalStatus==="separated" },
+
+    employmentStartDate: { value: form101DateDigits8(c.startDate) },
+    incomeTypeMonthlyCheckbox:     { checked: emp.incomeType==="monthly" },
+    incomeTypeAdditionalCheckbox:  { checked: emp.incomeType==="additional" },
+    incomeTypePartialCheckbox:     { checked: emp.incomeType==="partial" },
+    incomeTypeDailyCheckbox:       { checked: emp.incomeType==="daily" },
+    incomeTypePensionCheckbox:     { checked: emp.incomeType==="pension" },
+    incomeTypeScholarshipCheckbox: { checked: emp.incomeType==="scholarship" },
+
+    otherIncomeHasNoCheckbox:  { checked: emp.otherIncome.has==="no" },
+    otherIncomeHasYesCheckbox: { checked: emp.otherIncome.has==="yes" },
+    otherIncomeMonthlyCheckbox:     { checked: emp.otherIncome.types.includes("monthly") },
+    otherIncomeAdditionalCheckbox:  { checked: emp.otherIncome.types.includes("additional") },
+    otherIncomePartialCheckbox:     { checked: emp.otherIncome.types.includes("partial") },
+    otherIncomeDailyCheckbox:       { checked: emp.otherIncome.types.includes("daily") },
+    otherIncomePensionCheckbox:     { checked: emp.otherIncome.types.includes("pension") },
+    otherIncomeScholarshipCheckbox: { checked: emp.otherIncome.types.includes("scholarship") },
+    otherIncomeCreditHereCheckbox:  { checked: emp.otherIncome.creditPointsLocation==="here" },
+    otherIncomeCreditOtherCheckbox: { checked: emp.otherIncome.creditPointsLocation==="other" },
+    otherIncomeNoHishtalmutCheckbox: { checked: !!emp.otherIncome.noHishtalmutDeposits },
+    otherIncomeNoPensionCheckbox:    { checked: !!emp.otherIncome.noPensionDeposits },
+
+    // הערה: אין במודל הנתונים פירוט בין "עבודה/קצבה/עסק" ל"הכנסה אחרת"
+    // עבור הכנסת בן/בת הזוג (emp.spouse.incomeStatus הוא רק "has"/"none") -
+    // לכן spouseIncomeWorkPensionBusinessCheckbox/spouseIncomeOtherCheckbox
+    // ממופים בטופס לצורך מיקום בלבד ואינם מסומנים אוטומטית.
+    spouseIdNumber:      { value: form101PadDigits(emp.spouse.idType==="id" ? emp.spouse.idNumber : "",9) },
+    spouseLastName:      { value: emp.spouse.lastName },
+    spouseFirstName:     { value: emp.spouse.firstName },
+    spouseBirthDate:     { value: form101DateDigits8(emp.spouse.birthDate) },
+    spouseAliyaDate:     { value: form101DateDigits8(emp.spouse.aliyaDate) },
+    spousePassportNumber: { value: emp.spouse.idType==="passport" ? emp.spouse.passportNumber : "" },
+    spouseHasNoIncomeCheckbox: { checked: emp.spouse.incomeStatus==="none" },
+    spouseHasIncomeCheckbox:   { checked: emp.spouse.incomeStatus==="has" }
+  };
+}
+function renderF101ODigitBoxes(def,value){
+  // boxCount = מספר התיבות המודפסות בסך הכל (ר' employerDeductionFile ב-
+  // form101FieldMap.js); digits = כמה מהן אנחנו בפועל ממלאים. skip = כמה
+  // תיבות מודפסות-מראש יש לדלג עליהן בצד הימני (0 כברירת מחדל - כלומר
+  // התיבות המודפסות-מראש, אם יש, נמצאות בצד השמאלי/הרחוק של הטווח ולא
+  // מצריכות דילוג בתחילתו). ר' התיקון על מספר תיק הניכויים: הספרה "9"
+  // המודפסת-מראש נמצאת בתיבה השמאלית ביותר (הראשונה מבחינת קריאת המספר
+  // משמאל לימין), ולכן 8 התיבות הממולאות תופסות את הטווח הימני של הטופס
+  // בלי כל דילוג, ופשוט אינן מגיעות לתיבה השמאלית ביותר.
+  const total = def.boxCount || def.digits;
+  const skip = def.skip || 0;
+  const boxW = def.width / total;
+  // המספרים נקראים תמיד משמאל לימין (LTR) גם בתוך טופס בעברית - הספרה
+  // הראשונה של הערך צריכה לשבת בתיבה השמאלית ביותר, והאחרונה בתיבה
+  // הימנית ביותר (הקרובה ל-right העוגן). i=0 הוא התיבה הימנית ביותר
+  // מבין התיבות הממולאות (קרוב ביותר ל-right), ולכן צריך את הספרה
+  // *האחרונה* של הערך - לכן הופכים את סדר התווים כאן (ר' התיקון על
+  // תאריך הלידה/מספר זהות/מיקוד בשיחה עם המשתמשת - כל התיבות הללו הוצגו
+  // הפוך, מימין לשמאל, לפני התיקון הזה).
+  const chars = String(value||"").split("").reverse();
+  let html = "";
+  for(let i=0;i<def.digits;i++){
+    const boxRight = def.right + (skip+i)*boxW;
+    html += '<div class="f101o-digit" style="top:'+def.top+'%;right:'+boxRight+'%;width:'+boxW+'%;font-size:'+def.fontSize+'pt;">'+escapeHtml(chars[i]||"")+'</div>';
+  }
+  return html;
+}
+function renderF101OField(key,def,values,calibrate,editMode){
+  const v = values[key] || {};
+  let html;
+  if(def.type==="checkbox"){
+    // גודל ה-X מחושב ממש לפי גובה תיבת הסימון בפועל (height% מתורגם ל-mm
+    // לפי גובה עמוד A4 = 297mm) - כדי שה-X ימלא בדיוק את הריבוע המודפס
+    // ולא יהיה גדול/קטן ממנו (ר' תיקון גודל תיבות הסימון בשיחה עם המשתמשת).
+    const xFontMm = (def.height/100*297).toFixed(2);
+    html = v.checked ? '<div class="f101o-x" style="top:'+def.top+'%;right:'+def.right+'%;width:'+def.width+'%;height:'+def.height+'%;font-size:'+xFontMm+'mm;">✕</div>' : "";
+  } else if(def.type==="digits"){
+    html = renderF101ODigitBoxes(def,v.value);
+  } else {
+    html = '<div class="f101o-field'+(def.ltr?" ltr":"")+'" style="top:'+def.top+'%;right:'+def.right+'%;width:'+def.width+'%;font-size:'+def.fontSize+'pt;">'+escapeHtml(v.value||"")+'</div>';
+  }
+  if(calibrate){
+    const top = def.top, right = def.right, width = def.width||4, height = def.height||(def.width?1.6:3);
+    const selected = editMode && FORM101_SELECTED_KEY===key;
+    const dragAttr = editMode ? ' onmousedown="form101StartDrag(event,\''+key+'\')"' : '';
+    const resizeHandle = editMode ? '<div class="f101o-resize-handle" onmousedown="event.stopPropagation();form101StartResize(event,\''+key+'\')"></div>' : '';
+    html += '<div class="f101o-calib-box'+(selected?" selected":"")+'" data-key="'+key+'" style="top:'+top+'%;right:'+right+'%;width:'+width+'%;height:'+height+'%;"'+dragAttr+'><span>'+key+'</span>'+resizeHandle+'</div>';
+  }
+  return html;
+}
+/* ג. פרטים על ילדיי... - טבלה חוזרת, ר' ההערה מעל FORM101_CHILDREN_ROW
+   ב-form101FieldMap.js. כל שורה משתמשת באותו תבנית עמודות (FORM101_CHILDREN_ROW)
+   עם top מחושב לפי מספר השורה. ניתנת לגרירה/שינוי גודל בעורך בדיוק כמו
+   שדה רגיל - ר' form101ParseChildKey/form101ResolveDef למטה שמתרגמים בין
+   מפתח "children[i].field" לבין FORM101_CHILDREN_ROW/FORM101_CHILDREN_TABLE.
+   במצב כיול מוצגות תיבות עבור כל maxRows (גם שורות בלי ילד בפועל) כדי
+   שאפשר יהיה לגרור/לראות את כל רשת הטבלה מול הרקע גם עם פחות ילדים
+   בפועל בתיק הנבחר; ערכי טקסט/ספרות/X מוצגים רק עבור ילדים שקיימים בפועל. */
+/* top מוחלט של שדה מסוים בשורה i: בסיס משותף לכל העמודות (firstRowTop +
+   i*rowHeight) + topOffset עצמאי לעמודה הזו בלבד (ר' ההערה המורחבת מעל
+   form101OnDragMove על הבעיה שזה פותר - גרירה אנכית של עמודה אחת (כמו
+   טור הסימון 1/2) לא תזיז יותר טורים אחרים (מספר זהות/תאריך לידה) כי כל
+   טור שומר topOffset נפרד משלו, ורק firstRowTop/rowHeight המשותפים
+   (הנערכים דרך שדות ייעודיים בפאנל, לא דרך גרירה) קובעים את קצב השורות) +
+   rowOffsets[i] - תיקון עדין לשורה ספציפית זו בלבד (משותף לכל העמודות
+   באותה שורה), כי הרווח האמיתי בין השורות בטופס המודפס לא תמיד אחיד
+   לגמרי - קבוע rowHeight יחיד לא בהכרח מתאים במדויק לכל 10 השורות (ר'
+   הדיון עם המשתמשת: "כשמזיזים טור שלם יחד חלק מהשדות במקום וחלק לא" -
+   בדיוק הסימפטום של סטייה קטנה שמצטברת ככל שמתרחקים מהשורה שכוילה).
+   נערך אך ורק דרך שדה ייעודי בפאנל (ר' renderForm101EditPanel), לא גרירה -
+   כדי לא להתנגש עם גרירת העמודה (topOffset). */
+function form101ChildRowTop(field,index){
+  const rowOffset = (FORM101_CHILDREN_TABLE.rowOffsets && FORM101_CHILDREN_TABLE.rowOffsets[index]) || 0;
+  return +(FORM101_CHILDREN_TABLE.firstRowTop + index*FORM101_CHILDREN_TABLE.rowHeight + (FORM101_CHILDREN_ROW[field].topOffset||0) + rowOffset).toFixed(3);
+}
+function renderF101ChildrenTable(c,calibrate,editMode){
+  const kids = c.employee.children||[];
+  const rowCount = calibrate ? FORM101_CHILDREN_TABLE.maxRows : Math.min(kids.length, FORM101_CHILDREN_TABLE.maxRows);
+  let html = "";
+  for(let i=0;i<rowCount;i++){
+    const kid = kids[i];
+    const rowValueByField = kid ? {
+      birthDate: { value: form101DateDigits8(kid.birthDate) },
+      idNumber:  { value: form101PadDigits(kid.idNumber,9) },
+      name:      { value: kid.name },
+      custodyCheckbox:   { checked: !!kid.inCustody },
+      allowanceCheckbox: { checked: !!kid.receivesAllowance }
+    } : {};
+    Object.keys(FORM101_CHILDREN_ROW).forEach(function(field){
+      const def = Object.assign({}, FORM101_CHILDREN_ROW[field], {top: form101ChildRowTop(field,i)});
+      const key = "children["+i+"]."+field;
+      // renderF101OField מחפש את הערך תחת values[key] (המפתח המלא), ולכן
+      // עוטפים כאן את הערך תחת אותו מפתח מלא ולא רק שם השדה הקצר.
+      const rowValues = {};
+      rowValues[key] = rowValueByField[field] || {};
+      html += renderF101OField(key, def, rowValues, calibrate, editMode);
+    });
+  }
+  return html;
+}
+function renderForm101OfficialPage(c){
+  const values = form101OfficialValues(c);
+  const editMode = !!FORM101_EDIT_MODE;
+  const calibrate = !!FORM101_CALIBRATE || editMode;
+  const fieldsHtml = Object.keys(FORM101_FIELD_MAP).map(key=>renderF101OField(key,FORM101_FIELD_MAP[key],values,calibrate,editMode)).join("")
+    + renderF101ChildrenTable(c,calibrate,editMode);
+  return '' +
+  '<div class="form101-official-page'+(calibrate?" calibrate":"")+(editMode?" editing":"")+'" id="form101OfficialPage">' +
+    fieldsHtml +
+  '</div>' +
+  (editMode ? renderForm101EditPanel() :
+    '<div class="pf-note no-print" style="max-width:210mm;margin:8px auto;">עמוד 1 מתוך 1 (השדות הרשמיים) - טופס 101, שנת מס '+c.taxYear+'. שלב 2: פרטי מעסיק, זהות/יצירת קשר של העובד/ת, ילדים, הכנסה ממעסיק זה והכנסות אחרות ממופים כרגע; בן/בת זוג ושינויים במהלך השנה יתווספו בשלב הבא.</div>');
+}
+
+/* ============================================================
+   16-ב. עורך מיפוי אינטראקטיבי לטופס 101 (פיתוח/כיול בלבד) - מופעל דרך
+   ?editform101=1. מאפשר גרירה/שינוי גודל של כל שדה בעכבר וייצוא המיפוי
+   המעודכן כטקסט JS מוכן להדבקה. אף חלק מהעורך הזה אינו נטען/מוצג
+   כשהדגל כבוי, ולכן אינו משפיע בשום צורה על השימוש הרגיל באפליקציה.
+   ============================================================ */
+function form101SelectField(key){
+  FORM101_SELECTED_KEY = key || null;
+  render();
+}
+/* עדכון בודד משדה קלט בפאנל (לא גרירה) - שינוי מיידי ורינדור מלא, כי
+   אין כאן סיכון להפרעה לאיזשהו gesture פעיל (בניגוד לגרירה עצמה). */
+function form101UpdateFieldProp(key,prop,value){
+  const child = form101ParseChildKey(key);
+  if(child){
+    if(prop==="top"){
+      // "top" בפאנל מציג את המיקום המוחלט; ממירים אותו כאן ל-topOffset
+      // היחסי של העמודה הזו בלבד (ר' form101ChildRowTop) - לא נוגעים
+      // ב-firstRowTop/rowHeight המשותפים (יש להם שדות נפרדים בפאנל).
+      const v = parseFloat(value)||0;
+      const base = FORM101_CHILDREN_TABLE.firstRowTop + child.index*FORM101_CHILDREN_TABLE.rowHeight;
+      FORM101_CHILDREN_ROW[child.field].topOffset = +(v-base).toFixed(3);
+    } else if(prop==="ltr"){
+      FORM101_CHILDREN_ROW[child.field].ltr = !!value;
+    } else if(prop==="digits" || prop==="boxCount"){
+      FORM101_CHILDREN_ROW[child.field][prop] = parseInt(value,10)||0;
+    } else {
+      FORM101_CHILDREN_ROW[child.field][prop] = parseFloat(value)||0;
+    }
+    render();
+    return;
+  }
+  if(key==="__childrenTable_firstRowTop__"){ FORM101_CHILDREN_TABLE.firstRowTop = parseFloat(value)||0; render(); return; }
+  if(key==="__childrenTable_rowHeight__"){ FORM101_CHILDREN_TABLE.rowHeight = parseFloat(value)||0; render(); return; }
+  const rowOffsetMatch = /^__childrenTable_rowOffset__(\d+)__$/.exec(key);
+  if(rowOffsetMatch){
+    if(!FORM101_CHILDREN_TABLE.rowOffsets) FORM101_CHILDREN_TABLE.rowOffsets = {};
+    FORM101_CHILDREN_TABLE.rowOffsets[+rowOffsetMatch[1]] = parseFloat(value)||0;
+    render();
+    return;
+  }
+  const def = FORM101_FIELD_MAP[key];
+  if(!def) return;
+  if(prop==="ltr") def.ltr = !!value;
+  else if(prop==="digits" || prop==="boxCount") def[prop] = parseInt(value,10)||0;
+  else def[prop] = parseFloat(value)||0;
+  render();
+}
+/* מפתחות שדה בטבלת הילדים החוזרת נראים כמו "children[2].idNumber" - שני
+   הפונקציות הבאות מתרגמות בין המפתח הזה לבין FORM101_CHILDREN_ROW (עמודה
+   משותפת לכל השורות) ו-FORM101_CHILDREN_TABLE (מיקום שורה 0 וגובה שורה),
+   כדי שאותה מנגנון גרירה/שינוי גודל ישרת גם שדות רגילים וגם שדות טבלה. */
+function form101ParseChildKey(key){
+  const m = /^children\[(\d+)\]\.(.+)$/.exec(key);
+  return m ? { index:+m[1], field:m[2] } : null;
+}
+function form101ResolveDef(key){
+  const child = form101ParseChildKey(key);
+  if(child){
+    return Object.assign({}, FORM101_CHILDREN_ROW[child.field], {
+      top: form101ChildRowTop(child.field, child.index)
+    });
+  }
+  return FORM101_FIELD_MAP[key];
+}
+let f101Drag = null;
+function form101StartDrag(e,key){
+  if(!FORM101_EDIT_MODE) return;
+  e.preventDefault();
+  if(FORM101_SELECTED_KEY!==key){ FORM101_SELECTED_KEY = key; render(); }
+  const container = document.getElementById("form101OfficialPage");
+  const rect = container.getBoundingClientRect();
+  const def = form101ResolveDef(key);
+  const child = form101ParseChildKey(key);
+  f101Drag = { key:key, mode:"move", startX:e.clientX, startY:e.clientY,
+    startTop:def.top, startRight:def.right,
+    startTopOffset: child ? (FORM101_CHILDREN_ROW[child.field].topOffset||0) : 0,
+    containerW:rect.width, containerH:rect.height };
+  document.addEventListener("mousemove", form101OnDragMove);
+  document.addEventListener("mouseup", form101OnDragEnd);
+}
+function form101StartResize(e,key){
+  if(!FORM101_EDIT_MODE) return;
+  e.preventDefault();
+  if(FORM101_SELECTED_KEY!==key){ FORM101_SELECTED_KEY = key; render(); }
+  const container = document.getElementById("form101OfficialPage");
+  const rect = container.getBoundingClientRect();
+  const def = form101ResolveDef(key);
+  f101Drag = { key:key, mode:"resize", startX:e.clientX, startY:e.clientY,
+    startWidth: def.width||4, startHeight: def.height||(def.width?1.6:3),
+    containerW:rect.width, containerH:rect.height };
+  document.addEventListener("mousemove", form101OnDragMove);
+  document.addEventListener("mouseup", form101OnDragEnd);
+}
+/* בזמן גרירה בפועל מעדכנים רק את מלבן הכיול הנגרר עצמו (תזוזה חלקה, בלי
+   render() מלא שהיה "בולע" את הגרירה - ר' backToFormsHome/flushPendingRender
+   לדיון על אותה בעיה בהקשר אחר) ואת שדות הקלט בפאנל; את ערך השדה עצמו
+   (טקסט/ספרות/X), ואת שאר תיבות הכיול שמושפעות בעקיפין (למשל שורות אחרות
+   בטבלת הילדים, ששוקלות right/width משותפים) - מיישרים רק ב-mouseup,
+   ר' form101OnDragEnd.
+
+   גרירה אנכית של שדה בטבלת הילדים מעדכנת אך ורק את topOffset העצמאי של
+   העמודה שלו (ר' form101ChildRowTop) - לא את firstRowTop/rowHeight
+   המשותפים לכל הטבלה. זה מתקן בעיה שדווחה: גרירת טור הסימון 1/2 הזיזה
+   בטעות גם את טורי מספר הזהות/תאריך הלידה, כי לפני התיקון top נכתב ישר
+   ל-firstRowTop (המשותף) בשורה 0. עכשיו כל עמודה זזה אנכית לגמרי בנפרד;
+   כדי לשנות את firstRowTop/rowHeight המשותפים יש שדות ייעודיים בפאנל
+   (ר' renderForm101EditPanel) ולא גרירה. */
+function form101OnDragMove(e){
+  if(!f101Drag) return;
+  const dxPct = (e.clientX-f101Drag.startX)/f101Drag.containerW*100;
+  const dyPct = (e.clientY-f101Drag.startY)/f101Drag.containerH*100;
+  const child = form101ParseChildKey(f101Drag.key);
+  const box = document.querySelector('.f101o-calib-box[data-key="'+f101Drag.key+'"]');
+  if(f101Drag.mode==="move"){
+    const newRight = +(f101Drag.startRight-dxPct).toFixed(3);
+    let newTop;
+    if(child){
+      FORM101_CHILDREN_ROW[child.field].right = newRight;
+      FORM101_CHILDREN_ROW[child.field].topOffset = +(f101Drag.startTopOffset+dyPct).toFixed(3);
+      newTop = form101ChildRowTop(child.field, child.index);
+    } else {
+      const def = FORM101_FIELD_MAP[f101Drag.key];
+      newTop = +(f101Drag.startTop+dyPct).toFixed(3);
+      def.top = newTop; def.right = newRight;
+    }
+    if(box){ box.style.top = newTop+"%"; box.style.right = newRight+"%"; }
+  } else {
+    const newWidth = Math.max(0.3, f101Drag.startWidth-dxPct);
+    let newHeight;
+    const targetDef = child ? FORM101_CHILDREN_ROW[child.field] : FORM101_FIELD_MAP[f101Drag.key];
+    targetDef.width = +newWidth.toFixed(3);
+    if(targetDef.type==="checkbox"){
+      newHeight = Math.max(0.3, f101Drag.startHeight+dyPct);
+      targetDef.height = +newHeight.toFixed(3);
+    }
+    if(box){ box.style.width = targetDef.width+"%"; if(newHeight!==undefined) box.style.height = targetDef.height+"%"; }
+  }
+  form101RefreshPanelInputs();
+}
+function form101OnDragEnd(){
+  document.removeEventListener("mousemove", form101OnDragMove);
+  document.removeEventListener("mouseup", form101OnDragEnd);
+  f101Drag = null;
+  render();
+}
+function form101RefreshPanelInputs(){
+  const key = f101Drag ? f101Drag.key : FORM101_SELECTED_KEY;
+  const def = key && form101ResolveDef(key);
+  if(!def) return;
+  ["top","right","width","height"].forEach(function(prop){
+    const input = document.getElementById("f101panel_"+prop);
+    if(input && def[prop]!==undefined) input.value = def[prop];
+  });
+}
+function renderForm101EditPanel(){
+  const key = FORM101_SELECTED_KEY;
+  const def = key ? form101ResolveDef(key) : null;
+  const keys = Object.keys(FORM101_FIELD_MAP);
+  // מוסיפים לרשימת הבחירה גם את כל שדות טבלת הילדים (לכל maxRows), כדי
+  // שאפשר יהיה לבחור/לכייל אותם דרך התפריט ולא רק בלחיצה על התיבה בטופס.
+  for(let i=0;i<FORM101_CHILDREN_TABLE.maxRows;i++){
+    Object.keys(FORM101_CHILDREN_ROW).forEach(function(field){ keys.push("children["+i+"]."+field); });
+  }
+  let fieldsFormHtml = '<div class="f101-edit-empty">בחר/י שדה מהרשימה או לחצ/י על תיבה אדומה בטופס</div>';
+  if(def){
+    const isCheckbox = def.type==="checkbox";
+    const isText = def.type==="text";
+    const isDigits = def.type==="digits";
+    fieldsFormHtml = '' +
+      '<div class="f101-edit-row"><label>top (%)</label><input type="number" step="0.01" id="f101panel_top" value="'+def.top+'" onchange="form101UpdateFieldProp(\''+key+'\',\'top\',this.value)"></div>' +
+      '<div class="f101-edit-row"><label>right (%)</label><input type="number" step="0.01" id="f101panel_right" value="'+def.right+'" onchange="form101UpdateFieldProp(\''+key+'\',\'right\',this.value)"></div>' +
+      '<div class="f101-edit-row"><label>width (%)</label><input type="number" step="0.01" id="f101panel_width" value="'+(def.width||"")+'" onchange="form101UpdateFieldProp(\''+key+'\',\'width\',this.value)"></div>' +
+      (isCheckbox ? '<div class="f101-edit-row"><label>height (%)</label><input type="number" step="0.01" id="f101panel_height" value="'+(def.height||"")+'" onchange="form101UpdateFieldProp(\''+key+'\',\'height\',this.value)"></div>' : "") +
+      ((isText||isDigits) ? '<div class="f101-edit-row"><label>fontSize (pt)</label><input type="number" step="0.1" value="'+(def.fontSize||"")+'" onchange="form101UpdateFieldProp(\''+key+'\',\'fontSize\',this.value)"></div>' : "") +
+      (isText ? '<div class="f101-edit-row"><label>LTR</label><input type="checkbox" '+(def.ltr?"checked":"")+' onchange="form101UpdateFieldProp(\''+key+'\',\'ltr\',this.checked)"></div>' : "") +
+      (isDigits ? '<div class="f101-edit-row"><label>digits</label><input type="number" step="1" value="'+def.digits+'" onchange="form101UpdateFieldProp(\''+key+'\',\'digits\',this.value)"></div>' : "") +
+      (isDigits ? '<div class="f101-edit-row"><label>boxCount</label><input type="number" step="1" value="'+(def.boxCount||def.digits)+'" onchange="form101UpdateFieldProp(\''+key+'\',\'boxCount\',this.value)"></div>' : "");
+    const childForPanel = form101ParseChildKey(key);
+    if(childForPanel){
+      // top כאן הוא topOffset עצמאי לעמודה הזו בלבד (ר' form101ChildRowTop) -
+      // firstRowTop/rowHeight המשותפים לכל הטבלה, ותיקון rowOffset לשורה
+      // הנוכחית בלבד (משותף לכל העמודות באותה שורה - לתיקון סטייה שאינה
+      // אחידה בין השורות בטופס המודפס בפועל), נערכים בנפרד למטה - כדי
+      // שגרירת עמודה אחת לעולם לא תזיז עמודות/שורות אחרות בטעות.
+      const curRowOffset = (FORM101_CHILDREN_TABLE.rowOffsets && FORM101_CHILDREN_TABLE.rowOffsets[childForPanel.index]) || 0;
+      fieldsFormHtml += '' +
+        '<div class="f101-edit-subtitle">טבלת ילדים - כל השורות</div>' +
+        '<div class="f101-edit-row"><label>firstRowTop (%)</label><input type="number" step="0.01" value="'+FORM101_CHILDREN_TABLE.firstRowTop+'" onchange="form101UpdateFieldProp(\'__childrenTable_firstRowTop__\',\'\',this.value)"></div>' +
+        '<div class="f101-edit-row"><label>rowHeight (%)</label><input type="number" step="0.01" value="'+FORM101_CHILDREN_TABLE.rowHeight+'" onchange="form101UpdateFieldProp(\'__childrenTable_rowHeight__\',\'\',this.value)"></div>' +
+        '<div class="f101-edit-subtitle">רק שורה '+childForPanel.index+' (כל העמודות)</div>' +
+        '<div class="f101-edit-row"><label>rowOffset (%)</label><input type="number" step="0.01" value="'+curRowOffset+'" onchange="form101UpdateFieldProp(\'__childrenTable_rowOffset__'+childForPanel.index+'__\',\'\',this.value)"></div>';
+    }
+  }
+  return '' +
+  '<div class="f101-edit-panel no-print">' +
+    '<div class="f101-edit-title">עורך מיפוי טופס 101 (מצב פיתוח בלבד)</div>' +
+    '<select class="f101-edit-select" onchange="form101SelectField(this.value)">' +
+      '<option value="">— בחר/י שדה —</option>' +
+      keys.map(function(k){ return '<option value="'+k+'" '+(k===key?"selected":"")+'>'+k+'</option>'; }).join("") +
+    '</select>' +
+    fieldsFormHtml +
+    '<div class="f101-edit-hint">גרירת התיבה עצמה מזיזה אותה; גרירת הריבוע הקטן בפינה משנה את הרוחב (וגם הגובה, בתיבות סימון). בטבלת הילדים כל עמודה זזה אנכית בנפרד לגמרי מהעמודות האחרות - כדי להזיז את כל הטבלה יחד יש להשתמש בשדות firstRowTop/rowHeight למטה.</div>' +
+    '<button class="btn btn-secondary btn-sm" onclick="form101ExportMapping()">ייצוא מיפוי מעודכן</button>' +
+    '<textarea id="f101ExportBox" class="f101-edit-export" readonly></textarea>' +
+  '</div>';
+}
+function form101FormatFieldDef(d,includeTop){
+  const props = ['type:"'+d.type+'"'];
+  if(d.digits!==undefined) props.push("digits:"+d.digits);
+  if(d.boxCount!==undefined) props.push("boxCount:"+d.boxCount);
+  if(includeTop) props.push("top:"+d.top);
+  props.push("right:"+d.right);
+  if(d.width!==undefined) props.push("width:"+d.width);
+  if(d.height!==undefined) props.push("height:"+d.height);
+  if(d.fontSize!==undefined) props.push("fontSize:"+d.fontSize);
+  if(d.ltr) props.push("ltr:true");
+  if(d.topOffset) props.push("topOffset:"+d.topOffset);
+  return props.join(", ");
+}
+function form101ExportMapping(){
+  const fieldLines = Object.keys(FORM101_FIELD_MAP).map(function(key){
+    return "  "+key+": { "+form101FormatFieldDef(FORM101_FIELD_MAP[key],true)+" },";
+  });
+  const fieldMapText = "const FORM101_FIELD_MAP = {\n"+fieldLines.join("\n")+"\n};";
+
+  const rowLines = Object.keys(FORM101_CHILDREN_ROW).map(function(key){
+    return "  "+key+": { "+form101FormatFieldDef(FORM101_CHILDREN_ROW[key],false)+" },";
+  });
+  const rowText = "const FORM101_CHILDREN_ROW = {\n"+rowLines.join("\n")+"\n};";
+  const rowOffsets = FORM101_CHILDREN_TABLE.rowOffsets || {};
+  const rowOffsetsText = "{"+Object.keys(rowOffsets).filter(function(k){ return rowOffsets[k]; })
+    .map(function(k){ return k+":"+rowOffsets[k]; }).join(", ")+"}";
+  const tableText = "const FORM101_CHILDREN_TABLE = { firstRowTop:"+FORM101_CHILDREN_TABLE.firstRowTop+
+    ", rowHeight:"+FORM101_CHILDREN_TABLE.rowHeight+", maxRows:"+FORM101_CHILDREN_TABLE.maxRows+
+    ", rowOffsets:"+rowOffsetsText+" };";
+
+  const text = fieldMapText+"\n\n"+rowText+"\n"+tableText;
+  const box = document.getElementById("f101ExportBox");
+  box.value = text;
+  box.style.display = "block";
+  box.focus();
+  box.select();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(
+      function(){ showToast("המיפוי (כולל טבלת הילדים) הועתק ללוח - אפשר להדביק ולשלוח."); },
+      function(){ showToast("לא ניתן היה להעתיק אוטומטית - יש להעתיק ידנית מהתיבה."); }
+    );
+  } else {
+    showToast("המיפוי מוצג בתיבה למטה - יש להעתיק ידנית (Ctrl+C).");
+  }
 }
 /* isLastDoc קובע האם עמוד 2 מסומן כ"last" (page-break-after:auto) - נדרש
    false כאשר טופס הבנק מודפס מיד אחריו כמסמך נוסף באותה תצוגת הדפסה. */
@@ -145,13 +625,11 @@ function bankPrintFrameHtml(c,isLastDoc){
     '<div class="pf-grid c2">'+pfCell("מספר חשבון",b.accountNumber)+pfCell("אושר על ידי העובד/ת",b.confirmed?"כן":"לא")+'</div>' +
 
     '<div class="pf-section-title">הצהרת העובד/ת</div>' +
-    '<div style="font-size:10.5px;padding:6px 2px;">אני מאשר/ת כי פרטי החשבון שמסרתי לעיל נכונים, ומבקש/ת להעביר אליו את תשלומי המשכורת המגיעים לי ממעסיקי.</div>' +
-
-    '<div class="pf-sig-row">' +
-      '<div class="pf-sig-box">חתימת העובד/ת (חתימה פיזית לאחר הדפסה)</div>' +
-      '<div class="pf-sig-box">תאריך חתימה: ______________</div>' +
+    '<div style="font-size:10.5px;padding:6px 2px;display:flex;align-items:center;gap:6px;">' +
+      '<input type="checkbox" '+(b.confirmed?"checked":"")+' disabled>' +
+      '<span>אני מאשר/ת כי פרטי החשבון שמסרתי לעיל נכונים, ומבקש/ת להעביר אליו את תשלומי המשכורת המגיעים לי ממעסיקי.</span>' +
     '</div>' +
-    '<div class="pf-note">מסמך זה הוא הדמיה ויזואלית לצורכי אב טיפוס בלבד ואינו מהווה טופס בנקאי רשמי.</div>' +
+    '<div class="pf-note">מסמך זה אינו מהווה טופס בנקאי רשמי.</div>' +
   '</div>';
 }
 
@@ -210,6 +688,12 @@ document.addEventListener("DOMContentLoaded", function(){
     ui.currentCaseId = empCaseId;
     ui.screen = params.get("screen") || "checklist";
   }
+  // מצב כיול לתצוגת ההדפסה הרשמית של טופס 101 (ר' form101FieldMap.js) -
+  // מיועד לפיתוח בלבד, מופעל אך ורק דרך פרמטר URL מפורש.
+  if(params.get("calibrate101")==="1") FORM101_CALIBRATE = true;
+  // עורך המיפוי האינטראקטיבי (גרירה/שינוי גודל) - גם הוא לפיתוח בלבד
+  // ומופעל רק דרך פרמטר URL נפרד, בלי לגעת בדגל הכיול הבסיסי עצמו.
+  if(params.get("editform101")==="1") FORM101_EDIT_MODE = true;
   render();
 });
 

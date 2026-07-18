@@ -49,7 +49,7 @@ function emptyBank(){
   // bankCode / branchCode הם תמיד מחרוזות טקסט (ראו כלל עסקי בראש קובץ
   // הנתונים BANK_BRANCHES_DATA) - כדי שאפס מוביל בקוד סניף (כגון "027")
   // לא יאבד. אין להמיר את השדות הללו למספר בשום שלב.
-  return { bankCode:"", branchCode:"", accountNumber:"", confirmed:false, status:"pending", completedAt:null, deferred:false };
+  return { bankCode:"", branchCode:"", accountNumber:"", confirmed:false, status:"pending", completedAt:null, deferred:false, date:"" };
 }
 
 function buildDocuments(caseObj){
@@ -179,6 +179,9 @@ function migrateCaseChecklist(caseObj){
     const data = caseObj.checklistData[key];
     if(!data || !data.date || !data.signature) caseObj.checklist[key] = false;
   });
+  /* אותו עיקרון עבור טפסים שעדיין ללא תוכן אמיתי (UNBUILT_CHECKLIST_KEYS) -
+     אין להם שום דבר לאמת מולו, ולכן כל סימון "הושלם" קיים מבוטל. */
+  UNBUILT_CHECKLIST_KEYS.forEach(key=>{ caseObj.checklist[key] = false; });
 }
 /* מיגרציה: תיקים שנשמרו לפני שסעיף 4 (עולה חדש/ה) קיבל שדות תאריך
    נוספים החזיקו בו ערך בוליאני (true/false) בלבד. יש להמיר אותו למבנה
@@ -206,6 +209,10 @@ function migrateCaseTaxCredits(caseObj){
    migrateSignedChecklistItems למטה, שמתקנת תיקים קיימים שנשמרו לפני
    שהאינווריאנט הזה נאכף (וכן דואגת שנתוני הדמו למטה לא יפרו אותו). */
 const SIGNED_CHECKLIST_KEYS = ["pensionConfirm","safety","lockerCheck","emailAccess","dataConsent","polygraph"];
+/* מפתחות צ'ק-ליסט שעדיין לא קיבלו תוכן אמיתי (מסך גנרי זמני בלבד -
+   ר' renderGenericChecklistItem ב-render.js) - כמו טפסי החתימה, אין להם
+   שום דבר אמיתי לאמת, ולכן גם אותם אין לסמן כ"הושלם" בנתוני הדמו. */
+const UNBUILT_CHECKLIST_KEYS = ["terms","insurance","advisorAuth"];
 function seedData(){
   // תיק 1: הושלם במלואו, מוכן ליצוא
   const c1 = emptyCase();
@@ -226,11 +233,12 @@ function seedData(){
   c1.employee.children=[{id:nextId("kid"),name:"עדן",idNumber:"405678913",birthDate:"2019-05-01",inCustody:true,receivesAllowance:true}];
   c1.employee.taxCredits.c1=true;
   c1.employee.taxCredits.c7={checked:true,bornThisYear:"0",age1to2:"0",age3:"0",age4to5:"0",age6to17:"1",age18:"0"};
-  c1.bank = {bankCode:"12",branchCode:"600",accountNumber:"123456",confirmed:true,status:"completed",completedAt:new Date().toISOString()};
-  // טפסי חתימה דיגיטלית (SIGNED_CHECKLIST_KEYS) לא מסומנים כאן כ"הושלמו" -
-  // ר' הערה מעל SIGNED_CHECKLIST_KEYS: אסור לסמן טופס כהושלם בלי חתימה
-  // בפועל, ולכן גם בתיק דמו זה יש לחתום עליהם דרך המסך כדי לסמנם.
-  Object.keys(c1.checklist).forEach(k=>{ if(!SIGNED_CHECKLIST_KEYS.includes(k)) c1.checklist[k]=true; });
+  c1.bank = {bankCode:"12",branchCode:"600",accountNumber:"123456",confirmed:true,status:"completed",completedAt:new Date().toISOString(),date:todayIso()};
+  // טפסי חתימה דיגיטלית (SIGNED_CHECKLIST_KEYS) וטפסים שעדיין ללא תוכן
+  // (UNBUILT_CHECKLIST_KEYS) לא מסומנים כאן כ"הושלמו" - ר' ההערות מעל שני
+  // הקבועים האלה: אסור לסמן טופס כהושלם בלי אימות אמיתי, ולכן גם בתיק
+  // דמו זה יש להשלים אותם דרך המסך כדי לסמנם.
+  Object.keys(c1.checklist).forEach(k=>{ if(!SIGNED_CHECKLIST_KEYS.includes(k) && !UNBUILT_CHECKLIST_KEYS.includes(k)) c1.checklist[k]=true; });
   c1.documents = buildDocuments(c1);
   c1.documents.forEach(d=>d.status="delivered");
   DB.cases.push(c1);
@@ -278,8 +286,8 @@ function seedData(){
   c4.employee.children=[{id:nextId("kid"),name:"תום",idNumber:"411112238",birthDate:"2015-02-10",inCustody:true,receivesAllowance:true}];
   c4.employee.taxCredits.c1=true; c4.employee.taxCredits.c6=true;
   c4.employee.taxCredits.c7={checked:true,bornThisYear:"0",age1to2:"0",age3:"0",age4to5:"0",age6to17:"1",age18:"0"};
-  c4.bank={bankCode:"10",branchCode:"800",accountNumber:"998877",confirmed:true,status:"completed",completedAt:new Date().toISOString()};
-  Object.keys(c4.checklist).forEach(k=>{ if(!SIGNED_CHECKLIST_KEYS.includes(k)) c4.checklist[k]=true; });
+  c4.bank={bankCode:"10",branchCode:"800",accountNumber:"998877",confirmed:true,status:"completed",completedAt:new Date().toISOString(),date:todayIso()};
+  Object.keys(c4.checklist).forEach(k=>{ if(!SIGNED_CHECKLIST_KEYS.includes(k) && !UNBUILT_CHECKLIST_KEYS.includes(k)) c4.checklist[k]=true; });
   c4.documents = buildDocuments(c4);
   c4.documents.forEach(d=>d.status="delivered");
   DB.cases.push(c4);

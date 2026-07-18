@@ -248,11 +248,43 @@ table.code-table td:last-child, table.code-table th:last-child{width:90px;}
 .kid-card-head b{color:var(--header-text);}
 .print-frame{background:#fff;box-shadow:0 0 0 1px #ddd, var(--shadow);width:210mm;min-height:297mm;margin:20px auto;padding:14mm 12mm;font-size:11.5px;color:#111;}
 .print-toolbar{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border-teal);padding:12px 28px;display:flex;justify-content:space-between;align-items:center;z-index:50;width:210mm;margin:0 auto;box-sizing:border-box;}
+@page{size:A4;margin:0;}
 @media print{
   .no-print{display:none!important;}
   body{background:#fff;}
   .print-frame{box-shadow:none;margin:0;width:auto;min-height:auto;}
+  .form101-official-page{box-shadow:none!important;margin:0!important;}
 }
+
+/* ===== טופס 101 - תצוגת הדפסה רשמית (רקע הטופס האמיתי + שכבת overlay) =====
+   ר' form101FieldMap.js למיפוי הקואורדינטות המלא ולהסבר הכללי. */
+.form101-official-page{position:relative;width:210mm;height:297mm;margin:20px auto;background-image:url('assets/form101_official_bg.png');background-size:100% 100%;background-repeat:no-repeat;background-color:#fff;box-shadow:0 0 0 1px #ddd, var(--shadow);page-break-after:auto;}
+/* צבע כחול-עט - מדמה מילוי הטופס בעט כחול ע"י העובד/ת (בניגוד לטקסט
+   השחור המודפס-מראש של הטופס הרשמי עצמו, שנשאר בתמונת הרקע). */
+.f101o-field{position:absolute;direction:rtl;text-align:right;unicode-bidi:plaintext;white-space:nowrap;overflow:hidden;line-height:1.15;color:#1a3fa8;font-family:Arial,sans-serif;}
+.f101o-field.ltr{direction:ltr;text-align:right;unicode-bidi:plaintext;}
+.f101o-digit{position:absolute;text-align:center;direction:ltr;line-height:1.1;color:#1a3fa8;font-family:Arial,sans-serif;}
+.f101o-x{position:absolute;display:flex;align-items:center;justify-content:center;font-weight:800;color:#1a3fa8;line-height:1;}
+.f101o-calib-box{display:none;position:absolute;border:1px solid #e0392b;background:rgba(224,57,43,0.08);box-sizing:border-box;pointer-events:none;}
+.form101-official-page.calibrate .f101o-calib-box{display:block;}
+.f101o-calib-box span{position:absolute;bottom:100%;right:0;background:#e0392b;color:#fff;font-size:6px;line-height:1.3;padding:0 2px;white-space:nowrap;}
+@media print{ .f101o-calib-box{display:none!important;} }
+
+/* ===== עורך מיפוי טופס 101 - גרירה/שינוי גודל (?editform101=1, פיתוח בלבד) ===== */
+.form101-official-page.editing .f101o-calib-box{pointer-events:auto;cursor:move;}
+.form101-official-page.editing .f101o-calib-box.selected{border:1.5px solid #1a3fa8;background:rgba(26,63,168,0.14);z-index:5;}
+.form101-official-page.editing .f101o-calib-box.selected span{background:#1a3fa8;}
+.f101o-resize-handle{position:absolute;bottom:-4px;left:-4px;width:9px;height:9px;background:#1a3fa8;border:1px solid #fff;border-radius:2px;cursor:nesw-resize;pointer-events:auto;}
+.f101-edit-panel{position:fixed;top:70px;left:16px;width:220px;max-height:calc(100vh - 90px);overflow-y:auto;background:#fff;border:1px solid var(--border-teal);border-radius:8px;box-shadow:var(--shadow);padding:12px;font-size:12px;z-index:80;}
+.f101-edit-title{font-weight:700;color:var(--header-text);margin-bottom:8px;}
+.f101-edit-subtitle{font-weight:700;color:var(--header-text);font-size:11px;margin:10px 0 4px;border-top:1px solid #eef2f4;padding-top:8px;}
+.f101-edit-select{width:100%;margin-bottom:10px;padding:4px;font-size:12px;}
+.f101-edit-empty{color:#8a94a3;font-size:11.5px;margin-bottom:8px;}
+.f101-edit-row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px;}
+.f101-edit-row label{color:#5c6b74;white-space:nowrap;}
+.f101-edit-row input[type="number"]{width:80px;padding:2px 4px;font-size:12px;}
+.f101-edit-hint{font-size:10.5px;color:#8a94a3;margin:8px 0;line-height:1.4;}
+.f101-edit-export{display:none;width:100%;height:140px;margin-top:8px;font-family:monospace;font-size:10px;direction:ltr;text-align:left;}
 .modal-overlay{position:fixed;inset:0;background:rgba(20,30,40,0.45);display:flex;align-items:center;justify-content:center;z-index:100;}
 .modal-box{background:#fff;border-radius:var(--radius);padding:24px;max-width:480px;width:92%;box-shadow:0 10px 40px rgba(0,0,0,.25);}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#20303c;color:#fff;padding:13px 22px;border-radius:8px;font-size:14px;z-index:200;box-shadow:0 6px 20px rgba(0,0,0,.25);animation:toastin .2s ease;}

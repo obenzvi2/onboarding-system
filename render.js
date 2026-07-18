@@ -48,16 +48,11 @@ function setScreen(screen){
   render();
 }
 function openCase(caseId, screen){
-  const c = getCase(caseId);
   // פרטי הזיהוי (שם, סוג זיהוי, מספר זהות/דרכון) נמסרים כבר בעת פתיחת
   // התיק, כך שאין יותר תלות בין טופס פרטי חשבון הבנק לבין השלמת טופס 101.
   ui.currentCaseId = caseId;
   ui.screen = screen || "case-home";
   ui.errors = {};
-  if(ui.screen==="bank-form"){
-    ui.bankFormDirty = false;
-    ui.bankFormSnapshot = c ? JSON.stringify(c.bank) : null;
-  }
   window.scrollTo(0,0);
   render();
 }
@@ -209,20 +204,9 @@ function renderEmployeeShell(){
     '<div class="sub">'+escapeHtml(companyName(c?c.companyId:""))+' &middot; '+escapeHtml(worksiteName(c?c.worksiteId:""))+'</div></div>' +
     '<div style="display:flex;align-items:center;gap:14px;">' +
       '<div class="sub">שנת מס '+(c?c.taxYear:"")+'</div>' +
-      '<button class="btn btn-secondary btn-sm" onclick="saveAndPauseEmployeeForm()">שמירה — אפשר לצאת ולהמשיך מאוחר יותר</button>' +
     '</div>' +
   '</div>' +
   '<main class="narrow">'+body+'</main>';
-}
-/* כפתור שמירה מפורש עבור העובד/ת: הנתונים נשמרים ממילא אוטומטית בכל
-   שינוי שדה (ר' saveDB בתוך render), אבל כפתור זה נותן אישור מפורש
-   ומאפשר לעובד/ת לצאת באמצע המילוי ולחזור אליו מאוחר יותר דרך אותו
-   קישור/טאב בלי לחשוש לאיבוד מידע - זה פותר את הבעיה שלא הייתה דרך
-   לשמור ולחזור אחורה מתוך טופס 101. */
-function saveAndPauseEmployeeForm(){
-  saveDB();
-  showToast("הנתונים נשמרו.");
-  backToFormsHome();
 }
 function afterRenderHook(){
   // הפעלת טולטיפים פתוחים מחדש אם צריך, וכן פוקוס בשדה שגיאה ראשון
@@ -666,6 +650,13 @@ function finalFieldError(path, value, emp){
 function updateEmp(path,value){
   const c = currentCase();
   setPath(c.employee, path, value);
+  // ביטול תיבת ההצהרה הוא בעצם החתימה הדיגיטלית של טופס 101 - ביטולה
+  // (uncheck) לאחר שהטופס כבר סומן כהושלם שקול ללחיצה על "נקה" בטפסי החתימה:
+  // מבטל את סימון "הושלם" כך שהלחצן "סיימתי" ננעל שוב עד להצהרה מחדש (ר' renderForm101SectionJ).
+  if(path==="declarationAccepted" && !value && c.employee.form101Status==="completed"){
+    c.employee.form101Status = "pending";
+    c.employee.form101CompletedAt = null;
+  }
   const errKey = (path==="phone2") ? "f101_mobilePhone" : errorKeyForPath(path);
   const fmtErr = liveFormatError(path, value);
   if(fmtErr) ui.errors[errKey] = fmtErr;
@@ -874,8 +865,8 @@ function submitForm101(){
   c.employee.form101Status = "completed";
   c.employee.form101CompletedAt = new Date().toISOString();
   c.documents = buildDocuments(c);
-  showToast("טופס 101 הושלם בהצלחה.");
-  printForm(c.id, "form101");
+  showToast('הטופס "כרטיס עובד (טופס 101)" סומן כהושלם.');
+  backToFormsHome();
 }
 
 function deferBankDetails(){
@@ -1079,6 +1070,15 @@ function renderCaseHome(){
    שעדיין לא קיבלו תוכן ייעודי משלהם (ר' FORM_CHECKLIST_DEFS).
    ============================================================ */
 function backToFormsHome(){
+  // מפעילים במכוון על mousedown (ר' backBtn ב-renderBankForm/renderGenericChecklistItem
+  // וכו') ולא על click: אם שדה טקסט (כמו מספר חשבון) עדיין ממוקד, יש
+  // לוודא שה-blur/onchange שלו רץ ונשמר *לפני* שמחליפים מסך - אחרת
+  // רינדור דחוי (setTimeout) שנוצר מה-blur עלול להחליף את ה-DOM בדיוק
+  // בין mousedown ל-click על כפתור "חזרה" ו"לבלוע" את הלחיצה (צריך
+  // ללחוץ פעמיים). קריאה יזומה ל-blur() כאן מריצה זאת באופן דטרמיניסטי.
+  const activeEl = document.activeElement;
+  if(activeEl && typeof activeEl.blur==="function" && activeEl!==document.body) activeEl.blur();
+  flushPendingRender();
   if(ui.mode==="employee"){
     ui.screen = "checklist";
     ui.errors = {};
@@ -1095,12 +1095,7 @@ function openChecklistItem(key){
   ui.activeChecklistKey = key;
   ui.errors = {};
   if(def.kind==="form101") ui.screen = "form101";
-  else if(def.kind==="bank"){
-    // כמו openCase - יש לאתחל את מעקב השינויים שלא נשמרו בכניסה לטופס הבנק.
-    ui.screen = "bank-form";
-    ui.bankFormDirty = false;
-    ui.bankFormSnapshot = JSON.stringify(c.bank);
-  }
+  else if(def.kind==="bank") ui.screen = "bank-form";
   else ui.screen = "genericForm";
   render();
 }
@@ -1114,16 +1109,6 @@ function viewCompletedChecklistItem(key){
   if(def.kind==="form101") printForm(c.id,"form101");
   else if(def.kind==="bank") printForm(c.id,"bank");
   else { ui.currentCaseId = c.id; ui.screen = "print-generic"; render(); }
-}
-function markChecklistItemDone(){
-  const c = currentCase();
-  const key = ui.activeChecklistKey;
-  const def = FORM_CHECKLIST_DEFS.find(f=>f.key===key);
-  if(!c || !def) return;
-  c.checklist[key] = true;
-  showToast('הטופס "'+def.label+'" סומן כהושלם.');
-  ui.screen = "checklist";
-  render();
 }
 function openGenericPreview(){
   ui.screen = "print-generic";
@@ -1180,15 +1165,17 @@ function renderGenericChecklistItem(){
   if(key==="polygraph") return renderPolygraphForm();
   if(key==="safety") return renderSafetyForm();
   if(key==="pensionConfirm") return renderPensionConfirmForm();
-  const done = !!c.checklist[key];
+  // מסך זה מוצג רק עבור UNBUILT_CHECKLIST_KEYS (טפסים שעדיין ללא תוכן אמיתי -
+  // ר' ההערה מעל הקבוע ב-state.js) - אין להם שום דבר לאמת, ולכן "סיימתי"
+  // נעול תמיד עד שייבנה תוכן אמיתי לטופס (ר' migrateCaseChecklist שמוודאת
+  // שהם לעולם לא יישארו מסומנים "הושלם" גם אם ננעלו קודם).
   return '' +
-  '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<button class="btn-link" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">'+escapeHtml(def.label)+'</h1>' +
-  '<div class="page-desc">תוכן מלא לטופס זה ייקבע בהמשך הפיתוח. בשלב זה ניתן לצפות בתצוגה מקדימה להדפסה, ולסמן שהמילוי/החתימה הושלמו.</div>' +
-  (done ? '<div class="alert alert-info">טופס זה כבר סומן כהושלם. ניתן לצפות בו שוב או לסמן מחדש.</div>' : '') +
+  '<div class="page-desc">תוכן מלא לטופס זה ייקבע בהמשך הפיתוח. בשלב זה ניתן לצפות בתצוגה מקדימה בלבד; לא ניתן לסמן כהושלם עד שייבנה תוכן אמיתי.</div>' +
   '<div class="btn-row">' +
     '<button class="btn btn-secondary" onclick="openGenericPreview()">תצוגה מקדימה</button>' +
-    '<button class="btn btn-primary" onclick="markChecklistItemDone()">סיימתי</button>' +
+    '<button class="btn btn-primary" disabled title="הטופס עדיין לא קיים - לא ניתן לסמן כהושלם">סיימתי</button>' +
   '</div>';
 }
 function renderPrintGeneric(){
@@ -1299,7 +1286,12 @@ function initSignaturePad(canvasId,key){
 }
 function clearSignaturePad(canvasId,key){
   const c = currentCase();
-  if(c && c.checklistData && c.checklistData[key]) c.checklistData[key].signature = "";
+  // ניקוי החתימה מבטל גם את התאריך הנעול (שנקבע בעבר בעת "סיימתי") - התאריך
+  // חוזר להיות תצוגת "היום" חיה עד לחתימה+סיום מחדש (ר' finishXxxForm/renderXxxForm).
+  if(c && c.checklistData && c.checklistData[key]){
+    c.checklistData[key].signature = "";
+    c.checklistData[key].date = "";
+  }
   // ניקוי החתימה מבטל את סימון "הושלם" - כך שלחצן "סיימתי" ננעל שוב עד
   // לחתימה מחדש ולחיצה חוזרת עליו.
   if(c && c.checklist && c.checklist[key]) c.checklist[key] = false;
@@ -1320,27 +1312,18 @@ function clearSignaturePad(canvasId,key){
    שם, סוג זיהוי ומספר זהות/דרכון נמשכים מפרטי התיק (כמו בטופס 101/טופס הבנק) ומוצגים
    לקריאה בלבד. יש למלא תאריך ולחתום בקנבס החתימה (ר' signaturePadHtml למעלה) -
    שני אלה נדרשים לפני שניתן לסמן את הטופס כהושלם. */
-function updateEmailAccessDate(val){
-  const c = currentCase();
-  if(!c) return;
-  if(!c.checklistData) c.checklistData = {};
-  if(!c.checklistData.emailAccess) c.checklistData.emailAccess = {date:""};
-  c.checklistData.emailAccess.date = val;
-  render();
-}
 function finishEmailAccessForm(){
   const c = currentCase();
   if(!c) return;
-  const dateVal = c.checklistData && c.checklistData.emailAccess && c.checklistData.emailAccess.date;
-  if(!dateVal){
-    showToast("יש להזין תאריך לפני סיום.");
-    return;
-  }
-  const sigVal = c.checklistData && c.checklistData.emailAccess && c.checklistData.emailAccess.signature;
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.emailAccess) c.checklistData.emailAccess = {date:"", signature:""};
+  const sigVal = c.checklistData.emailAccess.signature;
   if(!sigVal){
     showToast("יש לחתום לפני סיום.");
     return;
   }
+  // התאריך ננעל אוטומטית למועד הסיום בפועל - אינו ניתן לעריכה ידנית (ר' renderEmailAccessForm)
+  c.checklistData.emailAccess.date = todayIso();
   c.checklist.emailAccess = true;
   showToast('הטופס "אישור על כניסה לתיבת דוא"ל" סומן כהושלם.');
   ui.screen = "checklist";
@@ -1369,23 +1352,21 @@ function renderEmailAccessForm(){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
   const done = !!c.checklist.emailAccess;
-  // בכניסה ראשונה לטופס (לפני שהוזן תאריך כלשהו) - ברירת המחדל היא תאריך
-  // היום, אך ניתן לשנות אותה כרגיל.
   if(!c.checklistData) c.checklistData = {};
   if(!c.checklistData.emailAccess) c.checklistData.emailAccess = {date:"", signature:""};
-  if(!c.checklistData.emailAccess.date) c.checklistData.emailAccess.date = todayIso();
-  const dateVal = c.checklistData.emailAccess.date;
-  const sigVal = (c.checklistData && c.checklistData.emailAccess && c.checklistData.emailAccess.signature) || "";
-  const canFinish = !!dateVal && !!sigVal && !done;
+  const sigVal = c.checklistData.emailAccess.signature || "";
+  // התאריך אינו ניתן לעריכה ידנית - הוא ננעל אוטומטית למועד החתימה בפועל
+  // בעת לחיצה על "סיימתי" (ר' finishEmailAccessForm). כל עוד לא נחתם, מוצג
+  // תאריך היום כברירת מחדל בלבד ולא נשמר.
+  const displayDate = c.checklistData.emailAccess.date || todayIso();
+  const canFinish = !!sigVal && !done;
   return '' +
-  '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<button class="btn-link" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">אישור על כניסה לתיבת דוא"ל</h1>' +
-  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש להזין תאריך ולחתום למטה.</div>' +
+  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש לחתום למטה - התאריך יתעדכן אוטומטית למועד החתימה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
     emailAccessLetterHtml(c) +
-    '<div class="form-grid cols-2" style="margin-top:14px;max-width:420px;">' +
-      f101FieldWrap("emailAccess_date","תאריך",true,'<input type="date" id="emailAccess_date" value="'+escapeHtml(dateVal)+'" max="'+todayIso()+'" onchange="updateEmailAccessDate(this.value)">') +
-    '</div>' +
+    '<div style="margin-top:14px;font-size:14px;"><b>תאריך:</b> '+escapeHtml(formatDateHe(displayDate))+'</div>' +
     '<div style="margin-top:14px;">' +
       '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימת העובד/ת <span class="req-star">*</span></label>' +
       signaturePadHtml("emailAccess_sigCanvas","emailAccess") +
@@ -1418,27 +1399,18 @@ function renderPrintEmailAccess(c, backOnclick, backLabel){
 
 /* ---------- אישור עובד לביצוע בדיקת תאי אחסון - תוכן אמיתי (זהה במבנה לטופס
    "אישור על כניסה לתיבת דוא"ל" לעיל, רק הנוסח שונה) ---------- */
-function updateLockerCheckDate(val){
-  const c = currentCase();
-  if(!c) return;
-  if(!c.checklistData) c.checklistData = {};
-  if(!c.checklistData.lockerCheck) c.checklistData.lockerCheck = {date:""};
-  c.checklistData.lockerCheck.date = val;
-  render();
-}
 function finishLockerCheckForm(){
   const c = currentCase();
   if(!c) return;
-  const dateVal = c.checklistData && c.checklistData.lockerCheck && c.checklistData.lockerCheck.date;
-  if(!dateVal){
-    showToast("יש להזין תאריך לפני סיום.");
-    return;
-  }
-  const sigVal = c.checklistData && c.checklistData.lockerCheck && c.checklistData.lockerCheck.signature;
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.lockerCheck) c.checklistData.lockerCheck = {date:"", signature:""};
+  const sigVal = c.checklistData.lockerCheck.signature;
   if(!sigVal){
     showToast("יש לחתום לפני סיום.");
     return;
   }
+  // התאריך ננעל אוטומטית למועד הסיום בפועל - אינו ניתן לעריכה ידנית (ר' renderLockerCheckForm)
+  c.checklistData.lockerCheck.date = todayIso();
   c.checklist.lockerCheck = true;
   showToast('הטופס "אישור עובד לביצוע בדיקת תאי אחסון" סומן כהושלם.');
   ui.screen = "checklist";
@@ -1466,23 +1438,19 @@ function renderLockerCheckForm(){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
   const done = !!c.checklist.lockerCheck;
-  // בכניסה ראשונה לטופס (לפני שהוזן תאריך כלשהו) - ברירת המחדל היא תאריך
-  // היום, אך ניתן לשנות אותה כרגיל.
   if(!c.checklistData) c.checklistData = {};
   if(!c.checklistData.lockerCheck) c.checklistData.lockerCheck = {date:"", signature:""};
-  if(!c.checklistData.lockerCheck.date) c.checklistData.lockerCheck.date = todayIso();
-  const dateVal = c.checklistData.lockerCheck.date;
   const sigVal = c.checklistData.lockerCheck.signature || "";
-  const canFinish = !!dateVal && !!sigVal && !done;
+  // התאריך אינו ניתן לעריכה ידנית - ננעל אוטומטית למועד החתימה בפועל (ר' finishLockerCheckForm)
+  const displayDate = c.checklistData.lockerCheck.date || todayIso();
+  const canFinish = !!sigVal && !done;
   return '' +
-  '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<button class="btn-link" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">אישור עובד לביצוע בדיקת תאי אחסון</h1>' +
-  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש להזין תאריך ולחתום למטה.</div>' +
+  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש לחתום למטה - התאריך יתעדכן אוטומטית למועד החתימה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
     lockerCheckLetterHtml(c) +
-    '<div class="form-grid cols-2" style="margin-top:14px;max-width:420px;">' +
-      f101FieldWrap("lockerCheck_date","תאריך",true,'<input type="date" id="lockerCheck_date" value="'+escapeHtml(dateVal)+'" max="'+todayIso()+'" onchange="updateLockerCheckDate(this.value)">') +
-    '</div>' +
+    '<div style="margin-top:14px;font-size:14px;"><b>תאריך:</b> '+escapeHtml(formatDateHe(displayDate))+'</div>' +
     '<div style="margin-top:14px;">' +
       '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימת העובד/ת <span class="req-star">*</span></label>' +
       signaturePadHtml("lockerCheck_sigCanvas","lockerCheck") +
@@ -1517,27 +1485,18 @@ function renderPrintLockerCheck(c, backOnclick, backLabel){
    "הודעה והסכמה בדבר איסוף, עיבוד ומסירת מידע אישי – מאגר עובדים") ----------
    שם החברה נמשך מפרטי התיק, ח.פ נמשך מפרטי החברה כפי שהוזנו בהגדרות המערכת,
    ושם/מספר הזהות של העובד/ת נמשכים מכרטיס העובד - כל השדות הללו לקריאה בלבד. */
-function updateDataConsentDate(val){
-  const c = currentCase();
-  if(!c) return;
-  if(!c.checklistData) c.checklistData = {};
-  if(!c.checklistData.dataConsent) c.checklistData.dataConsent = {date:""};
-  c.checklistData.dataConsent.date = val;
-  render();
-}
 function finishDataConsentForm(){
   const c = currentCase();
   if(!c) return;
-  const dateVal = c.checklistData && c.checklistData.dataConsent && c.checklistData.dataConsent.date;
-  if(!dateVal){
-    showToast("יש להזין תאריך לפני סיום.");
-    return;
-  }
-  const sigVal = c.checklistData && c.checklistData.dataConsent && c.checklistData.dataConsent.signature;
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.dataConsent) c.checklistData.dataConsent = {date:"", signature:""};
+  const sigVal = c.checklistData.dataConsent.signature;
   if(!sigVal){
     showToast("יש לחתום לפני סיום.");
     return;
   }
+  // התאריך ננעל אוטומטית למועד הסיום בפועל - אינו ניתן לעריכה ידנית (ר' renderDataConsentForm)
+  c.checklistData.dataConsent.date = todayIso();
   c.checklist.dataConsent = true;
   showToast('הטופס "הסכמה בדבר איסוף, עיבוד ומסירת מידע אישי" סומן כהושלם.');
   ui.screen = "checklist";
@@ -1586,23 +1545,19 @@ function renderDataConsentForm(){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
   const done = !!c.checklist.dataConsent;
-  // בכניסה ראשונה לטופס (לפני שהוזן תאריך כלשהו) - ברירת המחדל היא תאריך
-  // היום, אך ניתן לשנות אותה כרגיל.
   if(!c.checklistData) c.checklistData = {};
   if(!c.checklistData.dataConsent) c.checklistData.dataConsent = {date:"", signature:""};
-  if(!c.checklistData.dataConsent.date) c.checklistData.dataConsent.date = todayIso();
-  const dateVal = c.checklistData.dataConsent.date;
   const sigVal = c.checklistData.dataConsent.signature || "";
-  const canFinish = !!dateVal && !!sigVal && !done;
+  // התאריך אינו ניתן לעריכה ידנית - ננעל אוטומטית למועד החתימה בפועל (ר' finishDataConsentForm)
+  const displayDate = c.checklistData.dataConsent.date || todayIso();
+  const canFinish = !!sigVal && !done;
   return '' +
-  '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<button class="btn-link" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">הודעה והסכמה בדבר איסוף, עיבוד ומסירת מידע אישי – מאגר עובדים</h1>' +
-  '<div class="page-desc">הפרטים האישיים ופרטי החברה מולאו אוטומטית מפרטי תיק הקליטה ומהגדרות המערכת. יש להזין תאריך ולחתום למטה.</div>' +
+  '<div class="page-desc">הפרטים האישיים ופרטי החברה מולאו אוטומטית מפרטי תיק הקליטה ומהגדרות המערכת. יש לחתום למטה - התאריך יתעדכן אוטומטית למועד החתימה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
     dataConsentLetterHtml(c) +
-    '<div class="form-grid cols-2" style="margin-top:14px;max-width:420px;">' +
-      f101FieldWrap("dataConsent_date","תאריך",true,'<input type="date" id="dataConsent_date" value="'+escapeHtml(dateVal)+'" max="'+todayIso()+'" onchange="updateDataConsentDate(this.value)">') +
-    '</div>' +
+    '<div style="margin-top:14px;font-size:14px;"><b>תאריך:</b> '+escapeHtml(formatDateHe(displayDate))+'</div>' +
     '<div style="margin-top:14px;">' +
       '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימת העובד/ת <span class="req-star">*</span></label>' +
       signaturePadHtml("dataConsent_sigCanvas","dataConsent") +
@@ -1648,14 +1603,6 @@ const COMPANY_FOOTER_HTML = '<div style="margin-top:26px;padding-top:8px;border-
   '<div>ת.ד 4033 מיקוד 77140 אשדוד | טלפון: 08-8516000 | פקס: 08-8516009 | www.orshar.co.il | info@orshar.co.il</div>' +
 '</div>';
 const POLYGRAPH_COMPANY_NAME = 'אורשר מחסני ערובה 1985 בע"מ';
-function updatePolygraphDate(val){
-  const c = currentCase();
-  if(!c) return;
-  if(!c.checklistData) c.checklistData = {};
-  if(!c.checklistData.polygraph) c.checklistData.polygraph = {date:"", employeeNumber:"", cardNumber:""};
-  c.checklistData.polygraph.date = val;
-  render();
-}
 function updatePolygraphField(field,val){
   const c = currentCase();
   if(!c) return;
@@ -1667,16 +1614,15 @@ function updatePolygraphField(field,val){
 function finishPolygraphForm(){
   const c = currentCase();
   if(!c) return;
-  const dateVal = c.checklistData && c.checklistData.polygraph && c.checklistData.polygraph.date;
-  if(!dateVal){
-    showToast("יש להזין תאריך לפני סיום.");
-    return;
-  }
-  const sigVal = c.checklistData && c.checklistData.polygraph && c.checklistData.polygraph.signature;
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.polygraph) c.checklistData.polygraph = {date:"", employeeNumber:"", cardNumber:"", signature:""};
+  const sigVal = c.checklistData.polygraph.signature;
   if(!sigVal){
     showToast("יש לחתום לפני סיום.");
     return;
   }
+  // התאריך ננעל אוטומטית למועד הסיום בפועל - אינו ניתן לעריכה ידנית (ר' renderPolygraphForm)
+  c.checklistData.polygraph.date = todayIso();
   c.checklist.polygraph = true;
   showToast('הטופס "נוהל מוסכם לבדיקת פוליגרף" סומן כהושלם.');
   ui.screen = "checklist";
@@ -1724,17 +1670,16 @@ function renderPolygraphForm(){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
   const done = !!c.checklist.polygraph;
-  // בכניסה ראשונה לטופס (לפני שהוזן תאריך כלשהו) - ברירת המחדל היא תאריך
-  // היום, אך ניתן לשנות אותה כרגיל.
   if(!c.checklistData) c.checklistData = {};
   if(!c.checklistData.polygraph) c.checklistData.polygraph = {date:"", employeeNumber:"", cardNumber:"", signature:""};
-  if(!c.checklistData.polygraph.date) c.checklistData.polygraph.date = todayIso();
   const data = c.checklistData.polygraph;
-  const canFinish = !!data.date && !!data.signature && !done;
+  // התאריך אינו ניתן לעריכה ידנית - ננעל אוטומטית למועד החתימה בפועל (ר' finishPolygraphForm)
+  const displayDate = data.date || todayIso();
+  const canFinish = !!data.signature && !done;
   return '' +
-  '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<button class="btn-link" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">'+POLYGRAPH_TITLE+'</h1>' +
-  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. "מספר עובד" ו"מס\' כרטיס" ניתנים למילוי חופשי. יש להזין תאריך ולחתום למטה.</div>' +
+  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. "מספר עובד" ו"מס\' כרטיס" ניתנים למילוי חופשי. יש לחתום למטה - התאריך יתעדכן אוטומטית למועד החתימה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
     COMPANY_LOGO_HTML +
     '<div class="form-grid cols-5" style="margin-bottom:16px;">' +
@@ -1743,9 +1688,7 @@ function renderPolygraphForm(){
       f101FieldWrap("polygraph_cardNumber","מס\' כרטיס",false,'<input type="text" id="polygraph_cardNumber" value="'+escapeHtml(data.cardNumber||"")+'" onchange="updatePolygraphField(\'cardNumber\',this.value)">') +
     '</div>' +
     polygraphBodyHtml() +
-    '<div class="form-grid cols-2" style="margin-top:14px;max-width:420px;">' +
-      f101FieldWrap("polygraph_date","תאריך",true,'<input type="date" id="polygraph_date" value="'+escapeHtml(data.date||"")+'" max="'+todayIso()+'" onchange="updatePolygraphDate(this.value)">') +
-    '</div>' +
+    '<div style="margin-top:14px;font-size:14px;"><b>תאריך:</b> '+escapeHtml(formatDateHe(displayDate))+'</div>' +
     '<div style="margin-top:14px;">' +
       '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימת העובד/ת <span class="req-star">*</span></label>' +
       signaturePadHtml("polygraph_sigCanvas","polygraph") +
@@ -1792,27 +1735,18 @@ function renderPrintPolygraph(c, backOnclick, backLabel){
    מכרטיס העובד/ת (לקריאה בלבד), אותה תבנית לוגו/כותרת תחתונה כמו בטופס
    הפוליגרף (ר' COMPANY_LOGO_HTML / COMPANY_FOOTER_HTML). */
 const SAFETY_TITLE = 'הנחיות בטיחות בעבודה לעובד/ת חדש/ה';
-function updateSafetyDate(val){
-  const c = currentCase();
-  if(!c) return;
-  if(!c.checklistData) c.checklistData = {};
-  if(!c.checklistData.safety) c.checklistData.safety = {date:""};
-  c.checklistData.safety.date = val;
-  render();
-}
 function finishSafetyForm(){
   const c = currentCase();
   if(!c) return;
-  const dateVal = c.checklistData && c.checklistData.safety && c.checklistData.safety.date;
-  if(!dateVal){
-    showToast("יש להזין תאריך לפני סיום.");
-    return;
-  }
-  const sigVal = c.checklistData && c.checklistData.safety && c.checklistData.safety.signature;
+  if(!c.checklistData) c.checklistData = {};
+  if(!c.checklistData.safety) c.checklistData.safety = {date:"", signature:""};
+  const sigVal = c.checklistData.safety.signature;
   if(!sigVal){
     showToast("יש לחתום לפני סיום.");
     return;
   }
+  // התאריך ננעל אוטומטית למועד הסיום בפועל - אינו ניתן לעריכה ידנית (ר' renderSafetyForm)
+  c.checklistData.safety.date = todayIso();
   c.checklist.safety = true;
   showToast('הטופס "הנחיות בטיחות בעבודה" סומן כהושלם.');
   ui.screen = "checklist";
@@ -1896,22 +1830,21 @@ function renderSafetyForm(){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
   const done = !!c.checklist.safety;
-  // בכניסה ראשונה לטופס (לפני שהוזן תאריך כלשהו) - ברירת המחדל היא תאריך
-  // היום, אך ניתן לשנות אותה כרגיל.
   if(!c.checklistData) c.checklistData = {};
   if(!c.checklistData.safety) c.checklistData.safety = {date:"", signature:""};
-  if(!c.checklistData.safety.date) c.checklistData.safety.date = todayIso();
   const data = c.checklistData.safety;
-  const canFinish = !!data.date && !!data.signature && !done;
+  // התאריך אינו ניתן לעריכה ידנית - ננעל אוטומטית למועד החתימה בפועל (ר' finishSafetyForm)
+  const displayDate = data.date || todayIso();
+  const canFinish = !!data.signature && !done;
   return '' +
-  '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<button class="btn-link" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">'+SAFETY_TITLE+'</h1>' +
-  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש להזין תאריך ולחתום למטה.</div>' +
+  '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש לחתום למטה - התאריך יתעדכן אוטומטית למועד החתימה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
     COMPANY_LOGO_HTML +
     safetyBodyHtml() +
     '<div class="form-grid cols-4" style="margin-top:12px;">' +
-      f101FieldWrap("safety_date","תאריך",true,'<input type="date" id="safety_date" value="'+escapeHtml(data.date||"")+'" max="'+todayIso()+'" onchange="updateSafetyDate(this.value)">') +
+      '<div><b>תאריך:</b> '+escapeHtml(formatDateHe(displayDate))+'</div>' +
       safetyStaticFieldsHtml(c) +
     '</div>' +
     '<div style="margin-top:14px;">' +
@@ -1974,22 +1907,18 @@ function pensionClauseHtml(label,text){
     '<span style="position:absolute;right:0;">'+escapeHtml(label)+'</span>'+escapeHtml(text)+
   '</div>';
 }
-function updatePensionConfirmDate(val){
+function finishPensionConfirmForm(){
   const c = currentCase();
   if(!c) return;
   if(!c.checklistData) c.checklistData = {};
   if(!c.checklistData.pensionConfirm) c.checklistData.pensionConfirm = {date:"",signature:""};
-  c.checklistData.pensionConfirm.date = val;
-  render();
-}
-function finishPensionConfirmForm(){
-  const c = currentCase();
-  if(!c) return;
-  const data = c.checklistData && c.checklistData.pensionConfirm;
-  if(!data || !data.date || !data.signature){
-    showToast("יש להזין תאריך ולחתום לפני סיום.");
+  const data = c.checklistData.pensionConfirm;
+  if(!data.signature){
+    showToast("יש לחתום לפני סיום.");
     return;
   }
+  // התאריך ננעל אוטומטית למועד הסיום בפועל - אינו ניתן לעריכה ידנית (ר' renderPensionConfirmForm)
+  data.date = todayIso();
   c.checklist.pensionConfirm = true;
   showToast('הטופס "אישור בדבר תשלומי מעבידים לקרן פנסיה ולקופת ביטוח" סומן כהושלם.');
   ui.screen = "checklist";
@@ -2020,20 +1949,19 @@ function renderPensionConfirmForm(){
   const done = !!c.checklist.pensionConfirm;
   if(!c.checklistData) c.checklistData = {};
   if(!c.checklistData.pensionConfirm) c.checklistData.pensionConfirm = {date:"",signature:""};
-  if(!c.checklistData.pensionConfirm.date) c.checklistData.pensionConfirm.date = todayIso();
   const data = c.checklistData.pensionConfirm;
-  const canFinish = !!data.date && !!data.signature && !done;
+  // התאריך אינו ניתן לעריכה ידנית - ננעל אוטומטית למועד החתימה בפועל (ר' finishPensionConfirmForm)
+  const displayDate = data.date || todayIso();
+  const canFinish = !!data.signature && !done;
   return '' +
-  '<button class="btn-link" onclick="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<button class="btn-link" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">'+escapeHtml(PENSION_CONFIRM_TITLE)+'</h1>' +
-  '<div class="page-desc">זהו נוסח משפטי-סטטוטורי קבוע. יש להזין תאריך ולחתום למטה; חתימת המעביד מוצגת אוטומטית לפי פרטי החברה.</div>' +
+  '<div class="page-desc">זהו נוסח משפטי-סטטוטורי קבוע. יש לחתום למטה - התאריך יתעדכן אוטומטית למועד החתימה; חתימת המעביד מוצגת אוטומטית לפי פרטי החברה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
     '<div style="font-weight:700;text-decoration:underline;text-align:center;margin-bottom:6px;">'+escapeHtml(PENSION_CONFIRM_TITLE)+'</div>' +
     '<div style="font-weight:700;text-align:center;margin-bottom:14px;">'+escapeHtml(PENSION_CONFIRM_SUBTITLE)+'</div>' +
     pensionConfirmBodyHtml() +
-    '<div class="form-grid cols-2" style="margin-top:16px;max-width:300px;">' +
-      f101FieldWrap("pensionConfirm_date","תאריך",true,'<input type="date" id="pensionConfirm_date" value="'+escapeHtml(data.date||"")+'" max="'+todayIso()+'" onchange="updatePensionConfirmDate(this.value)">') +
-    '</div>' +
+    '<div style="margin-top:16px;font-size:14px;"><b>תאריך:</b> '+escapeHtml(formatDateHe(displayDate))+'</div>' +
     '<div style="margin-top:14px;">' +
       '<label style="font-weight:600;font-size:13.5px;display:block;margin-bottom:6px;">חתימת העובד/ת <span class="req-star">*</span></label>' +
       signaturePadHtml("pensionConfirm_sigCanvas","pensionConfirm") +
@@ -2093,7 +2021,7 @@ function renderForm101(isHr){
   '<div class="anchor-nav no-print">' +
     anchors.map(a=>'<a href="#'+a[0]+'">'+a[1]+'</a>').join("") +
   '</div>' +
-  '<div class="btn-row" style="margin:16px 0;"><button class="btn-link" onclick="backToFormsHome()">&rarr; '+(isHr?"חזרה למסך התיק":"חזרה לרשימת הטפסים")+'</button></div>' +
+  '<div class="btn-row" style="margin:16px 0;"><button class="btn-link" onmousedown="backToFormsHome()">&rarr; '+(isHr?"חזרה למסך התיק":"חזרה לרשימת הטפסים")+'</button></div>' +
   '<h1 id="sec-a">כרטיס עובד (טופס 101)</h1>' +
   '<div class="page-desc">יש למלא את כל השדות המסומנים בכוכבית אדומה. לכל שדה עם סימן שאלה כחול ניתן ללחוץ לקבלת הסבר.</div>' +
   (errCount?('<div class="alert alert-error" id="error-summary"><b>נמצאו '+errCount+' שגיאות למילוי:</b><div>'+
@@ -2116,7 +2044,7 @@ function renderForm101(isHr){
   renderForm101SectionG(c) +
   renderForm101SectionH(c) +
   renderForm101SectionI(c) +
-  renderForm101SectionJ(c,isHr);
+  renderForm101SectionJ(c);
 }
 
 function radioGroupHtml(name,options,current,onchangeFn){
@@ -2565,16 +2493,18 @@ function renderForm101BankSection(c){
 }
 
 /* ---------- י. הצהרה וסיום ---------- */
-function renderForm101SectionJ(c,isHr){
+function renderForm101SectionJ(c){
   const emp = c.employee;
+  const done = emp.form101Status === "completed";
   return '' +
   '<h2 class="section-title" id="sec-j">י. הצהרה וסיום</h2>' +
   '<div class="panel">' +
     '<label class="check-row"><input type="checkbox" id="f101_declaration" '+(emp.declarationAccepted?"checked":"")+' onchange="updateEmp(\'declarationAccepted\',this.checked)"> אני מצהיר/ה כי הפרטים שמסרתי בטופס מלאים ונכונים.</label>' +
     (ui.errors["f101_declaration"]?'<div class="field-error">'+ui.errors["f101_declaration"]+'</div>':'') +
+    (done ? '<div class="alert alert-info">טופס זה כבר סומן כהושלם. יש לבטל את תיבת ההצהרה כדי לערוך ולסמן מחדש.</div>' : '') +
     '<div class="btn-row">' +
-      '<button class="btn btn-primary" onclick="submitForm101()">סיים והדפס טופס 101</button>' +
-      (!isHr ? '<button class="btn btn-secondary" onclick="saveAndPauseEmployeeForm()">שמירה — אפשר לצאת ולהמשיך מאוחר יותר</button>' : '') +
+      '<button class="btn btn-secondary" onclick="printForm(\''+c.id+'\',\'form101\')">תצוגה מקדימה</button>' +
+      '<button class="btn btn-primary" '+(done?"disabled":"")+' onclick="submitForm101()">סיימתי</button>' +
     '</div>' +
     '<div class="field-hint-static" style="margin-top:10px;">אין חתימה דיגיטלית — הטופס יודפס ויחתם פיזית על ידי העובד/ת.</div>' +
   '</div>';
@@ -2591,51 +2521,15 @@ function updateBank(path,value){
   // תלויה בבנק שנבחר, ואין להשאיר קוד סניף שלא שייך לבנק החדש.
   // המשתמש/ת חייב/ת לבחור מחדש סניף מתוך רשימת הסניפים של הבנק החדש.
   if(path==="bankCode") c.bank.branchCode="";
-  ui.bankFormDirty = true;
-  render();
-}
-/* --- ניווט חזרה לתיק הקליטה מתוך טופס הבנק, עם בדיקת שינויים שלא נשמרו --- */
-function attemptLeaveBankForm(){
-  const c = currentCase();
-  if(!c) return;
-  if(ui.bankFormDirty){
-    ui.showBankLeaveModal = true;
-    render();
-  } else {
-    backToFormsHome();
+  // ביטול תיבת "אני מאשר/ת..." הוא בעצם החתימה הדיגיטלית של טופס הבנק - ביטולה
+  // (uncheck) לאחר שהטופס כבר סומן כהושלם שקול ללחיצה על "נקה" בטפסי החתימה:
+  // מבטל את סימון "הושלם" כך שהלחצן "סיימתי" ננעל שוב עד לאישור מחדש (ר' renderBankForm).
+  if(path==="confirmed" && !value && c.bank.status==="completed"){
+    c.bank.status = "pending";
+    c.bank.completedAt = null;
+    c.bank.date = "";
   }
-}
-function saveBankDraftAndLeave(){
-  ui.showBankLeaveModal = false;
-  ui.bankFormDirty = false;
-  showToast("הטיוטה נשמרה.");
-  backToFormsHome();
-}
-function leaveBankFormWithoutSaving(){
-  const c = currentCase();
-  // ביטול השינויים שבוצעו מאז כניסה למסך - שחזור הנתונים למצב שהיה בעת
-  // הכניסה לטופס (ui.bankFormSnapshot), כפי שסוכם בכלל אי-שמירת השינויים.
-  if(c && ui.bankFormSnapshot){
-    try{ c.bank = JSON.parse(ui.bankFormSnapshot); }catch(e){}
-  }
-  ui.showBankLeaveModal = false;
-  ui.bankFormDirty = false;
-  backToFormsHome();
-}
-function stayInBankForm(){
-  ui.showBankLeaveModal = false;
   render();
-}
-function renderBankLeaveModal(){
-  return '<div class="modal-overlay" onclick="if(event.target===this) stayInBankForm()"><div class="modal-box">' +
-    '<h2 class="section-title" style="margin-top:0;">שינויים שלא נשמרו</h2>' +
-    '<div style="margin-bottom:16px;">קיימים שינויים שלא נשמרו. האם לשמור טיוטה לפני החזרה לתיק?</div>' +
-    '<div class="btn-row" style="flex-wrap:wrap;">' +
-      '<button class="btn btn-primary" onclick="saveBankDraftAndLeave()">שמור טיוטה וחזור לתיק</button>' +
-      '<button class="btn btn-secondary" onclick="leaveBankFormWithoutSaving()">חזור בלי לשמור</button>' +
-      '<button class="btn btn-secondary" onclick="stayInBankForm()">הישאר בטופס</button>' +
-    '</div>' +
-  '</div></div>';
 }
 /* --- שדה בנק/סניף: רשימה נפתחת אחת שניתן גם להקליד בתוכה (ללא שדה חיפוש נפרד) ---
    רכיב combobox נגיש (ARIA) עם תמיכה מלאה במקלדת בנוסף לבחירה בעכבר:
@@ -2832,12 +2726,14 @@ function submitBankForm(){
     setTimeout(()=>{ scrollToField(Object.keys(errs)[0]); },60);
     return;
   }
+  // התאריך ננעל אוטומטית למועד הסיום בפועל - אינו ניתן לעריכה ידנית (ר' renderBankForm),
+  // בדיוק כמו בטפסי החתימה הדיגיטלית האחרים.
+  c.bank.date = todayIso();
   c.bank.status="completed";
   c.bank.completedAt=new Date().toISOString();
   c.documents = buildDocuments(c);
-  ui.bankFormDirty = false;
-  showToast("טופס פרטי חשבון הבנק הושלם והודפס בהצלחה.");
-  printForm(c.id,"bank");
+  showToast('הטופס "פרטי חשבון בנק להעברת משכורת" סומן כהושלם.');
+  backToFormsHome();
 }
 function renderBankForm(isHr){
   const c = currentCase();
@@ -2846,11 +2742,16 @@ function renderBankForm(isHr){
   const e = (k)=>ui.errors[k]?" err":"";
   const idLabel = emp.idType==="id" ? "מספר זהות" : "מספר דרכון";
   const idValue = emp.idType==="id" ? emp.idNumber : emp.passportNumber;
-  const backBtn = '<button class="btn-link" onclick="attemptLeaveBankForm()">&rarr; '+(isHr?"חזרה לתיק הקליטה":"חזרה לרשימת הטפסים")+'</button>';
+  const backBtn = '<button class="btn-link" onmousedown="backToFormsHome()">&rarr; '+(isHr?"חזרה לתיק הקליטה":"חזרה לרשימת הטפסים")+'</button>';
   const idOk = emp.idType==="id" ? !!(emp.idNumber||"").trim() : !!(emp.passportNumber||"").trim();
   const employeeOk = !!(emp.firstName && emp.lastName && idOk);
   const bankFieldsOk = !!(b.bankCode && b.branchCode && b.accountNumber && /^\d{1,15}$/.test((b.accountNumber||"").trim()));
-  const canSubmit = employeeOk && bankFieldsOk && b.confirmed;
+  const done = b.status === "completed";
+  // כמו בטפסי החתימה הדיגיטלית - לאחר שהטופס סומן כהושלם, "סיימתי" ננעל
+  // שוב עד לביטול תיבת האישור (ר' updateBank) ואישור מחדש.
+  const canSubmit = employeeOk && bankFieldsOk && b.confirmed && !done;
+  // התאריך אינו ניתן לעריכה ידנית - ננעל אוטומטית למועד האישור בפועל (ר' submitBankForm/updateBank)
+  const displayDate = b.date || todayIso();
   return '' +
   backBtn +
   '<h1 style="margin-top:14px;">טופס פרטי חשבון בנק להעברת משכורת</h1>' +
@@ -2878,11 +2779,13 @@ function renderBankForm(isHr){
   '<hr class="divider">' +
   '<label class="check-row"><input type="checkbox" id="bank_confirmed" '+(b.confirmed?"checked":"")+' onchange="updateBank(\'confirmed\',this.checked)"> אני מאשר/ת כי פרטי החשבון שמסרתי נכונים.</label>' +
   (ui.errors["bank_confirmed"]?'<div class="field-error">'+ui.errors["bank_confirmed"]+'</div>':'') +
+  '<div style="margin-top:14px;font-size:14px;"><b>תאריך:</b> '+escapeHtml(formatDateHe(displayDate))+'</div>' +
+  (done ? '<div class="alert alert-info">טופס זה כבר סומן כהושלם. יש לבטל את תיבת האישור כדי לערוך ולסמן מחדש.</div>' : '') +
   '<div class="btn-row">' +
-    '<button class="btn btn-primary" '+(canSubmit?"":"disabled")+' onclick="submitBankForm()">סיים והדפס טופס פרטי חשבון בנק</button>' +
+    '<button class="btn btn-secondary" onclick="printForm(\''+c.id+'\',\'bank\')">תצוגה מקדימה</button>' +
+    '<button class="btn btn-primary" '+(canSubmit?"":"disabled")+' onclick="submitBankForm()">סיימתי</button>' +
   '</div>' +
-  '</div>' +
-  (ui.showBankLeaveModal ? renderBankLeaveModal() : "");
+  '</div>';
 }
 /* ============================================================
    12. מסך מסמכים
