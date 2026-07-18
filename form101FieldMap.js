@@ -131,7 +131,16 @@ const FORM101_FIELD_MAP = {
   taxCreditC13Checkbox: { type:"checkbox", page:2, top:47.156,right:12.645, width:1.05,  height:0.831 },
   taxCreditC14Checkbox: { type:"checkbox", page:2, top:48.938,right:12.645, width:0.924, height:0.831 },
   taxCreditC15Checkbox: { type:"checkbox", page:2, top:51.788,right:12.645, width:0.924, height:0.653 },
-  taxCreditC16Checkbox: { type:"checkbox", page:2, top:53.332,right:12.645, width:0.924, height:0.92 }
+  taxCreditC16Checkbox: { type:"checkbox", page:2, top:53.332,right:12.645, width:0.924, height:0.92 },
+
+  /* ---------- עמוד 2: ט. תיאום מס - 3 תיבות סימון (סיבת הבקשה; ר'
+     emp.taxCoordination.option באפליקציה). אין תיבת סימון נפרדת עבור
+     "מבקש/ת תיאום מס" עצמו - בטופס המודפס, סימון אחת מ-3 הסיבות האלה
+     *הוא* אופן הבקשה, ולכן emp.taxCoordination.requested נגזר במקום
+     להיות תיבה נפרדת (ר' form101OfficialValues). מיקום ראשוני בלבד. */
+  taxCoordNoIncomeYetCheckbox:    { type:"checkbox", page:2, top:56.902, right:12.645, width:0.924, height:0.653 },
+  taxCoordHasOtherIncomeCheckbox: { type:"checkbox", page:2, top:60.343, right:12.645, width:0.924, height:0.653 },
+  taxCoordApprovedCheckbox:       { type:"checkbox", page:2, top:69.968, right:12.645, width:0.924, height:0.653 }
 };
 
 /* ============================================================
@@ -154,6 +163,35 @@ const FORM101_CHILDREN_ROW = {
    ההערה המורחבת מעל form101ChildRowTop ב-print.js. */
 const FORM101_CHILDREN_TABLE = { firstRowTop:46.691, rowHeight:2.77, maxRows:10,
   rowOffsets:{0:0.01, 1:-0.1, 2:-0.37, 3:-0.52, 4:-0.68, 5:-0.94, 6:-1.1, 7:-1.2, 8:-1.45, 9:-1.6} };
+
+/* ============================================================
+   עמוד 2, ט. מקורות הכנסה נוספים לתיאום מס - טבלה חוזרת שנייה (ר'
+   emp.taxCoordination.sources באפליקציה), אותו מנגנון בדיוק כמו טבלת
+   הילדים (FORM101_TAXCOORDSOURCES_ROW/FORM101_TAXCOORDSOURCES_TABLE במקום
+   FORM101_CHILDREN_ROW/FORM101_CHILDREN_TABLE) - ר' FORM101_REPEATING_TABLES
+   למטה ו-form101TableRowTop ב-print.js שמכליל את form101ChildRowTop לעבוד
+   עם כל טבלה חוזרת רשומה, לא רק טבלת הילדים. הטופס המודפס תומך ב-3 שורות
+   בלבד (מעבר לכך יש הפניה ל"מעבר לדף" - לא נתמך בתצוגה זו). מיקומים
+   ראשוניים בלבד, טעונים כיול. deductionFileNumber מתנהג כמו
+   employerDeductionFile (הספרה "9" הראשונה מודפסת-מראש). */
+const FORM101_TAXCOORDSOURCES_ROW = {
+  employerName:       { type:"text",   right:9.568,  width:15.804, fontSize:7 },
+  address:            { type:"text",   right:25.372, width:22.617, fontSize:7 },
+  deductionFileNumber:{ type:"digits", digits:8, boxCount:9, right:47.994, width:13.184, fontSize:6.5 },
+  incomeType:         { type:"text",   right:61.180, width:9.796,  fontSize:6 },
+  monthlyIncome:      { type:"text",   right:70.958, width:12.176, fontSize:7, ltr:true },
+  taxWithheld:        { type:"text",   right:83.148, width:12.135, fontSize:7, ltr:true }
+};
+const FORM101_TAXCOORDSOURCES_TABLE = { firstRowTop:64.865, rowHeight:1.696, maxRows:3, rowOffsets:{} };
+
+/* רישום כל הטבלאות החוזרות (שם -> {row,table,page}) - כך שכל הלוגיקה
+   הגנרית בעורך (parse/resolve/drag/export) עובדת עם כל טבלה חוזרת מבלי
+   לשכפל אותה בכל פעם שמוסיפים טבלה נוספת. ר' form101ParseChildKey/
+   form101TableRowTop ב-print.js. */
+const FORM101_REPEATING_TABLES = {
+  children: { row: FORM101_CHILDREN_ROW, table: FORM101_CHILDREN_TABLE, page: 1 },
+  taxCoordSources: { row: FORM101_TAXCOORDSOURCES_ROW, table: FORM101_TAXCOORDSOURCES_TABLE, page: 2 }
+};
 
 /* דגל מצב כיול - מופעל דרך ?calibrate101=1 בכתובת ה-URL בלבד (ר'
    DOMContentLoaded בתחתית print.js). לעולם לא פעיל אוטומטית בסביבת

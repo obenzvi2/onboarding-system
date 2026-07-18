@@ -233,6 +233,9 @@ function seedData(){
   c1.employee.children=[{id:nextId("kid"),name:"עדן",idNumber:"405678913",birthDate:"2019-05-01",inCustody:true,receivesAllowance:true}];
   c1.employee.taxCredits.c1=true;
   c1.employee.taxCredits.c7={checked:true,bornThisYear:"0",age1to2:"0",age3:"0",age4to5:"0",age6to17:"1",age18:"0"};
+  c1.employee.taxCoordination = {requested:true, option:"hasOtherIncome", sources:[
+    {id:nextId("src"),employerName:"אורשר ייזום",address:"הרצל 14, חיפה",taxFileNum:"912345678",incomeType:"partial",monthlyIncome:"3200",taxWithheld:"210"}
+  ]};
   c1.bank = {bankCode:"12",branchCode:"600",accountNumber:"123456",confirmed:true,status:"completed",completedAt:new Date().toISOString(),date:todayIso()};
   // טפסי חתימה דיגיטלית (SIGNED_CHECKLIST_KEYS) וטפסים שעדיין ללא תוכן
   // (UNBUILT_CHECKLIST_KEYS) לא מסומנים כאן כ"הושלמו" - ר' ההערות מעל שני

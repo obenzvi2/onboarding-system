@@ -163,7 +163,13 @@ function form101OfficialValues(c){
       const val = emp.taxCredits[meta.key];
       const checked = (typeof val==="object") ? !!(val && val.checked) : !!val;
       return ["taxCredit"+meta.key.charAt(0).toUpperCase()+meta.key.slice(1)+"Checkbox", { checked: checked }];
-    }))
+    })),
+
+    // ---------- עמוד 2, ט. תיאום מס - ר' ההערה מעל FORM101_TAXCOORDSOURCES_ROW
+    // ב-form101FieldMap.js לגבי היעדר תיבת "מבקש/ת" נפרדת. ----------
+    taxCoordNoIncomeYetCheckbox:    { checked: emp.taxCoordination.requested && emp.taxCoordination.option==="noIncomeYet" },
+    taxCoordHasOtherIncomeCheckbox: { checked: emp.taxCoordination.requested && emp.taxCoordination.option==="hasOtherIncome" },
+    taxCoordApprovedCheckbox:       { checked: emp.taxCoordination.requested && emp.taxCoordination.option==="approved" }
   };
 }
 function renderF101ODigitBoxes(def,value){
@@ -216,30 +222,32 @@ function renderF101OField(key,def,values,calibrate,editMode){
   }
   return html;
 }
-/* ג. פרטים על ילדיי... - טבלה חוזרת, ר' ההערה מעל FORM101_CHILDREN_ROW
-   ב-form101FieldMap.js. כל שורה משתמשת באותו תבנית עמודות (FORM101_CHILDREN_ROW)
-   עם top מחושב לפי מספר השורה. ניתנת לגרירה/שינוי גודל בעורך בדיוק כמו
-   שדה רגיל - ר' form101ParseChildKey/form101ResolveDef למטה שמתרגמים בין
-   מפתח "children[i].field" לבין FORM101_CHILDREN_ROW/FORM101_CHILDREN_TABLE.
-   במצב כיול מוצגות תיבות עבור כל maxRows (גם שורות בלי ילד בפועל) כדי
-   שאפשר יהיה לגרור/לראות את כל רשת הטבלה מול הרקע גם עם פחות ילדים
-   בפועל בתיק הנבחר; ערכי טקסט/ספרות/X מוצגים רק עבור ילדים שקיימים בפועל. */
-/* top מוחלט של שדה מסוים בשורה i: בסיס משותף לכל העמודות (firstRowTop +
-   i*rowHeight) + topOffset עצמאי לעמודה הזו בלבד (ר' ההערה המורחבת מעל
-   form101OnDragMove על הבעיה שזה פותר - גרירה אנכית של עמודה אחת (כמו
-   טור הסימון 1/2) לא תזיז יותר טורים אחרים (מספר זהות/תאריך לידה) כי כל
+/* ג. פרטים על ילדיי... וגם עמוד 2/ט. מקורות הכנסה נוספים - שתי טבלאות
+   חוזרות, שתיהן דרך אותו מנגנון (ר' FORM101_REPEATING_TABLES ב-
+   form101FieldMap.js: שם -> {row,table,page}). כל שורה משתמשת באותו
+   תבנית עמודות (ה-row) עם top מחושב לפי מספר השורה. ניתנת לגרירה/שינוי
+   גודל בעורך בדיוק כמו שדה רגיל - ר' form101ParseChildKey/form101ResolveDef
+   למטה שמתרגמים בין מפתח "<table>[i].field" לבין ה-row/table הרשומים.
+   במצב כיול מוצגות תיבות עבור כל maxRows (גם שורות ריקות בפועל) כדי
+   שאפשר יהיה לגרור/לראות את כל רשת הטבלה מול הרקע גם עם פחות פריטים
+   בפועל בתיק הנבחר; ערכי טקסט/ספרות/X מוצגים רק עבור פריטים שקיימים בפועל. */
+/* top מוחלט של שדה מסוים בשורה i בטבלה tableName: בסיס משותף לכל העמודות
+   (firstRowTop + i*rowHeight) + topOffset עצמאי לעמודה הזו בלבד (ר' ההערה
+   המורחבת מעל form101OnDragMove על הבעיה שזה פותר - גרירה אנכית של עמודה
+   אחת (כמו טור הסימון 1/2 בטבלת הילדים) לא תזיז יותר טורים אחרים כי כל
    טור שומר topOffset נפרד משלו, ורק firstRowTop/rowHeight המשותפים
    (הנערכים דרך שדות ייעודיים בפאנל, לא דרך גרירה) קובעים את קצב השורות) +
    rowOffsets[i] - תיקון עדין לשורה ספציפית זו בלבד (משותף לכל העמודות
    באותה שורה), כי הרווח האמיתי בין השורות בטופס המודפס לא תמיד אחיד
-   לגמרי - קבוע rowHeight יחיד לא בהכרח מתאים במדויק לכל 10 השורות (ר'
-   הדיון עם המשתמשת: "כשמזיזים טור שלם יחד חלק מהשדות במקום וחלק לא" -
-   בדיוק הסימפטום של סטייה קטנה שמצטברת ככל שמתרחקים מהשורה שכוילה).
+   לגמרי - קבוע rowHeight יחיד לא בהכרח מתאים במדויק לכל השורות (ר' הדיון
+   עם המשתמשת על טבלת הילדים: "כשמזיזים טור שלם יחד חלק מהשדות במקום וחלק
+   לא" - בדיוק הסימפטום של סטייה קטנה שמצטברת ככל שמתרחקים מהשורה שכוילה).
    נערך אך ורק דרך שדה ייעודי בפאנל (ר' renderForm101EditPanel), לא גרירה -
    כדי לא להתנגש עם גרירת העמודה (topOffset). */
-function form101ChildRowTop(field,index){
-  const rowOffset = (FORM101_CHILDREN_TABLE.rowOffsets && FORM101_CHILDREN_TABLE.rowOffsets[index]) || 0;
-  return +(FORM101_CHILDREN_TABLE.firstRowTop + index*FORM101_CHILDREN_TABLE.rowHeight + (FORM101_CHILDREN_ROW[field].topOffset||0) + rowOffset).toFixed(3);
+function form101TableRowTop(tableName,field,index){
+  const t = FORM101_REPEATING_TABLES[tableName];
+  const rowOffset = (t.table.rowOffsets && t.table.rowOffsets[index]) || 0;
+  return +(t.table.firstRowTop + index*t.table.rowHeight + (t.row[field].topOffset||0) + rowOffset).toFixed(3);
 }
 function renderF101ChildrenTable(c,calibrate,editMode){
   const kids = c.employee.children||[];
@@ -255,10 +263,38 @@ function renderF101ChildrenTable(c,calibrate,editMode){
       allowanceCheckbox: { checked: !!kid.receivesAllowance }
     } : {};
     Object.keys(FORM101_CHILDREN_ROW).forEach(function(field){
-      const def = Object.assign({}, FORM101_CHILDREN_ROW[field], {top: form101ChildRowTop(field,i)});
+      const def = Object.assign({}, FORM101_CHILDREN_ROW[field], {top: form101TableRowTop("children",field,i)});
       const key = "children["+i+"]."+field;
       // renderF101OField מחפש את הערך תחת values[key] (המפתח המלא), ולכן
       // עוטפים כאן את הערך תחת אותו מפתח מלא ולא רק שם השדה הקצר.
+      const rowValues = {};
+      rowValues[key] = rowValueByField[field] || {};
+      html += renderF101OField(key, def, rowValues, calibrate, editMode);
+    });
+  }
+  return html;
+}
+/* עמוד 2, ט. מקורות הכנסה נוספים לתיאום מס - ר' emp.taxCoordination.sources.
+   incomeType מוצג כטקסט קצר (שם הסוג מ-CODE_TABLES.otherIncomeTypes) ולא
+   כתיבת סימון, כי בטופס המודפס זו עמודה טקסטואלית רגילה (לא תת-סימונים). */
+function renderF101TaxCoordTable(c,calibrate,editMode){
+  const sources = c.employee.taxCoordination.sources||[];
+  const rowCount = calibrate ? FORM101_TAXCOORDSOURCES_TABLE.maxRows : Math.min(sources.length, FORM101_TAXCOORDSOURCES_TABLE.maxRows);
+  let html = "";
+  for(let i=0;i<rowCount;i++){
+    const src = sources[i];
+    const incomeTypeName = src && src.incomeType ? (CODE_TABLES.otherIncomeTypes.find(t=>t.id===src.incomeType)||{}).name : "";
+    const rowValueByField = src ? {
+      employerName:        { value: src.employerName },
+      address:              { value: src.address },
+      deductionFileNumber: { value: src.taxFileNum ? src.taxFileNum.replace(/\D/g,"").slice(1) : "" },
+      incomeType:           { value: incomeTypeName },
+      monthlyIncome:        { value: src.monthlyIncome!==""&&src.monthlyIncome!==undefined&&src.monthlyIncome!==null ? String(src.monthlyIncome) : "" },
+      taxWithheld:          { value: src.taxWithheld!==""&&src.taxWithheld!==undefined&&src.taxWithheld!==null ? String(src.taxWithheld) : "" }
+    } : {};
+    Object.keys(FORM101_TAXCOORDSOURCES_ROW).forEach(function(field){
+      const def = Object.assign({}, FORM101_TAXCOORDSOURCES_ROW[field], {top: form101TableRowTop("taxCoordSources",field,i)});
+      const key = "taxCoordSources["+i+"]."+field;
       const rowValues = {};
       rowValues[key] = rowValueByField[field] || {};
       html += renderF101OField(key, def, rowValues, calibrate, editMode);
@@ -277,7 +313,8 @@ function renderForm101OfficialPage(c){
   const page2Keys = Object.keys(FORM101_FIELD_MAP).filter(k=>FORM101_FIELD_MAP[k].page===2);
   const page1Html = page1Keys.map(key=>renderF101OField(key,FORM101_FIELD_MAP[key],values,calibrate,editMode)).join("")
     + renderF101ChildrenTable(c,calibrate,editMode);
-  const page2Html = page2Keys.map(key=>renderF101OField(key,FORM101_FIELD_MAP[key],values,calibrate,editMode)).join("");
+  const page2Html = page2Keys.map(key=>renderF101OField(key,FORM101_FIELD_MAP[key],values,calibrate,editMode)).join("")
+    + renderF101TaxCoordTable(c,calibrate,editMode);
   return '' +
   '<div class="form101-official-page f101-page1'+(calibrate?" calibrate":"")+(editMode?" editing":"")+'" id="form101OfficialPage1">' +
     page1Html +
@@ -286,7 +323,7 @@ function renderForm101OfficialPage(c){
     page2Html +
   '</div>' +
   (editMode ? renderForm101EditPanel() :
-    '<div class="pf-note no-print" style="max-width:210mm;margin:8px auto;">טופס 101 (השדות הרשמיים), שנת מס '+c.taxYear+'. עמוד 1: פרטי מעסיק, זהות/יצירת קשר של העובד/ת, ילדים, הכנסה ממעסיק זה, הכנסות אחרות ופרטי בן/בת הזוג ממופים; שינויים במהלך השנה (חלק ז) נותר ריק בכוונה (אין לו שדה מקביל בטופס הדיגיטלי). עמוד 2: חלק ח (פטור/זיכוי ממס) ממופה ברמת תיבת הסימון הראשית בלבד; תת-שדות (יישוב, תאריכים, מספר ילדים) וחלקים ט/י עדיין לא ממופים.</div>');
+    '<div class="pf-note no-print" style="max-width:210mm;margin:8px auto;">טופס 101 (השדות הרשמיים), שנת מס '+c.taxYear+'. עמוד 1: פרטי מעסיק, זהות/יצירת קשר של העובד/ת, ילדים, הכנסה ממעסיק זה, הכנסות אחרות ופרטי בן/בת הזוג ממופים; שינויים במהלך השנה (חלק ז) נותר ריק בכוונה (אין לו שדה מקביל בטופס הדיגיטלי). עמוד 2: חלק ח (פטור/זיכוי ממס) ממופה ברמת תיבת הסימון הראשית בלבד (תת-שדות כמו יישוב/תאריכים/מספר ילדים עדיין לא); חלק ט (תיאום מס, כולל טבלת מקורות הכנסה - עד 3 שורות) ממופה; חלק י (הצהרה/חתימה) עדיין לא ממופה.</div>');
 }
 
 /* ============================================================
@@ -304,29 +341,35 @@ function form101SelectField(key){
 function form101UpdateFieldProp(key,prop,value){
   const child = form101ParseChildKey(key);
   if(child){
+    const t = FORM101_REPEATING_TABLES[child.table];
     if(prop==="top"){
       // "top" בפאנל מציג את המיקום המוחלט; ממירים אותו כאן ל-topOffset
-      // היחסי של העמודה הזו בלבד (ר' form101ChildRowTop) - לא נוגעים
+      // היחסי של העמודה הזו בלבד (ר' form101TableRowTop) - לא נוגעים
       // ב-firstRowTop/rowHeight המשותפים (יש להם שדות נפרדים בפאנל).
       const v = parseFloat(value)||0;
-      const base = FORM101_CHILDREN_TABLE.firstRowTop + child.index*FORM101_CHILDREN_TABLE.rowHeight;
-      FORM101_CHILDREN_ROW[child.field].topOffset = +(v-base).toFixed(3);
+      const base = t.table.firstRowTop + child.index*t.table.rowHeight;
+      t.row[child.field].topOffset = +(v-base).toFixed(3);
     } else if(prop==="ltr"){
-      FORM101_CHILDREN_ROW[child.field].ltr = !!value;
+      t.row[child.field].ltr = !!value;
     } else if(prop==="digits" || prop==="boxCount"){
-      FORM101_CHILDREN_ROW[child.field][prop] = parseInt(value,10)||0;
+      t.row[child.field][prop] = parseInt(value,10)||0;
     } else {
-      FORM101_CHILDREN_ROW[child.field][prop] = parseFloat(value)||0;
+      t.row[child.field][prop] = parseFloat(value)||0;
     }
     render();
     return;
   }
-  if(key==="__childrenTable_firstRowTop__"){ FORM101_CHILDREN_TABLE.firstRowTop = parseFloat(value)||0; render(); return; }
-  if(key==="__childrenTable_rowHeight__"){ FORM101_CHILDREN_TABLE.rowHeight = parseFloat(value)||0; render(); return; }
-  const rowOffsetMatch = /^__childrenTable_rowOffset__(\d+)__$/.exec(key);
+  const tableMatch = /^__repeatTable_([A-Za-z0-9]+)_(firstRowTop|rowHeight)__$/.exec(key);
+  if(tableMatch){
+    FORM101_REPEATING_TABLES[tableMatch[1]].table[tableMatch[2]] = parseFloat(value)||0;
+    render();
+    return;
+  }
+  const rowOffsetMatch = /^__repeatTable_([A-Za-z0-9]+)_rowOffset__(\d+)__$/.exec(key);
   if(rowOffsetMatch){
-    if(!FORM101_CHILDREN_TABLE.rowOffsets) FORM101_CHILDREN_TABLE.rowOffsets = {};
-    FORM101_CHILDREN_TABLE.rowOffsets[+rowOffsetMatch[1]] = parseFloat(value)||0;
+    const t = FORM101_REPEATING_TABLES[rowOffsetMatch[1]].table;
+    if(!t.rowOffsets) t.rowOffsets = {};
+    t.rowOffsets[+rowOffsetMatch[2]] = parseFloat(value)||0;
     render();
     return;
   }
@@ -337,28 +380,34 @@ function form101UpdateFieldProp(key,prop,value){
   else def[prop] = parseFloat(value)||0;
   render();
 }
-/* מפתחות שדה בטבלת הילדים החוזרת נראים כמו "children[2].idNumber" - שני
-   הפונקציות הבאות מתרגמות בין המפתח הזה לבין FORM101_CHILDREN_ROW (עמודה
-   משותפת לכל השורות) ו-FORM101_CHILDREN_TABLE (מיקום שורה 0 וגובה שורה),
-   כדי שאותה מנגנון גרירה/שינוי גודל ישרת גם שדות רגילים וגם שדות טבלה. */
+/* מפתחות שדה בטבלה חוזרת נראים כמו "children[2].idNumber" או
+   "taxCoordSources[0].employerName" - שתי הפונקציות הבאות מתרגמות בין
+   המפתח הזה לבין ה-row (עמודה משותפת לכל השורות) וה-table (מיקום שורה 0
+   וגובה שורה) הרשומים ב-FORM101_REPEATING_TABLES (ר' form101FieldMap.js),
+   כדי שאותו מנגנון גרירה/שינוי גודל ישרת גם שדות רגילים וגם שדות בכל
+   טבלה חוזרת רשומה, בלי לשכפל את כל הלוגיקה הזו לכל טבלה חדשה. */
 function form101ParseChildKey(key){
-  const m = /^children\[(\d+)\]\.(.+)$/.exec(key);
-  return m ? { index:+m[1], field:m[2] } : null;
+  for(const tableName in FORM101_REPEATING_TABLES){
+    const m = new RegExp("^"+tableName+"\\[(\\d+)\\]\\.(.+)$").exec(key);
+    if(m) return { table:tableName, index:+m[1], field:m[2] };
+  }
+  return null;
 }
 function form101ResolveDef(key){
   const child = form101ParseChildKey(key);
   if(child){
-    return Object.assign({}, FORM101_CHILDREN_ROW[child.field], {
-      top: form101ChildRowTop(child.field, child.index)
+    const t = FORM101_REPEATING_TABLES[child.table];
+    return Object.assign({}, t.row[child.field], {
+      top: form101TableRowTop(child.table, child.field, child.index)
     });
   }
   return FORM101_FIELD_MAP[key];
 }
-/* טבלת הילדים תמיד בעמוד 1 (ר' renderF101ChildrenTable); שדה רגיל - לפי
-   def.page (חסר/1 = עמוד 1, 2 = עמוד 2) - ר' renderForm101OfficialPage. */
+/* שדה בטבלה חוזרת - לפי FORM101_REPEATING_TABLES[table].page; שדה רגיל -
+   לפי def.page (חסר/1 = עמוד 1, 2 = עמוד 2) - ר' renderForm101OfficialPage. */
 function form101ContainerIdForKey(key){
   const child = form101ParseChildKey(key);
-  if(child) return "form101OfficialPage1";
+  if(child) return "form101OfficialPage"+FORM101_REPEATING_TABLES[child.table].page;
   const def = FORM101_FIELD_MAP[key];
   return (def && def.page===2) ? "form101OfficialPage2" : "form101OfficialPage1";
 }
@@ -373,7 +422,7 @@ function form101StartDrag(e,key){
   const child = form101ParseChildKey(key);
   f101Drag = { key:key, mode:"move", startX:e.clientX, startY:e.clientY,
     startTop:def.top, startRight:def.right,
-    startTopOffset: child ? (FORM101_CHILDREN_ROW[child.field].topOffset||0) : 0,
+    startTopOffset: child ? (FORM101_REPEATING_TABLES[child.table].row[child.field].topOffset||0) : 0,
     containerW:rect.width, containerH:rect.height };
   document.addEventListener("mousemove", form101OnDragMove);
   document.addEventListener("mouseup", form101OnDragEnd);
@@ -398,13 +447,13 @@ function form101StartResize(e,key){
    בטבלת הילדים, ששוקלות right/width משותפים) - מיישרים רק ב-mouseup,
    ר' form101OnDragEnd.
 
-   גרירה אנכית של שדה בטבלת הילדים מעדכנת אך ורק את topOffset העצמאי של
-   העמודה שלו (ר' form101ChildRowTop) - לא את firstRowTop/rowHeight
-   המשותפים לכל הטבלה. זה מתקן בעיה שדווחה: גרירת טור הסימון 1/2 הזיזה
-   בטעות גם את טורי מספר הזהות/תאריך הלידה, כי לפני התיקון top נכתב ישר
-   ל-firstRowTop (המשותף) בשורה 0. עכשיו כל עמודה זזה אנכית לגמרי בנפרד;
-   כדי לשנות את firstRowTop/rowHeight המשותפים יש שדות ייעודיים בפאנל
-   (ר' renderForm101EditPanel) ולא גרירה. */
+   גרירה אנכית של שדה בטבלה חוזרת מעדכנת אך ורק את topOffset העצמאי של
+   העמודה שלו (ר' form101TableRowTop) - לא את firstRowTop/rowHeight
+   המשותפים לכל הטבלה. זה מתקן בעיה שדווחה בטבלת הילדים: גרירת טור הסימון
+   1/2 הזיזה בטעות גם את טורי מספר הזהות/תאריך הלידה, כי לפני התיקון top
+   נכתב ישר ל-firstRowTop (המשותף) בשורה 0. עכשיו כל עמודה זזה אנכית לגמרי
+   בנפרד; כדי לשנות את firstRowTop/rowHeight המשותפים יש שדות ייעודיים
+   בפאנל (ר' renderForm101EditPanel) ולא גרירה. */
 function form101OnDragMove(e){
   if(!f101Drag) return;
   const dxPct = (e.clientX-f101Drag.startX)/f101Drag.containerW*100;
@@ -415,9 +464,10 @@ function form101OnDragMove(e){
     const newRight = +(f101Drag.startRight-dxPct).toFixed(3);
     let newTop;
     if(child){
-      FORM101_CHILDREN_ROW[child.field].right = newRight;
-      FORM101_CHILDREN_ROW[child.field].topOffset = +(f101Drag.startTopOffset+dyPct).toFixed(3);
-      newTop = form101ChildRowTop(child.field, child.index);
+      const row = FORM101_REPEATING_TABLES[child.table].row;
+      row[child.field].right = newRight;
+      row[child.field].topOffset = +(f101Drag.startTopOffset+dyPct).toFixed(3);
+      newTop = form101TableRowTop(child.table, child.field, child.index);
     } else {
       const def = FORM101_FIELD_MAP[f101Drag.key];
       newTop = +(f101Drag.startTop+dyPct).toFixed(3);
@@ -427,7 +477,7 @@ function form101OnDragMove(e){
   } else {
     const newWidth = Math.max(0.3, f101Drag.startWidth-dxPct);
     let newHeight;
-    const targetDef = child ? FORM101_CHILDREN_ROW[child.field] : FORM101_FIELD_MAP[f101Drag.key];
+    const targetDef = child ? FORM101_REPEATING_TABLES[child.table].row[child.field] : FORM101_FIELD_MAP[f101Drag.key];
     targetDef.width = +newWidth.toFixed(3);
     if(targetDef.type==="checkbox"){
       newHeight = Math.max(0.3, f101Drag.startHeight+dyPct);
@@ -456,10 +506,13 @@ function renderForm101EditPanel(){
   const key = FORM101_SELECTED_KEY;
   const def = key ? form101ResolveDef(key) : null;
   const keys = Object.keys(FORM101_FIELD_MAP);
-  // מוסיפים לרשימת הבחירה גם את כל שדות טבלת הילדים (לכל maxRows), כדי
-  // שאפשר יהיה לבחור/לכייל אותם דרך התפריט ולא רק בלחיצה על התיבה בטופס.
-  for(let i=0;i<FORM101_CHILDREN_TABLE.maxRows;i++){
-    Object.keys(FORM101_CHILDREN_ROW).forEach(function(field){ keys.push("children["+i+"]."+field); });
+  // מוסיפים לרשימת הבחירה גם את כל שדות כל טבלה חוזרת רשומה (לכל maxRows),
+  // כדי שאפשר יהיה לבחור/לכייל אותם דרך התפריט ולא רק בלחיצה על התיבה בטופס.
+  for(const tableName in FORM101_REPEATING_TABLES){
+    const t = FORM101_REPEATING_TABLES[tableName];
+    for(let i=0;i<t.table.maxRows;i++){
+      Object.keys(t.row).forEach(function(field){ keys.push(tableName+"["+i+"]."+field); });
+    }
   }
   let fieldsFormHtml = '<div class="f101-edit-empty">בחר/י שדה מהרשימה או לחצ/י על תיבה אדומה בטופס</div>';
   if(def){
@@ -477,18 +530,19 @@ function renderForm101EditPanel(){
       (isDigits ? '<div class="f101-edit-row"><label>boxCount</label><input type="number" step="1" value="'+(def.boxCount||def.digits)+'" onchange="form101UpdateFieldProp(\''+key+'\',\'boxCount\',this.value)"></div>' : "");
     const childForPanel = form101ParseChildKey(key);
     if(childForPanel){
-      // top כאן הוא topOffset עצמאי לעמודה הזו בלבד (ר' form101ChildRowTop) -
+      // top כאן הוא topOffset עצמאי לעמודה הזו בלבד (ר' form101TableRowTop) -
       // firstRowTop/rowHeight המשותפים לכל הטבלה, ותיקון rowOffset לשורה
       // הנוכחית בלבד (משותף לכל העמודות באותה שורה - לתיקון סטייה שאינה
       // אחידה בין השורות בטופס המודפס בפועל), נערכים בנפרד למטה - כדי
       // שגרירת עמודה אחת לעולם לא תזיז עמודות/שורות אחרות בטעות.
-      const curRowOffset = (FORM101_CHILDREN_TABLE.rowOffsets && FORM101_CHILDREN_TABLE.rowOffsets[childForPanel.index]) || 0;
+      const tp = FORM101_REPEATING_TABLES[childForPanel.table].table;
+      const curRowOffset = (tp.rowOffsets && tp.rowOffsets[childForPanel.index]) || 0;
       fieldsFormHtml += '' +
-        '<div class="f101-edit-subtitle">טבלת ילדים - כל השורות</div>' +
-        '<div class="f101-edit-row"><label>firstRowTop (%)</label><input type="number" step="0.01" value="'+FORM101_CHILDREN_TABLE.firstRowTop+'" onchange="form101UpdateFieldProp(\'__childrenTable_firstRowTop__\',\'\',this.value)"></div>' +
-        '<div class="f101-edit-row"><label>rowHeight (%)</label><input type="number" step="0.01" value="'+FORM101_CHILDREN_TABLE.rowHeight+'" onchange="form101UpdateFieldProp(\'__childrenTable_rowHeight__\',\'\',this.value)"></div>' +
+        '<div class="f101-edit-subtitle">טבלת '+childForPanel.table+' - כל השורות</div>' +
+        '<div class="f101-edit-row"><label>firstRowTop (%)</label><input type="number" step="0.01" value="'+tp.firstRowTop+'" onchange="form101UpdateFieldProp(\'__repeatTable_'+childForPanel.table+'_firstRowTop__\',\'\',this.value)"></div>' +
+        '<div class="f101-edit-row"><label>rowHeight (%)</label><input type="number" step="0.01" value="'+tp.rowHeight+'" onchange="form101UpdateFieldProp(\'__repeatTable_'+childForPanel.table+'_rowHeight__\',\'\',this.value)"></div>' +
         '<div class="f101-edit-subtitle">רק שורה '+childForPanel.index+' (כל העמודות)</div>' +
-        '<div class="f101-edit-row"><label>rowOffset (%)</label><input type="number" step="0.01" value="'+curRowOffset+'" onchange="form101UpdateFieldProp(\'__childrenTable_rowOffset__'+childForPanel.index+'__\',\'\',this.value)"></div>';
+        '<div class="f101-edit-row"><label>rowOffset (%)</label><input type="number" step="0.01" value="'+curRowOffset+'" onchange="form101UpdateFieldProp(\'__repeatTable_'+childForPanel.table+'_rowOffset__'+childForPanel.index+'__\',\'\',this.value)"></div>';
     }
   }
   return '' +
@@ -524,18 +578,26 @@ function form101ExportMapping(){
   });
   const fieldMapText = "const FORM101_FIELD_MAP = {\n"+fieldLines.join("\n")+"\n};";
 
-  const rowLines = Object.keys(FORM101_CHILDREN_ROW).map(function(key){
-    return "  "+key+": { "+form101FormatFieldDef(FORM101_CHILDREN_ROW[key],false)+" },";
+  // מייצאים כל טבלה חוזרת רשומה (ר' FORM101_REPEATING_TABLES) כזוג
+  // consts בשם FORM101_<TABLENAME>_ROW/FORM101_<TABLENAME>_TABLE, כדי
+  // שהטקסט המיוצא יהיה מוכן להדבקה ישירה חזרה ל-form101FieldMap.js.
+  const tableTexts = Object.keys(FORM101_REPEATING_TABLES).map(function(tableName){
+    const t = FORM101_REPEATING_TABLES[tableName];
+    const constBase = "FORM101_"+tableName.toUpperCase();
+    const rowLines = Object.keys(t.row).map(function(key){
+      return "  "+key+": { "+form101FormatFieldDef(t.row[key],false)+" },";
+    });
+    const rowText = "const "+constBase+"_ROW = {\n"+rowLines.join("\n")+"\n};";
+    const rowOffsets = t.table.rowOffsets || {};
+    const rowOffsetsText = "{"+Object.keys(rowOffsets).filter(function(k){ return rowOffsets[k]; })
+      .map(function(k){ return k+":"+rowOffsets[k]; }).join(", ")+"}";
+    const tableText = "const "+constBase+"_TABLE = { firstRowTop:"+t.table.firstRowTop+
+      ", rowHeight:"+t.table.rowHeight+", maxRows:"+t.table.maxRows+
+      ", rowOffsets:"+rowOffsetsText+" };";
+    return rowText+"\n"+tableText;
   });
-  const rowText = "const FORM101_CHILDREN_ROW = {\n"+rowLines.join("\n")+"\n};";
-  const rowOffsets = FORM101_CHILDREN_TABLE.rowOffsets || {};
-  const rowOffsetsText = "{"+Object.keys(rowOffsets).filter(function(k){ return rowOffsets[k]; })
-    .map(function(k){ return k+":"+rowOffsets[k]; }).join(", ")+"}";
-  const tableText = "const FORM101_CHILDREN_TABLE = { firstRowTop:"+FORM101_CHILDREN_TABLE.firstRowTop+
-    ", rowHeight:"+FORM101_CHILDREN_TABLE.rowHeight+", maxRows:"+FORM101_CHILDREN_TABLE.maxRows+
-    ", rowOffsets:"+rowOffsetsText+" };";
 
-  const text = fieldMapText+"\n\n"+rowText+"\n"+tableText;
+  const text = fieldMapText+"\n\n"+tableTexts.join("\n\n");
   const box = document.getElementById("f101ExportBox");
   box.value = text;
   box.style.display = "block";
@@ -543,7 +605,7 @@ function form101ExportMapping(){
   box.select();
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(text).then(
-      function(){ showToast("המיפוי (כולל טבלת הילדים) הועתק ללוח - אפשר להדביק ולשלוח."); },
+      function(){ showToast("המיפוי (כולל כל הטבלאות החוזרות) הועתק ללוח - אפשר להדביק ולשלוח."); },
       function(){ showToast("לא ניתן היה להעתיק אוטומטית - יש להעתיק ידנית מהתיבה."); }
     );
   } else {
