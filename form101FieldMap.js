@@ -91,18 +91,17 @@ const FORM101_FIELD_MAP = {
   otherIncomeNoPensionCheckbox:    { type:"checkbox", top:73.406, right:59.179, width:0.924, height:0.653 },
 
   /* ---------- ו. פרטים על בן/בת הזוג ---------- */
-  /* מיקומים ראשוניים בלבד, חושבו ממיקום התוויות בטקסט (לא כויילו עדיין
-     דרך עורך הגרירה) - טעונים כיול ידני כמו כל שדה אחר שנוסף לטופס. */
-  spouseIdNumber: { type:"digits", digits:9, top:82.671, right:10.126, width:12.599, fontSize:8 },
-  spouseLastName: { type:"text", top:82.671, right:27.428, width:8.903, fontSize:8 },
-  spouseFirstName: { type:"text", top:82.671, right:48.091, width:7.392, fontSize:8 },
-  spouseBirthDate: { type:"digits", digits:8, top:82.671, right:65.73, width:8.231, fontSize:7 },
-  spouseAliyaDate: { type:"digits", digits:8, top:82.671, right:81.017, width:8.231, fontSize:7 },
-  spousePassportNumber: { type:"text", top:85.759, right:10.126, width:16.295, fontSize:8, ltr:true },
+  /* כויל דרך עורך הגרירה (?editform101=1) - ר' export שהתקבל 2026-07-18. */
+  spouseIdNumber: { type:"digits", digits:9, top:83.294, right:9.748, width:16.505, fontSize:8 },
+  spouseLastName: { type:"text", top:83.027, right:28.688, width:14.321, fontSize:8 },
+  spouseFirstName: { type:"text", top:83.116, right:48.847, width:10.29, fontSize:8 },
+  spouseBirthDate: { type:"digits", digits:8, top:83.383, right:64.974, width:15.035, fontSize:7 },
+  spouseAliyaDate: { type:"digits", digits:8, top:83.384, right:80.261, width:14.405, fontSize:7 },
+  spousePassportNumber: { type:"text", top:86.204, right:9.244, width:19.697, fontSize:8, ltr:true },
   spouseHasNoIncomeCheckbox: { type:"checkbox", top:85.047, right:29.78, width:0.924, height:0.653 },
   spouseHasIncomeCheckbox:   { type:"checkbox", top:85.047, right:51.283, width:0.924, height:0.653 },
   spouseIncomeWorkPensionBusinessCheckbox: { type:"checkbox", top:85.166, right:71.946, width:0.924, height:0.653 },
-  spouseIncomeOtherCheckbox: { type:"checkbox", top:85.166, right:82.025, width:0.924, height:0.653 },
+  spouseIncomeOtherCheckbox: { type:"checkbox", top:85.255, right:85.301, width:0.672, height:0.653 },
 
   /* ---------- עמוד 2: ח. פטור או זיכוי ממס - 17 תיבות סימון ראשיות
      (הסעיף "2" בטופס מתפצל לשתי תיבות 2א/2ב, ולכן 17 ולא 16) - ר' TAX_CREDIT_META
@@ -117,15 +116,15 @@ const FORM101_FIELD_MAP = {
   taxCreditC5Checkbox:  { type:"checkbox", page:2, top:19.361,right:12.645, width:0.924, height:0.653 },
   taxCreditC6Checkbox:  { type:"checkbox", page:2, top:21.974,right:12.645, width:0.924, height:0.653 },
   taxCreditC7Checkbox:  { type:"checkbox", page:2, top:24.706,right:12.645, width:0.924, height:0.653 },
-  taxCreditC8Checkbox:  { type:"checkbox", page:2, top:31.596,right:12.645, width:0.924, height:0.653 },
+  taxCreditC8Checkbox:  { type:"checkbox", page:2, top:31.596,right:12.645, width:1.05,  height:0.92 },
   taxCreditC9Checkbox:  { type:"checkbox", page:2, top:37.535,right:12.645, width:0.924, height:0.653 },
-  taxCreditC10Checkbox: { type:"checkbox", page:2, top:39.554,right:12.645, width:0.924, height:0.653 },
-  taxCreditC11Checkbox: { type:"checkbox", page:2, top:42.523,right:12.645, width:0.924, height:0.653 },
-  taxCreditC12Checkbox: { type:"checkbox", page:2, top:45.137,right:12.645, width:0.924, height:0.653 },
-  taxCreditC13Checkbox: { type:"checkbox", page:2, top:47.156,right:12.645, width:0.924, height:0.653 },
-  taxCreditC14Checkbox: { type:"checkbox", page:2, top:48.938,right:12.645, width:0.924, height:0.653 },
+  taxCreditC10Checkbox: { type:"checkbox", page:2, top:39.554,right:12.645, width:1.05,  height:1.009 },
+  taxCreditC11Checkbox: { type:"checkbox", page:2, top:42.523,right:12.645, width:0.924, height:0.831 },
+  taxCreditC12Checkbox: { type:"checkbox", page:2, top:45.137,right:12.645, width:1.05,  height:0.92 },
+  taxCreditC13Checkbox: { type:"checkbox", page:2, top:47.156,right:12.645, width:1.05,  height:0.831 },
+  taxCreditC14Checkbox: { type:"checkbox", page:2, top:48.938,right:12.645, width:0.924, height:0.831 },
   taxCreditC15Checkbox: { type:"checkbox", page:2, top:51.788,right:12.645, width:0.924, height:0.653 },
-  taxCreditC16Checkbox: { type:"checkbox", page:2, top:53.332,right:12.645, width:0.924, height:0.653 }
+  taxCreditC16Checkbox: { type:"checkbox", page:2, top:53.332,right:12.645, width:0.924, height:0.92 }
 };
 
 /* ============================================================
