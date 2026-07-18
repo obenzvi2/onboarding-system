@@ -138,9 +138,9 @@ const FORM101_FIELD_MAP = {
      "מבקש/ת תיאום מס" עצמו - בטופס המודפס, סימון אחת מ-3 הסיבות האלה
      *הוא* אופן הבקשה, ולכן emp.taxCoordination.requested נגזר במקום
      להיות תיבה נפרדת (ר' form101OfficialValues). מיקום ראשוני בלבד. */
-  taxCoordNoIncomeYetCheckbox:    { type:"checkbox", page:2, top:56.902, right:12.645, width:0.924, height:0.653 },
-  taxCoordHasOtherIncomeCheckbox: { type:"checkbox", page:2, top:60.343, right:12.645, width:0.924, height:0.653 },
-  taxCoordApprovedCheckbox:       { type:"checkbox", page:2, top:69.968, right:12.645, width:0.924, height:0.653 }
+  taxCoordNoIncomeYetCheckbox:    { type:"checkbox", page:2, top:57.258, right:12.519, width:0.924, height:0.653 },
+  taxCoordHasOtherIncomeCheckbox: { type:"checkbox", page:2, top:60.61,  right:12.519, width:0.924, height:0.653 },
+  taxCoordApprovedCheckbox:       { type:"checkbox", page:2, top:70.324, right:12.393, width:0.924, height:0.653 }
 };
 
 /* ============================================================
@@ -175,12 +175,12 @@ const FORM101_CHILDREN_TABLE = { firstRowTop:46.691, rowHeight:2.77, maxRows:10,
    ראשוניים בלבד, טעונים כיול. deductionFileNumber מתנהג כמו
    employerDeductionFile (הספרה "9" הראשונה מודפסת-מראש). */
 const FORM101_TAXCOORDSOURCES_ROW = {
-  employerName:       { type:"text",   right:9.568,  width:15.804, fontSize:7 },
-  address:            { type:"text",   right:25.372, width:22.617, fontSize:7 },
-  deductionFileNumber:{ type:"digits", digits:8, boxCount:9, right:47.994, width:13.184, fontSize:6.5 },
-  incomeType:         { type:"text",   right:61.180, width:9.796,  fontSize:6 },
-  monthlyIncome:      { type:"text",   right:70.958, width:12.176, fontSize:7, ltr:true },
-  taxWithheld:        { type:"text",   right:83.148, width:12.135, fontSize:7, ltr:true }
+  employerName:       { type:"text",   right:9.442,  width:15.804, fontSize:7,   topOffset:0.267 },
+  address:            { type:"text",   right:25.372, width:22.113, fontSize:7,   topOffset:0.267 },
+  deductionFileNumber:{ type:"digits", digits:8, boxCount:9, right:47.994, width:12.932, fontSize:6.5, topOffset:0.267 },
+  incomeType:         { type:"text",   right:61.18,  width:9.418,  fontSize:6,   topOffset:0.356 },
+  monthlyIncome:      { type:"text",   right:71.084, width:11.546, fontSize:7, ltr:true, topOffset:0.356 },
+  taxWithheld:        { type:"text",   right:83.148, width:11.631, fontSize:7, ltr:true, topOffset:0.356 }
 };
 const FORM101_TAXCOORDSOURCES_TABLE = { firstRowTop:64.865, rowHeight:1.696, maxRows:3, rowOffsets:{} };
 
