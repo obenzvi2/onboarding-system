@@ -8,7 +8,7 @@ let ui = {
   mode:"hr", // "hr" | "employee"
   screen:"hr-list", // hr-list | new-case | case-home | form101 | bank-form | documents | export | batches | admin | print-form101 | print-bank | print-form101-bank
   currentCaseId:null,
-  filters:{company:"",worksite:"",missingDocs:false,bankPending:false,notExported:false,needsReexport:false,search:""},
+  filters:{company:"",worksite:"",search:""},
   toast:null,
   errors:{}, // form101 field errors
   errorSummaryOpen:false,
@@ -257,20 +257,6 @@ function passesFilters(c){
   const f = ui.filters;
   if(f.company && c.companyId!==f.company) return false;
   if(f.worksite && c.worksiteId!==f.worksite) return false;
-  if(f.missingDocs){
-    const docs = c.documents.length?c.documents:buildDocuments(c);
-    if(!docs.some(d=>d.status==="missing")) return false;
-  }
-  if(f.bankPending && !(c.needsBankForm && c.bank.status!=="completed")) return false;
-  if(f.notExported){
-    const sk = latestBatchFor(c.id,"shikulit"), bl = latestBatchFor(c.id,"blue");
-    if(sk||bl) return false;
-  }
-  if(f.needsReexport){
-    const sk = latestBatchFor(c.id,"shikulit"), bl = latestBatchFor(c.id,"blue");
-    const need = (sk&&sk.importStatus==="נדרש יצוא מחדש")||(bl&&bl.importStatus==="נדרש יצוא מחדש");
-    if(!need) return false;
-  }
   if(f.search){
     const s = f.search.trim();
     const name = (c.employee.firstName+" "+c.employee.lastName).trim();
@@ -318,10 +304,6 @@ function renderHrList(){
     '<div class="field"><label>חברה</label><select onchange="ui.filters.company=this.value;render()"><option value="">הכל</option>'+options(CODE_TABLES.companies,"id","name")+'</select></div>' +
     '<div class="field"><label>אתר עבודה</label><select onchange="ui.filters.worksite=this.value;render()"><option value="">הכל</option>'+options(CODE_TABLES.worksites,"id","name")+'</select></div>' +
     '<div class="field"><label>חיפוש לפי שם / ת.ז</label><input type="text" value="'+escapeHtml(ui.filters.search)+'" oninput="ui.filters.search=this.value;render()" placeholder="הקלד/י לחיפוש..."></div>' +
-    '<div class="field"><label style="visibility:hidden">א</label><label class="check-row"><input type="checkbox" '+(ui.filters.missingDocs?"checked":"")+' onchange="ui.filters.missingDocs=this.checked;render()"> מסמכים חסרים</label></div>' +
-    '<div class="field"><label style="visibility:hidden">ב</label><label class="check-row"><input type="checkbox" '+(ui.filters.bankPending?"checked":"")+' onchange="ui.filters.bankPending=this.checked;render()"> טופס בנק ממתין</label></div>' +
-    '<div class="field"><label style="visibility:hidden">ג</label><label class="check-row"><input type="checkbox" '+(ui.filters.notExported?"checked":"")+' onchange="ui.filters.notExported=this.checked;render()"> טרם נוצר יצוא</label></div>' +
-    '<div class="field"><label style="visibility:hidden">ד</label><label class="check-row"><input type="checkbox" '+(ui.filters.needsReexport?"checked":"")+' onchange="ui.filters.needsReexport=this.checked;render()"> נדרש יצוא מחדש</label></div>' +
     '<div class="field"><button class="btn btn-secondary btn-sm" onclick="resetFilters()">איפוס סינונים</button>'+(ui.hrListSelection.length ? ICON_BTN("trash","מחק תיקים מסומנים ("+ui.hrListSelection.length+")","requestBulkDeleteCases()","delete") : "")+'</div>' +
   '</div>' +
   '<div class="table-wrap" id="hrListTableWrap"><table class="data-table"><thead><tr>'+
@@ -331,7 +313,7 @@ function renderHrList(){
   '</tr></thead><tbody>'+rows+'</tbody></table></div>' +
   renderBulkDeleteCasesModal();
 }
-function resetFilters(){ ui.filters={company:"",worksite:"",missingDocs:false,bankPending:false,notExported:false,needsReexport:false,search:""}; render(); }
+function resetFilters(){ ui.filters={company:"",worksite:"",search:""}; render(); }
 function toggleHrRowSelect(caseId, checked){
   if(checked){
     if(!ui.hrListSelection.includes(caseId)) ui.hrListSelection.push(caseId);
@@ -1170,11 +1152,11 @@ function renderGenericChecklistItem(){
   // נעול תמיד עד שייבנה תוכן אמיתי לטופס (ר' migrateCaseChecklist שמוודאת
   // שהם לעולם לא יישארו מסומנים "הושלם" גם אם ננעלו קודם).
   return '' +
-  '<button class="btn-link" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<button class="btn-back" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">'+escapeHtml(def.label)+'</h1>' +
-  '<div class="page-desc">תוכן מלא לטופס זה ייקבע בהמשך הפיתוח. בשלב זה ניתן לצפות בתצוגה מקדימה בלבד; לא ניתן לסמן כהושלם עד שייבנה תוכן אמיתי.</div>' +
+  '<div class="page-desc">תוכן מלא לטופס זה ייקבע בהמשך הפיתוח. הטופס עדיין לא קיים ולכן אין תצוגה מקדימה, ולא ניתן לסמן כהושלם.</div>' +
   '<div class="btn-row">' +
-    '<button class="btn btn-secondary" onclick="openGenericPreview()">תצוגה מקדימה</button>' +
+    '<button class="btn btn-secondary" disabled title="הטופס עדיין לא קיים - אין תצוגה מקדימה">תצוגה מקדימה</button>' +
     '<button class="btn btn-primary" disabled title="הטופס עדיין לא קיים - לא ניתן לסמן כהושלם">סיימתי</button>' +
   '</div>';
 }
@@ -1361,7 +1343,7 @@ function renderEmailAccessForm(){
   const displayDate = c.checklistData.emailAccess.date || todayIso();
   const canFinish = !!sigVal && !done;
   return '' +
-  '<button class="btn-link" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<button class="btn-back" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">אישור על כניסה לתיבת דוא"ל</h1>' +
   '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש לחתום למטה - התאריך יתעדכן אוטומטית למועד החתימה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
@@ -1445,7 +1427,7 @@ function renderLockerCheckForm(){
   const displayDate = c.checklistData.lockerCheck.date || todayIso();
   const canFinish = !!sigVal && !done;
   return '' +
-  '<button class="btn-link" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<button class="btn-back" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">אישור עובד לביצוע בדיקת תאי אחסון</h1>' +
   '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש לחתום למטה - התאריך יתעדכן אוטומטית למועד החתימה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
@@ -1552,7 +1534,7 @@ function renderDataConsentForm(){
   const displayDate = c.checklistData.dataConsent.date || todayIso();
   const canFinish = !!sigVal && !done;
   return '' +
-  '<button class="btn-link" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<button class="btn-back" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">הודעה והסכמה בדבר איסוף, עיבוד ומסירת מידע אישי – מאגר עובדים</h1>' +
   '<div class="page-desc">הפרטים האישיים ופרטי החברה מולאו אוטומטית מפרטי תיק הקליטה ומהגדרות המערכת. יש לחתום למטה - התאריך יתעדכן אוטומטית למועד החתימה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
@@ -1677,7 +1659,7 @@ function renderPolygraphForm(){
   const displayDate = data.date || todayIso();
   const canFinish = !!data.signature && !done;
   return '' +
-  '<button class="btn-link" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<button class="btn-back" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">'+POLYGRAPH_TITLE+'</h1>' +
   '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. "מספר עובד" ו"מס\' כרטיס" ניתנים למילוי חופשי. יש לחתום למטה - התאריך יתעדכן אוטומטית למועד החתימה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
@@ -1837,7 +1819,7 @@ function renderSafetyForm(){
   const displayDate = data.date || todayIso();
   const canFinish = !!data.signature && !done;
   return '' +
-  '<button class="btn-link" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<button class="btn-back" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">'+SAFETY_TITLE+'</h1>' +
   '<div class="page-desc">הפרטים האישיים מולאו אוטומטית מפרטי תיק הקליטה. יש לחתום למטה - התאריך יתעדכן אוטומטית למועד החתימה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +
@@ -1954,7 +1936,7 @@ function renderPensionConfirmForm(){
   const displayDate = data.date || todayIso();
   const canFinish = !!data.signature && !done;
   return '' +
-  '<button class="btn-link" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
+  '<button class="btn-back" onmousedown="backToFormsHome()">&rarr; חזרה לרשימת הטפסים</button>' +
   '<h1 style="margin-top:14px;">'+escapeHtml(PENSION_CONFIRM_TITLE)+'</h1>' +
   '<div class="page-desc">זהו נוסח משפטי-סטטוטורי קבוע. יש לחתום למטה - התאריך יתעדכן אוטומטית למועד החתימה; חתימת המעביד מוצגת אוטומטית לפי פרטי החברה.</div>' +
   '<div class="panel" style="max-width:720px;line-height:1.8;font-size:14px;">' +

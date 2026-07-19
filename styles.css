@@ -163,6 +163,8 @@ input[type=radio],input[type=checkbox]{width:17px;height:17px;accent-color:var(-
 .btn-disabled,.btn:disabled{background:var(--disabled-bg)!important;color:var(--disabled-text)!important;cursor:not-allowed;}
 .btn-sm{padding:6px 12px;font-size:13px;}
 .btn-link{background:none;border:none;color:var(--header-text);cursor:pointer;font-size:13.5px;text-decoration:underline;padding:0;font-weight:600;}
+.btn-back{background:var(--header-bg);color:var(--header-text);border:none;border-radius:20px;padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;}
+.btn-back:hover{background:var(--border-teal);}
 .btn-icon-danger{background-color:#D9534F;border:0.8px solid #D43F3A;color:#fff;width:21.6px;height:21.6px;padding:1px;border-radius:3px;font-size:13px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;}
 .btn-icon-danger:hover{background-color:#c9302c;}
 .btn-add-green{background:var(--primary-btn);color:#fff;border:none;border-radius:6px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
