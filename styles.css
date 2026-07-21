@@ -77,6 +77,11 @@ h2.section-title{
 }
 h2.section-title:first-child{margin-top:0;}
 .page-desc{color:#516170;font-size:13.5px;margin:-10px 0 20px;}
+/* טופס 101 הוא המסך היחיד שבו page-desc בא ישר אחרי anchor-nav (סרגל
+   ניווט sticky) - שם margin-top:-10px הרגיל (שמכוון לרוב המסכים האחרים,
+   שבהם page-desc בא ישר אחרי h1) גורם לחפיפה חזותית עם תחתית ה-anchor-nav,
+   ולא בעיה של sticky/גלילה - קיים גם בגלילה 0 וגם בעברית טהורה. */
+.anchor-nav + .page-desc{margin-top:10px;}
 
 /* ===== Card / panel ===== */
 .panel{
@@ -107,7 +112,7 @@ h2.section-title:first-child{margin-top:0;}
 .field{display:flex;flex-direction:column;gap:6px;}
 .field.span-2{grid-column:span 2;}
 .field.span-3{grid-column:span 3;}
-.field label{font-size:13.5px;font-weight:700;color:var(--text-main);display:flex;align-items:center;gap:5px;}
+.field label{font-size:13.5px;font-weight:700;color:var(--text-main);display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
 .req-star{color:var(--error);font-weight:700;}
 input[type=text],input[type=date],input[type=email],input[type=tel],input[type=number],select,textarea{
   border:1px solid #C7D2D9;border-radius:6px;padding:10px 12px;font-size:14.5px;
@@ -120,14 +125,27 @@ input[type=date]::-webkit-calendar-picker-indicator{
   padding:0 8px;
   cursor:pointer;
 }
+/* טופס 101 במצב LTR (אנגלית/עברית+אנגלית) - האייקון של הלוח שנה עובר לצד
+   שמאל (תחילת השדה בקריאה LTR), במקום להישאר בצד ימין כמו בעברית.
+   ניסינו קודם direction:rtl על השדה עצמו (הגישה ה"נכונה" תיאורטית), אבל
+   בפועל הדפדפן מתעלם מ-direction על ה-shadow DOM הפנימי של
+   input[type=date] ולא מזיז את האייקון בכלל - לכן במקום זה ממקמים את
+   ::-webkit-calendar-picker-indicator באופן absolute משמאל (טכניקה
+   שעובדת בפועל, ולא תלויה בתמיכת הדפדפן ב-direction הפנימי). */
+.form101-dir[dir="ltr"] input[type=date]{position:relative;direction:ltr;text-align:left;padding:10px 10px 10px 48px;}
+.form101-dir[dir="ltr"] input[type=date]::-webkit-calendar-picker-indicator{
+  position:absolute;left:8px;top:50%;transform:translateY(-50%);
+  margin:0;margin-inline-start:0;border:none;border-inline-start:none;
+  padding-right:8px;border-right:1px solid #C7D2D9;
+}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--header-text);box-shadow:0 0 0 3px rgba(25,94,123,0.12);}
 input.err,select.err{border-color:var(--error);background:#FFF6F6;}
 input:disabled,select:disabled{background:var(--disabled-bg);color:var(--disabled-text);cursor:not-allowed;}
 .field-error{color:var(--error);font-size:12.5px;margin-top:2px;}
 .field-hint-static{color:#6b7a86;font-size:12px;margin-top:2px;}
-.radio-row,.check-row{display:flex;align-items:center;gap:8px;font-size:14px;}
+.radio-row,.check-row{display:flex;align-items:center;gap:8px;font-size:14px;flex-wrap:wrap;}
 .radio-group,.check-group{display:flex;flex-wrap:wrap;gap:14px;padding-top:6px;}
-.radio-group label,.check-group label{display:flex;align-items:center;gap:6px;font-weight:500;font-size:14px;cursor:pointer;}
+.radio-group label,.check-group label{display:flex;align-items:center;gap:6px;font-weight:500;font-size:14px;cursor:pointer;flex-wrap:wrap;}
 input[type=radio],input[type=checkbox]{width:17px;height:17px;accent-color:var(--header-text);cursor:pointer;}
 
 /* ===== Tooltip / help icon ===== */
@@ -169,7 +187,7 @@ input[type=radio],input[type=checkbox]{width:17px;height:17px;accent-color:var(-
 .btn-back:hover{background:var(--border-teal);}
 .btn-icon-danger{background-color:#D9534F;border:0.8px solid #D43F3A;color:#fff;width:21.6px;height:21.6px;padding:1px;border-radius:3px;font-size:13px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;}
 .btn-icon-danger:hover{background-color:#c9302c;}
-.btn-add-green{background:var(--primary-btn);color:#fff;border:none;border-radius:6px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+.btn-add-green{background:var(--primary-btn);color:#fff;border:none;border-radius:6px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;text-align:center;}
 .btn-row{display:flex;gap:10px;margin-top:22px;justify-content:flex-start;}
 
 /* עמודי HR (ר' .hr-theme על #app ב-renderNow) מקבלים גוון כתום ללחצני
@@ -224,6 +242,47 @@ table.data-table tr:hover td{background:#E7E7E7;}
 .filters-bar .field{min-width:150px;}
 .filters-bar .field label{font-size:12px;color:#5c7d8c;}
 
+/* טופס 101 בשפה שאינה עברית (אנגלית, וגם "עברית + English" - ר'
+   FORM_LANG_DIR) מוצג משמאל לימין - ה-dir דואג לכיוון הפריסה (flex/grid),
+   אבל text-align יורש מ-body (right, ערך פיזי ולא לוגי) ולכן חייבים
+   לדרוס אותו כאן במפורש כדי שהטקסט באמת יתיישר לשמאל. */
+.form101-dir[dir="ltr"]{text-align:left;}
+
+/* גרסת "עברית + English" (ר' tr() ב-render.js) - שורת תרגום עברית קטנה
+   ואפורה בשורה נפרדת, בהשראת הפריסה של urist.co.il.
+   flex-basis:100% (לא רק display:block!) כי התווית עצמה היא flex-row
+   (ר' .field label / .radio-group label / .check-group label) - בתוך
+   flex container, item עם flex-basis:100% "לא נכנס" לשורה הנוכחית ונדחק
+   לשורה הבאה, אבל זה קורה בפועל רק אם ל-flex container יש גם
+   flex-wrap:wrap (שנוסף לשלוש המחלקות האלה בכוונה בשביל זה - בלעדיו
+   Item פשוט נדחס לתוך אותה שורה בלי לשבור אותה).
+   text-align:left (ולא right!) בכוונה: זהו dir="rtl", כך שהאות ה"אחרונה"
+   בטקסט העברי (מבחינת סדר הקריאה) היא זו שמוצגת הכי בצד שמאל מבחינה
+   חזותית - יישור left ממקם בדיוק אותה בצד שמאל של השורה, בדיוק מתחת
+   לאות הראשונה של המילה האנגלית מעליה (במקום את תחילת המשפט העברי,
+   שהייתה מיושרת ימינה ולא בהכרח מתחת לאנגלית). */
+.bi-he-block{display:block;flex-basis:100%;font-size:12px;font-weight:400;color:#5c7d8c;margin-top:-1px;line-height:1.25;text-align:left;}
+/* בתוך תווית עם checkbox/radio (לא בתוך .field label הרגיל, ששם אין אייקון
+   לפני הטקסט) - כשהשורה השנייה "נשברת" בתוך flex container היא חוזרת
+   לקצה השמאלי של ה-container כולו (איפה שנמצא ה-checkbox/radio עצמו),
+   ולא לנקודה שבה מתחיל הטקסט האנגלי (אחרי האייקון + הרווח שביניהם) -
+   margin-left כאן משלים בדיוק את המרחק הזה (נמדד בפועל בדפדפן - לא רק
+   17px רוחב + gap, כי לתיבות/עיגולי הסימון יש גם margin ברירת מחדל של
+   הדפדפן) כדי שהעברית תיישר עם תחילת האנגלית, לא עם האייקון. */
+.radio-group label .bi-he-block,.check-group label .bi-he-block{margin-left:30px;}
+.radio-row .bi-he-block,.check-row .bi-he-block{margin-left:28px;}
+/* כותרות סעיפים (ר' sectionTitleHtml ב-render.js): אות הסעיף ("E. ") כבר
+   לא חלק מהתרגום (הוחלפה בנפרד ללא הצללת עברית - ר' SECTION_LETTER_EN),
+   אבל בגלל ש-.bi-he-block הוא display:block הוא תמיד מתחיל שורה חדשה
+   בתחילת ה-h2 (בלי קשר לאיפה "Details" התחיל בשורה הקודמת) - margin-left
+   כאן משלים בדיוק את הרוחב של אות הסעיף + ". " כדי שהעברית תיושר עם
+   תחילת הטקסט האנגלי (לא עם אות הסעיף עצמה). */
+.section-title .bi-he-block{margin-left:17px;}
+/* כפתורים ירוקים מלאים (למשל "+ Add child") - הצבע האפור הרגיל של
+   .bi-he-block בלתי-נראה כמעט על רקע ירוק, ולכן כאן העברית מקבלת לבן
+   ומודגשת יותר, כמו הטקסט האנגלי מעליה. */
+.btn-add-green .bi-he-block{color:#fff;font-weight:700;text-align:center;}
+
 /* ===== Anchor nav for form 101 ===== */
 .anchor-nav{
   position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border-teal);z-index:40;
@@ -231,6 +290,11 @@ table.data-table tr:hover td{background:#E7E7E7;}
 }
 .anchor-nav a{color:var(--header-text);text-decoration:none;font-size:12.8px;font-weight:600;padding:6px 10px;border-radius:6px;}
 .anchor-nav a:hover{background:var(--header-bg);}
+
+/* מתג שפת תצוגה (טופס 101 - ר' tr()/FORM101_I18N) - סגנון בהשראת .progress-tabs button */
+.lang-switcher{display:flex;gap:6px;justify-content:flex-end;padding:10px 0 0;}
+.lang-switcher .lang-btn{background:#fff;border:1px solid var(--border-teal);color:var(--header-text);padding:5px 14px;border-radius:16px;font-size:12.5px;font-weight:600;cursor:pointer;}
+.lang-switcher .lang-btn.active{background:var(--header-text);color:#fff;}
 
 /* ===== מסך "טבלאות קוד" (הגדרות מערכת) =====
    סרגל עליון קבוע (position:sticky) עם בחירת מערכת יעד (שיקלולית/כחולה)
@@ -336,7 +400,12 @@ details.row-menu[open] summary{background:var(--header-bg);}
 .combo-empty{padding:12px;text-align:center;color:#8a94a3;font-size:13px;}
 
 /* anchor sections nav highlight */
-.kv{display:grid;grid-template-columns:150px 1fr;gap:8px 14px;font-size:14px;}
+/* max-content (לא 150px קבוע) - כדי שהעמודה תתרחב אוטומטית לפי התווית
+   הכי ארוכה בפועל (כמו "Deductions file number:" באנגלית, שלא נכנסת ב-150px
+   ונשברת לשתי שורות) בלי לשבור את היישור בין השורות (ה-grid עדיין קובע
+   רוחב עמודה אחיד לכל השורות יחד, ולכן המרווח בין תווית לתוכן נשאר זהה). */
+.kv{display:grid;grid-template-columns:max-content 1fr;gap:8px 14px;font-size:14px;}
+.kv .k{white-space:nowrap;}
 .kv div.k{color:#5c7d8c;font-weight:600;}
 .stepper-note{background:var(--header-bg);border:1px solid var(--border-teal);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--header-text);margin-bottom:16px;}
 .progress-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}

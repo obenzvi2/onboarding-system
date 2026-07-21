@@ -33,8 +33,79 @@ let ui = {
   hrListSelection:[], // מזהי תיקי קליטה מסומנים ב-checkbox (ניהול עובדים)
   hrBulkDeleteConfirmOpen:false, // האם דיאלוג אישור מחיקת תיקים מסומנים פתוח
   codeSystem:"shikulit", // מסך "טבלאות קוד": מערכת היעד המוצגת כרגע - "shikulit" | "blue"
-  activeChecklistKey:null // מפתח הטופס הפעיל כרגע בטאב מילוי הטפסים (FORM_CHECKLIST_DEFS)
+  activeChecklistKey:null, // מפתח הטופס הפעיל כרגע בטאב מילוי הטפסים (FORM_CHECKLIST_DEFS)
+  formLanguage:"he", // שפת התצוגה של טופס 101 (לא משפיע על הנתונים עצמם או על ההדפסה) - "he" | "en"
+  form101DisclaimerAck:false // האם אושר ה-disclaimer של תרגום טופס 101 (נדרש בכל שפה שאינה עברית)
 };
+/* מחזירה את התרגום הגולמי (טקסט בלבד, ללא HTML) עבור key בשפה נתונה, או
+   null אם אין תרגום כזה במילון - עוזרת פנימית ל-tr()/trPlain() (גרסת
+   "עברית + English"). */
+function rawTranslation(lang, key){
+  const dict = FORM101_I18N[lang];
+  const val = dict ? dict[key] : null;
+  return (val!=null && val!=="") ? val : null;
+}
+/* מחזירה את התרגום עבור key בשפת ui.formLanguage הנוכחית, או heFallback אם
+   השפה היא עברית או שהמפתח עדיין לא קיים במילון של השפה הנבחרת (ר' i18n.js).
+   במצב "both" (הטופס באנגלית, עם תרגום עברי קטן ואפור מתחתיו בשורה נפרדת -
+   ר' .bi-he-block ב-styles.css) התוצאה היא HTML ולא טקסט רגיל: אנגלית,
+   ואחריה span בעברית עם dir="rtl" משלו (כך שהעברית תמיד תיושר RTL כשורה
+   עצמאית, ולעולם לא תתערבב עם האנגלית באותה שורה - עברית RTL ואנגלית LTR
+   יחד בשורה אחת נראה מבולגן).
+   *** חשוב: בגלל זה אסור לעולם לעטוף קריאה ל-tr()/codeName() ב-escapeHtml()
+   - זה ישבור את ה-span המוזרק (יהפוך אותו לטקסט גלוי "<span...>"). כל
+   הקריאות הקיימות בקובץ הזה כבר לא עוטפות (הוסרו בכוונה) - כל תרגום חדש
+   חייב לשמור על הכלל הזה. ***
+   השם "tr" (ולא "t") נבחר בכוונה - "t" כבר משמש בקוד הקיים כשם פרמטר נפוץ
+   בפונקציות map/filter (למשל CODE_TABLES.incomeTypes.map(t=>...)), ושימוש
+   באותו שם היה גורם להסתרה (shadowing) של פונקציית התרגום הגלובלית בדיוק
+   בתוך הקריאות שהכי צריכות אותה (ר' codeName למטה). */
+function tr(key, heFallback){
+  const lang = ui.formLanguage;
+  if(!lang || lang==="he") return heFallback;
+  if(lang==="both"){
+    const en = rawTranslation("en", key);
+    return en ? (en+'<span class="bi-he-block" dir="rtl">'+heFallback+'</span>') : heFallback;
+  }
+  const val = rawTranslation(lang, key);
+  return val!=null ? val : heFallback;
+}
+/* כמו tr(), אבל תמיד מחזירה טקסט רגיל בפורמט "English (עברית)" גם במצב
+   "both" - לשימוש בכל מקום שבו לא ניתן להזריק HTML גולמי: בתוך <option>
+   של <select> (תוכן option לעולם לא מפורש כ-HTML), או בתוך ערך של attribute
+   כמו title="..." (ה-span/מרכאות שמחזירה tr() היו שוברים את הפיענוח של
+   התג עצמו). */
+function trPlain(key, heFallback){
+  if(ui.formLanguage!=="both") return tr(key, heFallback);
+  const en = rawTranslation("en", key);
+  return en ? (en+" ("+heFallback+")") : heFallback;
+}
+/* תרגום ערך מתוך CODE_TABLES (למשל מצב משפחתי, סוג הכנסה) - prefix מזהה
+   את הטבלה (כדי שמפתחות מטבלאות שונות לא יתנגשו), item.id הוא הערך בפועל.
+   plain=true מבקש טקסט רגיל בפורמט "English (עברית)" במקום ה-HTML העשיר
+   שמצב "both" מחזיר בדרך כלל (ר' tr()) - נחוץ בתוך <option> של <select>,
+   כי תוכן option לעולם לא מפורש כ-HTML בדפדפן (תג span היה מוצג כטקסט
+   מילולי במקום להיות מעוצב). */
+function codeName(prefix,item,plain){
+  if(plain && ui.formLanguage==="both"){
+    const en = rawTranslation("en", prefix+"_"+item.id);
+    return en ? (en+" ("+item.name+")") : item.name;
+  }
+  return tr(prefix+"_"+item.id, item.name);
+}
+// אות הסעיף (א./ב./ג'...) של טופס 101 מוחלפת לגמרי לאות לטינית (A./B./C'...)
+// באנגלית/both - בדיוק כמו 2א/2ב בחלק ח' - כי היא רק סימון מספור ולא
+// תוכן שצריך לשמר. תוכן הכותרת עצמו (heContent) עדיין עובר דרך tr() הרגיל
+// עם שכפול/הצללה של עברית מתחת לאנגלית (ר' sectionTitleHtml).
+const SECTION_LETTER_EN = {"א":"A","ב":"B","ג":"C","ד":"D","ה":"E","ו":"F","ז":"G","ח":"H","ט":"I","י":"J"};
+function sectionTitleHtml(heLetter, contentKey, heContent){
+  const letter = (ui.formLanguage==="en" || ui.formLanguage==="both") ? (SECTION_LETTER_EN[heLetter]||heLetter) : heLetter;
+  return letter+'. '+tr(contentKey, heContent);
+}
+function setFormLanguage(lang){
+  ui.formLanguage = lang;
+  render();
+}
 function showToast(msg){
   ui.toast = msg;
   render();
@@ -707,14 +778,39 @@ function scrollToField(id){
   if(el){ el.scrollIntoView({behavior:"smooth",block:"center"}); if(el.focus) el.focus(); }
 }
 
-/* עטיפת שדה עם תווית, כוכבית חובה, סימן שאלה אופציונלי, והודעת שגיאה */
-function f101FieldWrap(id,label,required,control,tooltipText,extraHint,spanCls){
+/* עטיפת שדה עם תווית, כוכבית חובה, סימן שאלה אופציונלי, והודעת שגיאה.
+   התווית/tooltip/hint מתורגמים אוטומטית לפי id (עם נירמול אינדקס דינמי
+   כמו f101_kid_0_name -> f101_kid_name, כדי ששורות חוזרות כמו ילדים/מקורות
+   הכנסה ישתמשו כולן באותו מפתח תרגום) - ר' tr()/FORM101_I18N ב-i18n.js.
+   labelKey (אופציונלי) - מפתח תרגום מפורש לתווית במקום הגזירה האוטומטית
+   מ-id; נחוץ בשדות בודדים שבהם אותו id מציג תוכן שונה בתנאי (למשל
+   f101_idNumber_ro שמציג "מספר זהות" או "מספר דרכון" לפי emp.idType). */
+function f101FieldWrap(id,label,required,control,tooltipText,extraHint,spanCls,labelKey){
   const err = ui.errors[id];
+  const tKey = id.replace(/_\d+_/,"_");
+  const lKey = labelKey || (tKey+"_label");
+  const tooltip2 = tooltipText ? tr(tKey+"_tooltip", tooltipText) : tooltipText;
+  const hint2 = extraHint ? tr(tKey+"_hint", extraHint) : extraHint;
+  const err2 = err ? tr(err, err) : err;
+  // הכוכבית והסימן שאלה חייבים להישאר על שורת האנגלית (לא להידחק אחרי שורת
+  // התרגום העברי) - ולכן במצב "both" בונים כאן ידנית: אנגלית + כוכבית/qmark,
+  // ואז שורת העברית מתווספת בסוף, אחרי הכל (ר' tr() לפורמט הרגיל שמשמש
+  // בכל שאר המקומות שבהם אין את בעיית הסדר הזו).
+  const starAndTip = (required?' <span class="req-star">*</span>':'')+(tooltip2?qmarkHtml(tooltip2):'');
+  let labelHtml;
+  if(ui.formLanguage==="both"){
+    const enLabel = rawTranslation("en", lKey);
+    labelHtml = enLabel
+      ? (enLabel + starAndTip + '<span class="bi-he-block" dir="rtl">'+label+'</span>')
+      : (label + starAndTip);
+  } else {
+    labelHtml = tr(lKey, label) + starAndTip;
+  }
   return '<div class="field '+(spanCls||"")+'" id="'+id+'_wrap">' +
-    '<label for="'+id+'">'+escapeHtml(label)+(required?' <span class="req-star">*</span>':'')+(tooltipText?qmarkHtml(tooltipText):'')+'</label>' +
+    '<label for="'+id+'">'+labelHtml+'</label>' +
     control +
-    (extraHint?'<div class="field-hint-static">'+extraHint+'</div>':'') +
-    (err?'<div class="field-error">'+escapeHtml(err)+'</div>':'') +
+    (hint2?'<div class="field-hint-static">'+hint2+'</div>':'') +
+    (err2?'<div class="field-error">'+err2+'</div>':'') +
   '</div>';
 }
 const IDNUM_TOOLTIP = "אין צורך להכניס אפסים בתחילת המספר והם לא ישמרו.";
@@ -1992,36 +2088,73 @@ function renderPrintPensionConfirm(c, backOnclick, backLabel){
 /* ============================================================
    10. טופס 101 — המסך המלא
    ============================================================ */
+/* מתג עברית/English - לא מודפס (no-print), ולא משפיע על נתונים או על
+   ההדפסה - רק על הטקסט שמוצג במסך המילוי (ר' tr()/FORM101_I18N). */
+function form101LangSwitcherHtml(){
+  // "both" - גרסה ניסיונית נוספת (עברית + English יחד באותו מסך) שנוספה
+  // כדי להשוות מול המתג הרגיל - לא מחליפה את "he"/"en" הקיימים.
+  const langs = [["he","עברית"],["en","English"],["both","עברית + English"]];
+  return '<div class="lang-switcher no-print">'+
+    langs.map(l=>'<button class="lang-btn'+((ui.formLanguage||"he")===l[0]?" active":"")+'" onclick="setFormLanguage(\''+l[0]+'\')">'+l[1]+'</button>').join("") +
+  '</div>';
+}
+function acknowledgeForm101Disclaimer(checked){
+  ui.form101DisclaimerAck = checked;
+  render();
+}
+/* Disclaimer שחוסם את שאר הטופס בכל שפה שאינה עברית (ר' renderForm101),
+   עד לסימון "I understand" - ניסוח עצמאי שלנו, לא מועתק ממקור חיצוני
+   (ר' דיון על רישיון CC BY-NC-SA של tofes101.co.il/ovdim.io). */
+function form101DisclaimerHtml(){
+  return '' +
+  '<div class="panel" style="max-width:720px;">' +
+    '<div class="card-title" style="margin-bottom:10px;">'+tr("disclaimer_title","Disclaimer")+'</div>' +
+    '<p style="margin:0 0 14px;">'+tr("disclaimer_p1","This English version is an informal translation provided to help you fill out the form. Everything you enter is still recorded and printed only on the original Hebrew Form 101 — that Hebrew document is the sole official version and serves as your declaration to the employer.")+'</p>' +
+    '<p style="margin:0 0 14px;">'+tr("disclaimer_p2","We've done our best to keep this translation accurate, but it may contain errors, so rely on the Hebrew form for anything unclear.")+'</p>' +
+    '<p style="margin:0 0 14px;">'+tr("disclaimer_p3","If you have questions, HR is available to help you fill out the form.")+'</p>' +
+    '<label class="check-row"><input type="checkbox" '+(ui.form101DisclaimerAck?"checked":"")+' onchange="acknowledgeForm101Disclaimer(this.checked)"> '+tr("disclaimer_understand","I understand")+' <span class="req-star">*</span></label>' +
+  '</div>';
+}
+// כיוון תצוגה לפי שפה - עברית/ערבית הן RTL, אנגלית/רוסית הן LTR (ר' renderForm101).
+const FORM_LANG_DIR = { he:"rtl", en:"ltr", both:"ltr" };
 function renderForm101(isHr){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
   const emp = c.employee;
   const errCount = Object.keys(ui.errors).length;
   const anchors = [
-    ["sec-a","מעסיק"],["sec-b","פרטי עובד/ת"],["sec-c","ילדים"],["sec-d","הכנסה ממעסיק זה"],
-    ["sec-e","הכנסות אחרות"]
+    ["sec-a","anchor_employer","מעסיק"],["sec-b","anchor_employee","פרטי עובד/ת"],["sec-c","anchor_children","ילדים"],["sec-d","anchor_incomeFromEmployer","הכנסה ממעסיק זה"],
+    ["sec-e","anchor_otherIncome","הכנסות אחרות"]
   ];
-  anchors.push(["sec-f","בן/בת זוג"]);
-  anchors.push(["sec-g","שינויים במהלך השנה"],["sec-h","פטור וזיכוי ממס"],["sec-i","תיאום מס"]);
-  anchors.push(["sec-j","הצהרה וסיום"]);
+  anchors.push(["sec-f","anchor_spouse","בן/בת זוג"]);
+  anchors.push(["sec-g","anchor_changesDuringYear","שינויים במהלך השנה"],["sec-h","anchor_taxExemption","פטור וזיכוי ממס"],["sec-i","anchor_taxCoordination","תיאום מס"]);
+  anchors.push(["sec-j","anchor_declaration","הצהרה וסיום"]);
 
+  const dir = FORM_LANG_DIR[ui.formLanguage] || "rtl";
+  // ה-disclaimer חוסם רק במצב "en" טהור (תרגום בלבד, בלי עברית על המסך).
+  // במצב "he" ובמצב "both" העברית המקורית תמיד נשארת גלויה במלואה, ולכן
+  // אין סיכון להבנה מוטעית שמצדיק חסימה (ר' form101DisclaimerHtml).
+  const disclaimerBlocking = ui.formLanguage==="en" && !ui.form101DisclaimerAck;
   return '' +
+  form101LangSwitcherHtml() +
+  '<div dir="'+dir+'" class="form101-dir">' +
+  '<div class="btn-row" style="margin:16px 0;"><button class="btn-back" onmousedown="backToFormsHome()">'+(dir==="ltr"?"&larr; ":"&rarr; ")+(isHr?tr("back_to_case","חזרה למסך התיק"):tr("back_to_forms_list","חזרה לרשימת הטפסים"))+'</button></div>' +
+  '<h1 id="sec-a">'+tr("form101_title","כרטיס עובד (טופס 101)")+'</h1>' +
+  (disclaimerBlocking ? form101DisclaimerHtml() : ('' +
   '<div class="anchor-nav no-print">' +
-    anchors.map(a=>'<a href="#'+a[0]+'">'+a[1]+'</a>').join("") +
+    anchors.map(a=>'<a href="#'+a[0]+'">'+tr(a[1],a[2])+'</a>').join("") +
   '</div>' +
-  '<div class="btn-row" style="margin:16px 0;"><button class="btn-back" onmousedown="backToFormsHome()">&rarr; '+(isHr?"חזרה למסך התיק":"חזרה לרשימת הטפסים")+'</button></div>' +
-  '<h1 id="sec-a">כרטיס עובד (טופס 101)</h1>' +
-  '<div class="page-desc">יש למלא את כל השדות המסומנים בכוכבית אדומה. לכל שדה עם סימן שאלה כחול ניתן ללחוץ לקבלת הסבר.</div>' +
-  (errCount?('<div class="alert alert-error" id="error-summary"><b>נמצאו '+errCount+' שגיאות למילוי:</b><div>'+
-    Object.keys(ui.errors).map(k=>'<div>&bull; <a href="javascript:void(0)" onclick="scrollToField(\''+k+'\')" style="color:inherit;text-decoration:underline;">'+escapeHtml(ui.errors[k])+'</a></div>').join("") +
+  '<div class="page-desc">'+tr("form101_pageDesc","יש למלא את כל השדות המסומנים בכוכבית אדומה. לכל שדה עם סימן שאלה כחול ניתן ללחוץ לקבלת הסבר.")+'</div>' +
+  (errCount?('<div class="alert alert-error" id="error-summary"><b>'+tr("error_summary_template","נמצאו {n} שגיאות למילוי:").replace("{n}",errCount)+'</b><div>'+
+    Object.keys(ui.errors).map(k=>'<div>&bull; <a href="javascript:void(0)" onclick="scrollToField(\''+k+'\')" style="color:inherit;text-decoration:underline;">'+tr(ui.errors[k],ui.errors[k])+'</a></div>').join("") +
   '</div></div>'):'') +
 
-  '<h2 class="section-title">א. פרטי המעסיק (לקריאה בלבד)</h2>' +
+  '<h2 class="section-title">'+sectionTitleHtml("א","sec_a_title","פרטי המעסיק (לקריאה בלבד)")+'</h2>' +
   '<div class="panel"><div class="kv">' +
-    '<div class="k">שם המעסיק</div><div>'+escapeHtml(companyName(c.companyId))+'</div>' +
-    '<div class="k">כתובת</div><div>'+escapeHtml((CODE_TABLES.companies.find(x=>x.id===c.companyId)||{}).address||"")+'</div>' +
-    '<div class="k">מספר טלפון</div><div>'+escapeHtml((CODE_TABLES.companies.find(x=>x.id===c.companyId)||{}).phone||"")+'</div>' +
-    '<div class="k">מספר תיק ניכויים</div><div>'+escapeHtml((CODE_TABLES.companies.find(x=>x.id===c.companyId)||{}).deductionFileNum||"")+'</div>' +
+    '<div class="k">'+tr("employer_name_label","שם המעסיק:")+'</div><div>'+escapeHtml(companyName(c.companyId))+'</div>' +
+    '<div class="k">'+tr("employer_address_label","כתובת:")+'</div><div>'+escapeHtml((CODE_TABLES.companies.find(x=>x.id===c.companyId)||{}).address||"")+'</div>' +
+    '<div class="k">'+tr("employer_phone_label","מספר טלפון:")+'</div><div>'+escapeHtml((CODE_TABLES.companies.find(x=>x.id===c.companyId)||{}).phone||"")+'</div>' +
+    '<div class="k">'+tr("employer_deductionFile_label","מספר תיק ניכויים:")+'</div><div>'+escapeHtml((CODE_TABLES.companies.find(x=>x.id===c.companyId)||{}).deductionFileNum||"")+'</div>' +
   '</div></div>' +
 
   renderForm101SectionB(c) +
@@ -2032,7 +2165,9 @@ function renderForm101(isHr){
   renderForm101SectionG(c) +
   renderForm101SectionH(c) +
   renderForm101SectionI(c) +
-  renderForm101SectionJ(c);
+  renderForm101SectionJ(c)
+  )) +
+  '</div>';
 }
 
 function radioGroupHtml(name,options,current,onchangeFn){
@@ -2044,22 +2179,28 @@ function radioGroupHtml(name,options,current,onchangeFn){
 function renderForm101SectionB(c){
   const emp = c.employee;
   const e = (k)=>ui.errors[k] ? " err" : "";
+  // ה-id ("f101_idNumber_ro") קבוע בעוד התוכן (עברית וגם מפתח התרגום)
+  // משתנה לפי emp.idType - לכן מעבירים ל-f101FieldWrap מפתח תרגום מפורש
+  // (labelKey) במקום לתת לו לגזור אותו אוטומטית מ-id, כדי שלא "יתקע" תמיד
+  // על אותו תרגום בלי קשר לסוג הזיהוי הנבחר.
+  const idLabelKey = emp.idType==="id" ? "id_number_label" : "passport_number_label";
   const idLabel = emp.idType==="id" ? "מספר זהות" : "מספר דרכון";
   const idValue = emp.idType==="id" ? emp.idNumber : emp.passportNumber;
+  const yes = tr("yes","כן"), no = tr("no","לא");
   return '' +
-  '<h2 class="section-title" id="sec-b">ב. פרטי העובד/ת</h2>' +
+  '<h2 class="section-title" id="sec-b">'+sectionTitleHtml("ב","sec_b_title","פרטי העובד/ת")+'</h2>' +
   '<div class="panel">' +
   '<div class="form-grid">' +
     f101FieldWrap("f101_firstName_ro","שם פרטי",true,'<input type="text" value="'+escapeHtml(emp.firstName)+'" readonly disabled>') +
     f101FieldWrap("f101_lastName_ro","שם משפחה",true,'<input type="text" value="'+escapeHtml(emp.lastName)+'" readonly disabled>') +
     f101FieldWrap("f101_idType_ro","זיהוי לפי",true,
-      '<div class="radio-group"><label><input type="radio" '+(emp.idType==="id"?"checked":"")+' disabled> תעודת זהות</label>'+
-      '<label><input type="radio" '+(emp.idType==="passport"?"checked":"")+' disabled> דרכון (עבור אזרח זר)</label></div>') +
-    f101FieldWrap("f101_idNumber_ro",idLabel,true,'<input type="text" value="'+escapeHtml(idValue)+'" readonly disabled>') +
+      '<div class="radio-group"><label><input type="radio" '+(emp.idType==="id"?"checked":"")+' disabled> '+tr("id_type_id","תעודת זהות")+'</label>'+
+      '<label><input type="radio" '+(emp.idType==="passport"?"checked":"")+' disabled> '+tr("id_type_passport","דרכון (עבור אזרח זר)")+'</label></div>') +
+    f101FieldWrap("f101_idNumber_ro",idLabel,true,'<input type="text" value="'+escapeHtml(idValue)+'" readonly disabled>',null,null,null,idLabelKey) +
     f101FieldWrap("f101_birthDate","תאריך לידה",true,'<input type="date" id="f101_birthDate" class="'+e("f101_birthDate")+'" value="'+emp.birthDate+'" max="'+todayIso()+'" onblur="finalizeEmpField(\'birthDate\',this.value)">') +
     f101FieldWrap("f101_aliyaDate","תאריך עלייה",false,'<input type="date" id="f101_aliyaDate" value="'+emp.aliyaDate+'" onblur="updateEmp(\'aliyaDate\',this.value)">') +
   '</div>' +
-  '<div class="field-hint-static" style="margin-bottom:10px;">שם, סוג הזיהוי ומספר הזהות/דרכון נמסרו בעת פתיחת תיק הקליטה ואינם ניתנים לעריכה כאן.</div>' +
+  '<div class="field-hint-static" style="margin-bottom:10px;">'+tr("sec_b_idHint","שם, סוג הזיהוי ומספר הזהות/דרכון נמסרו בעת פתיחת תיק הקליטה ואינם ניתנים לעריכה כאן.")+'</div>' +
   '<div class="form-grid cols-4">' +
     f101FieldWrap("f101_city","עיר או יישוב",true,'<input type="text" id="f101_city" class="'+e("f101_city")+'" value="'+escapeHtml(emp.city)+'" oninput="updateEmp(\'city\',this.value)">') +
     f101FieldWrap("f101_street","רחוב",true,'<input type="text" id="f101_street" class="'+e("f101_street")+'" value="'+escapeHtml(emp.street)+'" oninput="updateEmp(\'street\',this.value)">') +
@@ -2075,31 +2216,31 @@ function renderForm101SectionB(c){
   '</div>' +
   '<div class="form-grid cols-5">' +
     f101FieldWrap("f101_gender","מין",true,
-      '<div class="radio-group" style="flex-direction:column;align-items:flex-start;"><label><input type="radio" name="gender" value="male" '+(emp.gender==="male"?"checked":"")+' onchange="updateEmp(\'gender\',\'male\')"> זכר</label>'+
-      '<label><input type="radio" name="gender" value="female" '+(emp.gender==="female"?"checked":"")+' onchange="updateEmp(\'gender\',\'female\')"> נקבה</label></div>') +
+      '<div class="radio-group" style="flex-direction:column;align-items:flex-start;"><label><input type="radio" name="gender" value="male" '+(emp.gender==="male"?"checked":"")+' onchange="updateEmp(\'gender\',\'male\')"> '+tr("gender_male","זכר")+'</label>'+
+      '<label><input type="radio" name="gender" value="female" '+(emp.gender==="female"?"checked":"")+' onchange="updateEmp(\'gender\',\'female\')"> '+tr("gender_female","נקבה")+'</label></div>') +
     f101FieldWrap("f101_maritalStatus","מצב משפחתי",true,
       '<div class="radio-group" style="flex-direction:column;align-items:flex-start;">'+
-      CODE_TABLES.maritalStatuses.map(m=>'<label><input type="radio" name="maritalStatus" value="'+m.id+'" '+(emp.maritalStatus===m.id?"checked":"")+' onchange="updateEmp(\'maritalStatus\',\''+m.id+'\')"> '+escapeHtml(m.name)+'</label>').join("")+
+      CODE_TABLES.maritalStatuses.map(m=>'<label><input type="radio" name="maritalStatus" value="'+m.id+'" '+(emp.maritalStatus===m.id?"checked":"")+' onchange="updateEmp(\'maritalStatus\',\''+m.id+'\')"> '+codeName("maritalStatus",m)+'</label>').join("")+
       '</div>',
-      null, emp.maritalStatus==="separated" ? '<span style="color:#a65b00;">חובה לצרף אישור פקיד שומה.</span>' : '') +
+      null, emp.maritalStatus==="separated" ? '<span style="color:#a65b00;">'+tr("sec_b_separatedHint","חובה לצרף אישור פקיד שומה.")+'</span>' : '') +
     f101FieldWrap("f101_isIsraeliResident","תושב/ת ישראל",true,
-      '<div class="radio-group" style="flex-direction:column;align-items:flex-start;"><label><input type="radio" name="isIsraeliResident" value="yes" '+(emp.isIsraeliResident==="yes"?"checked":"")+' onchange="updateEmp(\'isIsraeliResident\',\'yes\')"> כן</label>'+
-      '<label><input type="radio" name="isIsraeliResident" value="no" '+(emp.isIsraeliResident==="no"?"checked":"")+' onchange="updateEmp(\'isIsraeliResident\',\'no\')"> לא</label></div>') +
+      '<div class="radio-group" style="flex-direction:column;align-items:flex-start;"><label><input type="radio" name="isIsraeliResident" value="yes" '+(emp.isIsraeliResident==="yes"?"checked":"")+' onchange="updateEmp(\'isIsraeliResident\',\'yes\')"> '+yes+'</label>'+
+      '<label><input type="radio" name="isIsraeliResident" value="no" '+(emp.isIsraeliResident==="no"?"checked":"")+' onchange="updateEmp(\'isIsraeliResident\',\'no\')"> '+no+'</label></div>') +
     f101FieldWrap("f101_kibbutzMember","חבר/ת קיבוץ או מושב שיתופי",false,
-      '<div class="radio-group" style="flex-direction:column;align-items:flex-start;"><label><input type="radio" name="kibbutzMemberPrimary" value="yes" '+((emp.kibbutzMember==="yes_transferred"||emp.kibbutzMember==="yes_not_transferred")?"checked":"")+' onchange="updateKibbutzPrimary(\'yes\')"> כן</label>'+
-      '<label><input type="radio" name="kibbutzMemberPrimary" value="no" '+(emp.kibbutzMember==="no"?"checked":"")+' onchange="updateKibbutzPrimary(\'no\')"> לא</label></div>'+
+      '<div class="radio-group" style="flex-direction:column;align-items:flex-start;"><label><input type="radio" name="kibbutzMemberPrimary" value="yes" '+((emp.kibbutzMember==="yes_transferred"||emp.kibbutzMember==="yes_not_transferred")?"checked":"")+' onchange="updateKibbutzPrimary(\'yes\')"> '+yes+'</label>'+
+      '<label><input type="radio" name="kibbutzMemberPrimary" value="no" '+(emp.kibbutzMember==="no"?"checked":"")+' onchange="updateKibbutzPrimary(\'no\')"> '+no+'</label></div>'+
       ((emp.kibbutzMember==="yes_transferred"||emp.kibbutzMember==="yes_not_transferred") ? '<div style="margin-top:10px;">'+
-        '<label style="font-size:13.5px;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:5px;">הכנסותיי ממעסיק זה מועברות לקיבוץ <span class="req-star">*</span>'+qmarkHtml("אם המשכורת ממעסיק זה מועברת ישירות לקיבוץ או למושב השיתופי (ולא משולמת לך אישית), יש לבחור \"כן\".")+'</label>'+
-        '<div class="radio-group" style="margin-top:6px;"><label><input type="radio" name="kibbutzTransferred" value="yes_transferred" '+(emp.kibbutzMember==="yes_transferred"?"checked":"")+' onchange="updateEmp(\'kibbutzMember\',\'yes_transferred\')"> כן</label>'+
-        '<label><input type="radio" name="kibbutzTransferred" value="yes_not_transferred" '+(emp.kibbutzMember==="yes_not_transferred"?"checked":"")+' onchange="updateEmp(\'kibbutzMember\',\'yes_not_transferred\')"> לא</label></div>'+
+        '<label style="font-size:13.5px;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:5px;">'+tr("sec_b_kibbutzTransferLabel","הכנסותיי ממעסיק זה מועברות לקיבוץ")+' <span class="req-star">*</span>'+qmarkHtml(tr("sec_b_kibbutzTransferTooltip","אם המשכורת ממעסיק זה מועברת ישירות לקיבוץ או למושב השיתופי (ולא משולמת לך אישית), יש לבחור \"כן\"."))+'</label>'+
+        '<div class="radio-group" style="margin-top:6px;"><label><input type="radio" name="kibbutzTransferred" value="yes_transferred" '+(emp.kibbutzMember==="yes_transferred"?"checked":"")+' onchange="updateEmp(\'kibbutzMember\',\'yes_transferred\')"> '+yes+'</label>'+
+        '<label><input type="radio" name="kibbutzTransferred" value="yes_not_transferred" '+(emp.kibbutzMember==="yes_not_transferred"?"checked":"")+' onchange="updateEmp(\'kibbutzMember\',\'yes_not_transferred\')"> '+no+'</label></div>'+
       '</div>' : '')) +
     f101FieldWrap("f101_healthFundMember","קופת חולים",true,
-      '<div class="radio-group" style="flex-direction:column;align-items:flex-start;"><label><input type="radio" name="healthFundMember" value="yes" '+(emp.healthFundMember==="yes"?"checked":"")+' onchange="updateEmp(\'healthFundMember\',\'yes\')"> כן</label>'+
-      '<label><input type="radio" name="healthFundMember" value="no" '+(emp.healthFundMember==="no"?"checked":"")+' onchange="updateEmp(\'healthFundMember\',\'no\')"> לא</label></div>'+
-      (emp.healthFundMember==="yes" ? '<div style="margin-top:10px;"><label style="font-size:13.5px;font-weight:600;color:var(--text-main);">שם הקופה</label>'+
+      '<div class="radio-group" style="flex-direction:column;align-items:flex-start;"><label><input type="radio" name="healthFundMember" value="yes" '+(emp.healthFundMember==="yes"?"checked":"")+' onchange="updateEmp(\'healthFundMember\',\'yes\')"> '+yes+'</label>'+
+      '<label><input type="radio" name="healthFundMember" value="no" '+(emp.healthFundMember==="no"?"checked":"")+' onchange="updateEmp(\'healthFundMember\',\'no\')"> '+no+'</label></div>'+
+      (emp.healthFundMember==="yes" ? '<div style="margin-top:10px;"><label style="font-size:13.5px;font-weight:600;color:var(--text-main);">'+tr("sec_b_healthFundNameLabel","שם הקופה")+'</label>'+
         '<div class="radio-group" style="flex-direction:column;align-items:flex-start;margin-top:6px;">'+
-        CODE_TABLES.healthFunds.map(h=>h.name).map(n=>'<label><input type="radio" name="healthFundName" value="'+n+'" '+(emp.healthFundName===n?"checked":"")+' onchange="updateEmp(\'healthFundName\',\''+n+'\')"> '+n+'</label>').join("")+
-        '</div>'+(ui.errors["f101_healthFundName"]?'<div class="field-error">'+ui.errors["f101_healthFundName"]+'</div>':'')+'</div>' : '')) +
+        CODE_TABLES.healthFunds.map(h=>'<label><input type="radio" name="healthFundName" value="'+h.name+'" '+(emp.healthFundName===h.name?"checked":"")+' onchange="updateEmp(\'healthFundName\',\''+h.name+'\')"> '+codeName("healthFund",h)+'</label>').join("")+
+        '</div>'+(ui.errors["f101_healthFundName"]?'<div class="field-error">'+tr(ui.errors["f101_healthFundName"],ui.errors["f101_healthFundName"])+'</div>':'')+'</div>' : '')) +
   '</div>' +
   '</div>';
 }
@@ -2108,45 +2249,46 @@ function renderForm101SectionB(c){
 function renderForm101SectionC(c){
   const kids = c.employee.children;
   const e = (k)=>ui.errors[k] ? " err" : "";
+  const addChildBtn = '<button class="btn-add-green" onclick="addChild()">+ '+tr("add_child_btn","הוסף ילד")+'</button>';
   let inner;
   if(!kids.length){
-    inner = '<button class="btn-add-green" onclick="addChild()">+ הוסף ילד</button>';
+    inner = addChildBtn;
   } else {
     inner = '<div class="kids-list">' + kids.map((kid,idx)=>{
       return '<div class="kid-card">' +
-        '<div class="kid-card-head"><b>ילד '+(idx+1)+'</b><button class="btn-icon-danger" title="מחק ילד" onclick="removeChildRow('+idx+')">&minus;</button></div>' +
+        '<div class="kid-card-head"><b>'+tr("kid_card_prefix","ילד")+' '+(idx+1)+'</b><button class="btn-icon-danger" title="'+trPlain("remove_child_title","מחק ילד")+'" onclick="removeChildRow('+idx+')">&minus;</button></div>' +
         '<div class="form-grid cols-3">' +
           f101FieldWrap("f101_kid_"+idx+"_name","שם",true,'<input type="text" id="f101_kid_'+idx+'_name" class="'+e("f101_kid_"+idx+"_name")+'" value="'+escapeHtml(kid.name)+'" oninput="updateEmp(\'children.'+idx+'.name\',this.value)">') +
           f101FieldWrap("f101_kid_"+idx+"_idNumber","מספר זהות (9 ספרות)",true,'<input type="text" id="f101_kid_'+idx+'_idNumber" class="'+e("f101_kid_"+idx+"_idNumber")+'" value="'+escapeHtml(kid.idNumber)+'" maxlength="9" oninput="updateEmp(\'children.'+idx+'.idNumber\',this.value.trim())" onblur="finalizeEmpField(\'children.'+idx+'.idNumber\',this.value.trim())">') +
           f101FieldWrap("f101_kid_"+idx+"_birthDate","תאריך לידה",true,'<input type="date" id="f101_kid_'+idx+'_birthDate" class="'+e("f101_kid_"+idx+"_birthDate")+'" value="'+kid.birthDate+'" max="'+todayIso()+'" onblur="updateEmp(\'children.'+idx+'.birthDate\',this.value)">') +
         '</div>' +
         '<div class="form-grid cols-3" style="margin-top:8px;">' +
-          '<div class="check-group"><label style="white-space:nowrap;"><input type="checkbox" '+(kid.inCustody?"checked":"")+' onchange="toggleChildCustody('+idx+',this.checked)"> הילד/ה נמצא/ת בחזקתי</label></div>' +
-          '<div class="check-group" style="grid-column:span 2;"><label style="white-space:nowrap;"><input type="checkbox" '+(kid.receivesAllowance?"checked":"")+' onchange="toggleChildAllowance('+idx+',this.checked)"> אני מקבל/ת בגינו/ה קצבת ילדים מביטוח לאומי</label></div>' +
+          '<div class="check-group"><label style="white-space:nowrap;"><input type="checkbox" '+(kid.inCustody?"checked":"")+' onchange="toggleChildCustody('+idx+',this.checked)"> '+tr("kid_inCustody_label","הילד/ה נמצא/ת בחזקתי")+'</label></div>' +
+          '<div class="check-group" style="grid-column:span 2;"><label style="white-space:nowrap;"><input type="checkbox" '+(kid.receivesAllowance?"checked":"")+' onchange="toggleChildAllowance('+idx+',this.checked)"> '+tr("kid_receivesAllowance_label","אני מקבל/ת בגינו/ה קצבת ילדים מביטוח לאומי")+'</label></div>' +
         '</div>' +
-        (ui.errors["f101_kid_"+idx+"_allowance"] ? '<div class="field-error">'+ui.errors["f101_kid_"+idx+"_allowance"]+'</div>' : '') +
+        (ui.errors["f101_kid_"+idx+"_allowance"] ? '<div class="field-error">'+tr(ui.errors["f101_kid_"+idx+"_allowance"],ui.errors["f101_kid_"+idx+"_allowance"])+'</div>' : '') +
       '</div>';
     }).join("") + '</div>' +
-    (kids.length<10 ? '<div style="margin-top:12px;"><button class="btn-add-green" onclick="addChild()">+ הוסף ילד</button></div>' : '<div class="field-hint-static" style="margin-top:10px;">הגעת למספר המרבי של 10 ילדים.</div>');
+    (kids.length<10 ? '<div style="margin-top:12px;">'+addChildBtn+'</div>' : '<div class="field-hint-static" style="margin-top:10px;">'+tr("max_children_reached","הגעת למספר המרבי של 10 ילדים.")+'</div>');
   }
-  return '<h2 class="section-title" id="sec-c">ג. ילדים שטרם מלאו להם 19 בשנת המס</h2><div class="panel">'+inner+'</div>';
+  return '<h2 class="section-title" id="sec-c">'+sectionTitleHtml("ג","sec_c_title","ילדים שטרם מלאו להם 19 בשנת המס")+'</h2><div class="panel">'+inner+'</div>';
 }
 
 /* ---------- ד. הכנסותיי ממעסיק זה ---------- */
 function renderForm101SectionD(c){
   const emp = c.employee;
-  const incomeTooltip = CODE_TABLES.incomeTypes.filter(t=>t.tooltip).map(t=>escapeHtml(t.name)+':<span style="font-weight:400;"> '+escapeHtml(t.tooltip)+'</span>').join('<br><br>');
-  const startDateTooltip = "שנת המס היא השנה הקלנדרית, כלומר השנה שמתחילה ב-1 לינואר ומסתיימת ב-31 לדצמבר. אם אתה עובד באותו המקום ברצף משנה קודמת, אז תאריך תחילת העבודה בשנת המס הוא ה-1 לינואר של השנה הנוכחית.";
+  const incomeTooltip = CODE_TABLES.incomeTypes.filter(t=>t.tooltip).map(t=>codeName("incomeType",t)+':<span style="font-weight:400;"> '+tr("incomeType_"+t.id+"_tooltip",t.tooltip)+'</span>').join('<br><br>');
+  const startDateTooltip = tr("sec_d_startDateTooltip","שנת המס היא השנה הקלנדרית, כלומר השנה שמתחילה ב-1 לינואר ומסתיימת ב-31 לדצמבר. אם אתה עובד באותו המקום ברצף משנה קודמת, אז תאריך תחילת העבודה בשנת המס הוא ה-1 לינואר של השנה הנוכחית.");
   return '' +
-  '<h2 class="section-title" id="sec-d">ד. פרטים על הכנסותיי ממעסיק זה</h2>' +
+  '<h2 class="section-title" id="sec-d">'+sectionTitleHtml("ד","sec_d_title","פרטים על הכנסותיי ממעסיק זה")+'</h2>' +
   '<div class="panel">' +
-    '<div class="field" style="margin-bottom:14px;"><label>אני מקבל/ת <span class="req-star">*</span>'+qmarkHtml(incomeTooltip)+'</label>' +
+    '<div class="field" style="margin-bottom:14px;"><label>'+tr("sec_d_incomeType_label","אני מקבל/ת")+' <span class="req-star">*</span>'+qmarkHtml(incomeTooltip)+'</label>' +
       '<div class="radio-group">' +
-        CODE_TABLES.incomeTypes.map(t=>'<label><input type="radio" name="incomeType" value="'+t.id+'" '+(emp.incomeType===t.id?"checked":"")+' onchange="updateEmp(\'incomeType\',\''+t.id+'\')"> '+escapeHtml(t.name)+'</label>').join("") +
+        CODE_TABLES.incomeTypes.map(t=>'<label><input type="radio" name="incomeType" value="'+t.id+'" '+(emp.incomeType===t.id?"checked":"")+' onchange="updateEmp(\'incomeType\',\''+t.id+'\')"> '+codeName("incomeType",t)+'</label>').join("") +
       '</div>' +
-      (ui.errors["f101_incomeType"]?'<div class="field-error">'+ui.errors["f101_incomeType"]+'</div>':'') +
+      (ui.errors["f101_incomeType"]?'<div class="field-error">'+tr(ui.errors["f101_incomeType"],ui.errors["f101_incomeType"])+'</div>':'') +
     '</div>' +
-    (emp.incomeType==="additional" ? '<div class="alert alert-warning-pink"><b>שים לב!</b>מכיוון שסימנת שזוהי משכורת נוספת עבורך, עליך לערוך תיאום מס ולהגישו למעסיק, אחרת יורד מהשכר שלך מס בשיעור מירבי, כ-48%.<br>ניתן לערוך תיאום מס באינטרנט, על ידי הגשת טופס 116 לפקיד השומה, או בחלק ט׳ של טופס זה.<br>אם כבר יש ברשותך אישור מפקיד השומה, יש למסור אותו למשאבי אנוש.<br>אם עדיין אין ברשותך אישור מפקיד השומה, יש להעביר אותו למשאבי אנוש לפני הכנת המשכורת הראשונה.<br>אם זה לא ברור לך, יש ליצור קשר עם המעסיק.</div>' : '') +
+    (emp.incomeType==="additional" ? '<div class="alert alert-warning-pink"><b>'+tr("sec_d_additionalIncomeWarningTitle","שים לב!")+'</b>'+tr("sec_d_additionalIncomeWarning","מכיוון שסימנת שזוהי משכורת נוספת עבורך, עליך לערוך תיאום מס ולהגישו למעסיק, אחרת יורד מהשכר שלך מס בשיעור מירבי, כ-48%.<br>ניתן לערוך תיאום מס באינטרנט, על ידי הגשת טופס 116 לפקיד השומה, או בחלק ט׳ של טופס זה.<br>אם כבר יש ברשותך אישור מפקיד השומה, יש למסור אותו למשאבי אנוש.<br>אם עדיין אין ברשותך אישור מפקיד השומה, יש להעביר אותו למשאבי אנוש לפני הכנת המשכורת הראשונה.<br>אם זה לא ברור לך, יש ליצור קשר עם המעסיק.")+'</div>' : '') +
     f101FieldWrap("f101_startDate","תאריך תחילת עבודה בשנת המס",true,'<input type="date" id="f101_startDate" value="'+c.startDate+'" style="max-width:260px;" onblur="updateCaseStartDate(this.value)">',startDateTooltip) +
   '</div>';
 }
@@ -2156,39 +2298,39 @@ function renderForm101SectionE(c){
   const emp = c.employee;
   const oi = emp.otherIncome;
   return '' +
-  '<h2 class="section-title" id="sec-e">ה. פרטים על הכנסות אחרות</h2>' +
+  '<h2 class="section-title" id="sec-e">'+sectionTitleHtml("ה","sec_e_title","פרטים על הכנסות אחרות")+'</h2>' +
   '<div class="panel">' +
-    '<div class="field" id="f101_otherIncomeHas_wrap"><label>יש לך הכנסות אחרות ממשכורת? <span class="req-star">*</span></label>' +
+    '<div class="field" id="f101_otherIncomeHas_wrap"><label>'+tr("sec_e_hasOtherIncome_label","יש לך הכנסות אחרות ממשכורת?")+' <span class="req-star">*</span></label>' +
       '<div class="radio-group">' +
-        '<label><input type="radio" name="otherIncomeHas" value="no" '+(oi.has==="no"?"checked":"")+' onchange="updateEmp(\'otherIncome.has\',\'no\')"> אין לי הכנסות אחרות ממשכורת, קצבה או מלגה</label>' +
-        '<label><input type="radio" name="otherIncomeHas" value="yes" '+(oi.has==="yes"?"checked":"")+' onchange="updateEmp(\'otherIncome.has\',\'yes\')"> יש לי הכנסות אחרות</label>' +
+        '<label><input type="radio" name="otherIncomeHas" value="no" '+(oi.has==="no"?"checked":"")+' onchange="updateEmp(\'otherIncome.has\',\'no\')"> '+tr("sec_e_hasOtherIncome_no","אין לי הכנסות אחרות ממשכורת, קצבה או מלגה")+'</label>' +
+        '<label><input type="radio" name="otherIncomeHas" value="yes" '+(oi.has==="yes"?"checked":"")+' onchange="updateEmp(\'otherIncome.has\',\'yes\')"> '+tr("sec_e_hasOtherIncome_yes","יש לי הכנסות אחרות")+'</label>' +
       '</div>' +
-      (ui.errors["f101_otherIncomeHas"]?'<div class="field-error">'+ui.errors["f101_otherIncomeHas"]+'</div>':'') +
+      (ui.errors["f101_otherIncomeHas"]?'<div class="field-error">'+tr(ui.errors["f101_otherIncomeHas"],ui.errors["f101_otherIncomeHas"])+'</div>':'') +
     '</div>' +
     (oi.has==="yes" ? ('' +
       '<hr class="divider">' +
-      '<div class="field"><label>פרוט הכנסות <span class="req-star">*</span></label>' +
+      '<div class="field"><label>'+tr("sec_e_typesLabel","פרוט הכנסות")+' <span class="req-star">*</span></label>' +
         '<div class="check-group">' +
           CODE_TABLES.otherIncomeTypes.map(t=>{
             const checked = oi.types.includes(t.id);
-            return '<label><input type="checkbox" '+(checked?"checked":"")+' onchange="toggleOtherIncomeType(\''+t.id+'\',this.checked)"> '+escapeHtml(t.name)+'</label>';
+            return '<label><input type="checkbox" '+(checked?"checked":"")+' onchange="toggleOtherIncomeType(\''+t.id+'\',this.checked)"> '+codeName("otherIncomeType",t)+'</label>';
           }).join("") +
         '</div>' +
-        (ui.errors["f101_otherIncomeTypes"]?'<div class="field-error">'+ui.errors["f101_otherIncomeTypes"]+'</div>':'') +
+        (ui.errors["f101_otherIncomeTypes"]?'<div class="field-error">'+tr(ui.errors["f101_otherIncomeTypes"],ui.errors["f101_otherIncomeTypes"])+'</div>':'') +
       '</div>' +
-      '<div class="field" style="margin-top:14px;"><label>נקודות זיכוי <span class="req-star">*</span></label>' +
+      '<div class="field" style="margin-top:14px;"><label>'+tr("sec_e_creditPointsLabel","נקודות זיכוי")+' <span class="req-star">*</span></label>' +
         '<div class="radio-group">' +
-          '<label><input type="radio" name="creditPointsLoc" value="here" '+(emp.otherIncome.creditPointsLocation==="here"?"checked":"")+' onchange="updateEmp(\'otherIncome.creditPointsLocation\',\'here\')"> אבקש לקבל נקודות זיכוי ומדרגות מס כנגד הכנסתי זו (סעיף ד). איני מקבל/ת אותם בהכנסה אחרת.</label>' +
-          '<label><input type="radio" name="creditPointsLoc" value="other" '+(emp.otherIncome.creditPointsLocation==="other"?"checked":"")+' onchange="updateEmp(\'otherIncome.creditPointsLocation\',\'other\')"> אני מקבל/ת נקודות זיכוי ומדרגות מס בהכנסה אחרת ועל כן איני זכאי/ת להן כנגד הכנסה זו.</label>' +
+          '<label><input type="radio" name="creditPointsLoc" value="here" '+(emp.otherIncome.creditPointsLocation==="here"?"checked":"")+' onchange="updateEmp(\'otherIncome.creditPointsLocation\',\'here\')"> '+tr("sec_e_creditPointsHere","אבקש לקבל נקודות זיכוי ומדרגות מס כנגד הכנסתי זו (סעיף ד). איני מקבל/ת אותם בהכנסה אחרת.")+'</label>' +
+          '<label><input type="radio" name="creditPointsLoc" value="other" '+(emp.otherIncome.creditPointsLocation==="other"?"checked":"")+' onchange="updateEmp(\'otherIncome.creditPointsLocation\',\'other\')"> '+tr("sec_e_creditPointsOther","אני מקבל/ת נקודות זיכוי ומדרגות מס בהכנסה אחרת ועל כן איני זכאי/ת להן כנגד הכנסה זו.")+'</label>' +
         '</div>' +
-        (ui.errors["f101_creditPointsLoc"]?'<div class="field-error">'+ui.errors["f101_creditPointsLoc"]+'</div>':'') +
+        (ui.errors["f101_creditPointsLoc"]?'<div class="field-error">'+tr(ui.errors["f101_creditPointsLoc"],ui.errors["f101_creditPointsLoc"])+'</div>':'') +
       '</div>' +
-      '<div class="field" style="margin-top:14px;"><label>הפרשות <span class="req-star">*</span></label>' +
+      '<div class="field" style="margin-top:14px;"><label>'+tr("sec_e_depositsLabel","הפרשות")+' <span class="req-star">*</span></label>' +
         '<div class="check-group" style="flex-direction:column;align-items:flex-start;">' +
-          '<label><input type="checkbox" '+(emp.otherIncome.noHishtalmutDeposits?"checked":"")+' onchange="updateEmp(\'otherIncome.noHishtalmutDeposits\',this.checked)"> אין מפרישים עבורי לקרן השתלמות בגין הכנסתי האחרת, או שכל הפרשות המעסיק לקרן השתלמות בגין הכנסתי האחרת מצורפות להכנסתי האחרת.</label>' +
-          '<label><input type="checkbox" '+(emp.otherIncome.noPensionDeposits?"checked":"")+' onchange="updateEmp(\'otherIncome.noPensionDeposits\',this.checked)"> אין מפרישים עבורי לקצבה/לביטוח אובדן כושר עבודה/פיצויים בגין הכנסתי האחרת, או שכל הפרשות המעסיק לקצבה/לביטוח אובדן כושר עבודה/פיצויים בגין הכנסתי האחרת מצורפות להכנסתי האחרת.</label>' +
+          '<label><input type="checkbox" '+(emp.otherIncome.noHishtalmutDeposits?"checked":"")+' onchange="updateEmp(\'otherIncome.noHishtalmutDeposits\',this.checked)"> '+tr("sec_e_noHishtalmutDeposits","אין מפרישים עבורי לקרן השתלמות בגין הכנסתי האחרת, או שכל הפרשות המעסיק לקרן השתלמות בגין הכנסתי האחרת מצורפות להכנסתי האחרת.")+'</label>' +
+          '<label><input type="checkbox" '+(emp.otherIncome.noPensionDeposits?"checked":"")+' onchange="updateEmp(\'otherIncome.noPensionDeposits\',this.checked)"> '+tr("sec_e_noPensionDeposits","אין מפרישים עבורי לקצבה/לביטוח אובדן כושר עבודה/פיצויים בגין הכנסתי האחרת, או שכל הפרשות המעסיק לקצבה/לביטוח אובדן כושר עבודה/פיצויים בגין הכנסתי האחרת מצורפות להכנסתי האחרת.")+'</label>' +
         '</div>' +
-        (ui.errors["f101_otherIncomeDeposits"]?'<div class="field-error">'+ui.errors["f101_otherIncomeDeposits"]+'</div>':'') +
+        (ui.errors["f101_otherIncomeDeposits"]?'<div class="field-error">'+tr(ui.errors["f101_otherIncomeDeposits"],ui.errors["f101_otherIncomeDeposits"])+'</div>':'') +
       '</div>'
     ) : '') +
   '</div>';
@@ -2209,20 +2351,20 @@ function renderForm101SectionF(c){
   const e = (k)=>ui.errors[k] ? " err" : "";
   if(emp.maritalStatus!=="married"){
     return '' +
-    '<h2 class="section-title" id="sec-f">ו. פרטים על בן/בת הזוג</h2>' +
+    '<h2 class="section-title" id="sec-f">'+sectionTitleHtml("ו","sec_f_title","פרטים על בן/בת הזוג")+'</h2>' +
     '<div class="panel">' +
-      '<div class="field-hint-static">חלק זה רלוונטי רק אם הינך נשוי/אה.</div>' +
+      '<div class="field-hint-static">'+tr("sec_f_notMarriedHint","חלק זה רלוונטי רק אם הינך נשוי/אה.")+'</div>' +
     '</div>';
   }
   return '' +
-  '<h2 class="section-title" id="sec-f">ו. פרטים על בן/בת הזוג</h2>' +
+  '<h2 class="section-title" id="sec-f">'+sectionTitleHtml("ו","sec_f_title","פרטים על בן/בת הזוג")+'</h2>' +
   '<div class="panel">' +
   '<div class="form-grid">' +
     f101FieldWrap("f101_spouse_firstName","שם פרטי",true,'<input type="text" id="f101_spouse_firstName" class="'+e("f101_spouse_firstName")+'" value="'+escapeHtml(sp.firstName)+'" oninput="updateEmp(\'spouse.firstName\',this.value)">',"כפי שמופיע בתעודת הזהות") +
     f101FieldWrap("f101_spouse_lastName","שם משפחה",true,'<input type="text" id="f101_spouse_lastName" class="'+e("f101_spouse_lastName")+'" value="'+escapeHtml(sp.lastName)+'" oninput="updateEmp(\'spouse.lastName\',this.value)">',"כפי שמופיע בתעודת הזהות") +
     f101FieldWrap("f101_spouse_idType","זיהוי לפי",true,
-      '<div class="radio-group"><label><input type="radio" name="spouseIdType" value="id" '+(sp.idType==="id"?"checked":"")+' onchange="updateEmp(\'spouse.idType\',\'id\')"> תעודת זהות</label>'+
-      '<label><input type="radio" name="spouseIdType" value="passport" '+(sp.idType==="passport"?"checked":"")+' onchange="updateEmp(\'spouse.idType\',\'passport\')"> דרכון (עבור אזרח זר)</label></div>') +
+      '<div class="radio-group"><label><input type="radio" name="spouseIdType" value="id" '+(sp.idType==="id"?"checked":"")+' onchange="updateEmp(\'spouse.idType\',\'id\')"> '+tr("id_type_id","תעודת זהות")+'</label>'+
+      '<label><input type="radio" name="spouseIdType" value="passport" '+(sp.idType==="passport"?"checked":"")+' onchange="updateEmp(\'spouse.idType\',\'passport\')"> '+tr("id_type_passport","דרכון (עבור אזרח זר)")+'</label></div>') +
     (sp.idType==="id" ?
       f101FieldWrap("f101_spouse_idNumber","מספר זהות (9 ספרות)",true,'<input type="text" id="f101_spouse_idNumber" class="'+e("f101_spouse_idNumber")+'" value="'+escapeHtml(sp.idNumber)+'" maxlength="9" oninput="updateEmp(\'spouse.idNumber\',this.value.trim())" onblur="finalizeEmpField(\'spouse.idNumber\',this.value.trim())">')
       :
@@ -2231,24 +2373,35 @@ function renderForm101SectionF(c){
     f101FieldWrap("f101_spouse_birthDate","תאריך לידה",true,'<input type="date" id="f101_spouse_birthDate" class="'+e("f101_spouse_birthDate")+'" value="'+sp.birthDate+'" max="'+todayIso()+'" onblur="updateEmp(\'spouse.birthDate\',this.value)">') +
     f101FieldWrap("f101_spouse_aliyaDate","תאריך עלייה",false,'<input type="date" id="f101_spouse_aliyaDate" value="'+sp.aliyaDate+'" onblur="updateEmp(\'spouse.aliyaDate\',this.value)">') +
     f101FieldWrap("f101_spouse_incomeStatus","הכנסה",true,
-      '<div class="radio-group">'+CODE_TABLES.spouseIncomeOptions.map(o=>'<label><input type="radio" name="spouseIncomeStatus" value="'+o.id+'" '+(sp.incomeStatus===o.id?"checked":"")+' onchange="updateEmp(\'spouse.incomeStatus\',\''+o.id+'\')"> '+escapeHtml(o.name)+'</label>').join("")+'</div>') +
+      '<div class="radio-group">'+CODE_TABLES.spouseIncomeOptions.map(o=>'<label><input type="radio" name="spouseIncomeStatus" value="'+o.id+'" '+(sp.incomeStatus===o.id?"checked":"")+' onchange="updateEmp(\'spouse.incomeStatus\',\''+o.id+'\')"> '+codeName("spouseIncome",o)+'</label>').join("")+'</div>') +
   '</div></div>';
 }
 
 /* ---------- ז. שינויים במהלך השנה (טקסט בלבד) ---------- */
 function renderForm101SectionG(){
   return '' +
-  '<h2 class="section-title" id="sec-g">ז. שינויים במהלך השנה</h2>' +
+  '<h2 class="section-title" id="sec-g">'+sectionTitleHtml("ז","sec_g_title","שינויים במהלך השנה")+'</h2>' +
   '<div class="panel"><div class="alert alert-info" style="margin:0;">' +
-    'כל שינוי שיחול בפרטים שמילאת בטופס, יש להודיע למעסיק עד שבוע ימים מתאריך השינוי, על ידי מילוי טופס חדש במערכת זו או בכל אמצעי שהמעסיק מאפשר.' +
+    tr("sec_g_body","כל שינוי שיחול בפרטים שמילאת בטופס, יש להודיע למעסיק עד שבוע ימים מתאריך השינוי, על ידי מילוי טופס חדש במערכת זו או בכל אמצעי שהמעסיק מאפשר.") +
   '</div></div>';
 }
 
 /* ---------- ח. פטור או זיכוי ממס — 16 כרטיסים ---------- */
 function creditCardShell(meta,disabled,disabledReason,bodyHtml,checkboxHtml){
+  // meta.num הוא בדרך כלל מספר רגיל (זהה בכל שפה) חוץ מ-2א/2ב (אותיות
+  // עבריות) - אלה היחידים שצריכים תרגום בפועל (ל-2a/2b). זה מוחלף לגמרי
+  // (לא tr() הרגיל שהיה מציג "2a (2א)" במצב "both") כי האות העברית עצמה
+  // אינה מידע בעל ערך לשמר - היא רק סימון מספור, ולכן גם ב"both" מציגים
+  // רק את הגרסה הלטינית בלי כפילות מיותרת.
+  const num = (ui.formLanguage==="en" || ui.formLanguage==="both")
+    ? (rawTranslation("en","cred_"+meta.key+"_num") || meta.num)
+    : meta.num;
+  const title = tr("cred_"+meta.key+"_title", meta.title);
+  const tooltip = meta.tooltip ? tr("cred_"+meta.key+"_tooltip", meta.tooltip) : meta.tooltip;
+  const note = meta.note ? tr("cred_"+meta.key+"_note", meta.note) : meta.note;
   return '<div class="card'+(disabled?" disabled":"")+'" id="cred_'+meta.key+'">' +
-    '<div class="card-title">'+checkboxHtml+'<span>'+meta.num+': '+escapeHtml(meta.title)+'</span>'+(meta.tooltip?qmarkHtml(meta.tooltip):'')+'</div>' +
-    (meta.note ? '<div class="card-hint">'+escapeHtml(meta.note)+'</div>' : '') +
+    '<div class="card-title">'+checkboxHtml+'<span>'+num+': '+title+'</span>'+(tooltip?qmarkHtml(tooltip):'')+'</div>' +
+    (note ? '<div class="card-hint">'+note+'</div>' : '') +
     (disabled && disabledReason ? '<div class="card disabled-note" style="margin-top:8px;">'+disabledReason+'</div>' : '') +
     (!disabled ? bodyHtml : '') +
   '</div>';
@@ -2264,12 +2417,12 @@ function renderForm101SectionH(c){
       case "c1":
         disabled=false;
         checkbox = '<input type="checkbox" '+(tc.c1?"checked":"")+' disabled>';
-        extraBody = '<div class="card disabled-note" style="margin-top:8px;">מסומן אוטומטית אם סימנת בסעיף ב\' שהינך תושב/ת ישראל.</div>';
+        extraBody = '<div class="card disabled-note" style="margin-top:8px;">'+tr("cred_c1_autoNote","מסומן אוטומטית אם סימנת בסעיף ב' שהינך תושב/ת ישראל.")+'</div>';
         break;
       case "c2a":
         checkbox = '<input type="checkbox" '+(tc.c2a?"checked":"")+' onchange="toggleCredit(\'c2a\',this.checked)">';
         if(tc.c2a && emp.otherIncome.has!=="no"){
-          extraBody = '<div class="alert alert-warning-pink" style="margin-top:10px;">מכיוון שלא סימנת בפרק ה׳ ״אין לי הכנסות אחרות לרבות מלגות״, עליך לפנות לפקיד השומה לצורך עריכת תיאום מס. אם יש ברשותך אישור תיאום מס מפקיד השומה, יש למסור אותו למשאבי אנוש.</div>';
+          extraBody = '<div class="alert alert-warning-pink" style="margin-top:10px;">'+tr("cred_c2a_warning","מכיוון שלא סימנת בפרק ה׳ ״אין לי הכנסות אחרות לרבות מלגות״, עליך לפנות לפקיד השומה לצורך עריכת תיאום מס. אם יש ברשותך אישור תיאום מס מפקיד השומה, יש למסור אותו למשאבי אנוש.")+'</div>';
         }
         break;
       case "c2b":
@@ -2286,7 +2439,7 @@ function renderForm101SectionH(c){
         break;
       case "c4":
         disabled = !emp.aliyaDate;
-        disabledReason = disabled ? 'יש למלא תחילה תאריך עלייה בחלק ב׳. <button class="btn-link" onclick="scrollToField(\'f101_aliyaDate\')">מעבר לשדה תאריך עלייה</button>' : null;
+        disabledReason = disabled ? tr("cred_c4_disabledReason",'יש למלא תחילה תאריך עלייה בחלק ב׳. <button class="btn-link" onclick="scrollToField(\'f101_aliyaDate\')">מעבר לשדה תאריך עלייה</button>') : null;
         checkbox = '<input type="checkbox" '+(tc.c4.checked?"checked":"")+' '+(disabled?"disabled":"")+' onchange="toggleCredit(\'c4\',this.checked)">';
         if(tc.c4.checked){
           extraBody = '<div class="form-grid cols-2" style="margin-top:10px;">' +
@@ -2297,19 +2450,19 @@ function renderForm101SectionH(c){
         break;
       case "c5":
         disabled = emp.maritalStatus!=="married";
-        disabledReason = disabled ? "סעיף זה מיועד לעובד/ת נשוי/אה בלבד." : null;
+        disabledReason = disabled ? tr("cred_c5_disabledReason","סעיף זה מיועד לעובד/ת נשוי/אה בלבד.") : null;
         checkbox = '<input type="checkbox" '+(tc.c5?"checked":"")+' '+(disabled?"disabled":"")+' onchange="toggleCredit(\'c5\',this.checked)">';
         break;
       case "c6":
         disabled = !emp.children.some(k=>k.receivesAllowance);
         if(disabled) tc.c6 = false;
-        disabledReason = disabled ? "לא ניתן לבחור מכיוון שלא ציינת בחלק ג' ילדים בגינם הינך מקבל/ת קצבת ילדים מביטוח לאומי." : null;
+        disabledReason = disabled ? tr("cred_c6_disabledReason","לא ניתן לבחור מכיוון שלא ציינת בחלק ג' ילדים בגינם הינך מקבל/ת קצבת ילדים מביטוח לאומי.") : null;
         checkbox = '<input type="checkbox" '+(tc.c6?"checked":"")+' '+(disabled?"disabled":"")+' onchange="toggleCredit(\'c6\',this.checked)">';
         break;
       case "c7":
         disabled = emp.children.length===0;
         if(disabled) tc.c7.checked = false;
-        disabledReason = disabled ? "כדי לבחור באפשרות זו, יש להוסיף לפחות ילד אחד בחלק הילדים." : null;
+        disabledReason = disabled ? tr("cred_childRequired_disabledReason","כדי לבחור באפשרות זו, יש להוסיף לפחות ילד אחד בחלק הילדים.") : null;
         checkbox = '<input type="checkbox" '+(tc.c7.checked?"checked":"")+' '+(disabled?"disabled":"")+' onchange="toggleCredit(\'c7\',this.checked)">';
         if(tc.c7.checked){
           extraBody = '<div class="form-grid cols-2" style="margin-top:10px;">' +
@@ -2324,7 +2477,7 @@ function renderForm101SectionH(c){
         break;
       case "c8":
         disabled = emp.children.length===0 || tc.c7.checked;
-        disabledReason = emp.children.length===0 ? "כדי לבחור באפשרות זו, יש להוסיף לפחות ילד אחד בחלק הילדים." : (tc.c7.checked ? "לא ניתן לסמן יחד עם סעיף 7 (״למעט הורה אשר סימן בפסקה 7 לעיל״)." : null);
+        disabledReason = emp.children.length===0 ? tr("cred_childRequired_disabledReason","כדי לבחור באפשרות זו, יש להוסיף לפחות ילד אחד בחלק הילדים.") : (tc.c7.checked ? tr("cred_c8_excludesC7_disabledReason","לא ניתן לסמן יחד עם סעיף 7 (״למעט הורה אשר סימן בפסקה 7 לעיל״).") : null);
         checkbox = '<input type="checkbox" '+(tc.c8.checked?"checked":"")+' '+(disabled?"disabled":"")+' onchange="toggleCredit(\'c8\',this.checked)">';
         if(tc.c8.checked){
           extraBody = '<div class="form-grid cols-2" style="margin-top:10px;">' +
@@ -2359,10 +2512,10 @@ function renderForm101SectionH(c){
         const ownOk = ageEligible1618(emp.birthDate,c.taxYear);
         if(!ownOk){
           if(emp.maritalStatus==="married"){
-            if(!emp.spouse.birthDate){ disabled=true; disabledReason='כדי לבחור בסעיף זה יש למלא תחילה את תאריך הלידה של בן/בת הזוג בחלק ו׳. <button class="btn-link" onclick="scrollToField(\'f101_spouse_birthDate\')">מעבר לשדה תאריך לידה בן/בת הזוג</button>'; }
-            else if(!ageEligible1618(emp.spouse.birthDate,c.taxYear)){ disabled=true; disabledReason="גיל העובד/ת ובן/בת הזוג אינו עומד בתנאי הזכאות לסעיף זה (16 עד 18 בשנת המס)."; }
+            if(!emp.spouse.birthDate){ disabled=true; disabledReason=tr("cred_c13_needSpouseBirthDate",'כדי לבחור בסעיף זה יש למלא תחילה את תאריך הלידה של בן/בת הזוג בחלק ו׳. <button class="btn-link" onclick="scrollToField(\'f101_spouse_birthDate\')">מעבר לשדה תאריך לידה בן/בת הזוג</button>'); }
+            else if(!ageEligible1618(emp.spouse.birthDate,c.taxYear)){ disabled=true; disabledReason=tr("cred_c13_ageNotEligible_married","גיל העובד/ת ובן/בת הזוג אינו עומד בתנאי הזכאות לסעיף זה (16 עד 18 בשנת המס)."); }
           } else {
-            disabled=true; disabledReason="גיל העובד/ת אינו עומד בתנאי הזכאות לסעיף זה (16 עד 18 בשנת המס). ניתן לבדוק זכאות בהתאם לגיל בן/בת הזוג אם וכאשר יעודכן מצב משפחתי.";
+            disabled=true; disabledReason=tr("cred_c13_ageNotEligible_single","גיל העובד/ת אינו עומד בתנאי הזכאות לסעיף זה (16 עד 18 בשנת המס). ניתן לבדוק זכאות בהתאם לגיל בן/בת הזוג אם וכאשר יעודכן מצב משפחתי.");
           }
         }
         checkbox = '<input type="checkbox" '+(tc.c13?"checked":"")+' '+(disabled?"disabled":"")+' onchange="toggleCredit(\'c13\',this.checked)">';
@@ -2393,12 +2546,12 @@ function renderForm101SectionH(c){
       const val = tc[key];
       const checked = (typeof val==="object")?val.checked:val;
       if(checked && !disabled){
-        extraBody += '<div class="card-hint" style="display:flex;align-items:flex-start;gap:8px;">'+WARNING_ICON+'<b>מסמך נדרש: '+escapeHtml(meta.document)+'</b></div>';
+        extraBody += '<div class="card-hint" style="display:flex;align-items:flex-start;gap:8px;">'+WARNING_ICON+'<b>'+tr("document_required_prefix","מסמך נדרש:")+' '+tr("cred_"+key+"_document",meta.document)+'</b></div>';
       }
     }
     return creditCardShell(meta,disabled,disabledReason,extraBody,checkbox);
   }).join("");
-  return '<h2 class="section-title" id="sec-h">ח. פטור או זיכוי ממס</h2><div class="panel">'+cards+'</div>';
+  return '<h2 class="section-title" id="sec-h">'+sectionTitleHtml("ח","sec_h_title","פטור או זיכוי ממס")+'</h2><div class="panel">'+cards+'</div>';
 }
 
 /* ---------- ט. תיאום מס ---------- */
@@ -2406,42 +2559,42 @@ function renderForm101SectionI(c){
   const tco = c.employee.taxCoordination;
   const e = (k)=>ui.errors[k] ? " err" : "";
   const opts = [
-    {id:"noIncomeYet",name:"לא הייתה לי הכנסה מתחילת שנת המס ועד תחילת העבודה אצל המעסיק."},
-    {id:"hasOtherIncome",name:"יש לי הכנסות נוספות."},
-    {id:"approved",name:"פקיד השומה אישר תיאום מס לפי אישור מצורף."}
+    {id:"noIncomeYet",name:tr("taxCoordOption_noIncomeYet","לא הייתה לי הכנסה מתחילת שנת המס ועד תחילת העבודה אצל המעסיק.")},
+    {id:"hasOtherIncome",name:tr("taxCoordOption_hasOtherIncome","יש לי הכנסות נוספות.")},
+    {id:"approved",name:tr("taxCoordOption_approved","פקיד השומה אישר תיאום מס לפי אישור מצורף.")}
   ];
   let sourcesHtml = "";
   if(tco.option==="hasOtherIncome"){
     sourcesHtml = '<div class="kids-list" style="margin-top:12px;">' + tco.sources.map((s,idx)=>{
       return '<div class="kid-card">' +
-        '<div class="kid-card-head"><b>מקור הכנסה '+(idx+1)+'</b><button class="btn-icon-danger" onclick="removeIncomeSource('+idx+')">&minus;</button></div>' +
+        '<div class="kid-card-head"><b>'+tr("income_source_prefix","מקור הכנסה")+' '+(idx+1)+'</b><button class="btn-icon-danger" onclick="removeIncomeSource('+idx+')">&minus;</button></div>' +
         '<div class="form-grid cols-3">' +
           f101FieldWrap("f101_ts_"+idx+"_employerName","שם המעסיק או משלם ההכנסה",true,'<input type="text" id="f101_ts_'+idx+'_employerName" class="'+e("f101_ts_"+idx+"_employerName")+'" value="'+escapeHtml(s.employerName)+'" oninput="updateEmp(\'taxCoordination.sources.'+idx+'.employerName\',this.value)">') +
           f101FieldWrap("f101_ts_"+idx+"_address","כתובת",true,'<input type="text" id="f101_ts_'+idx+'_address" class="'+e("f101_ts_"+idx+"_address")+'" value="'+escapeHtml(s.address)+'" oninput="updateEmp(\'taxCoordination.sources.'+idx+'.address\',this.value)">') +
           f101FieldWrap("f101_ts_"+idx+"_taxFileNum","מספר תיק ניכויים",true,'<input type="text" id="f101_ts_'+idx+'_taxFileNum" class="'+e("f101_ts_"+idx+"_taxFileNum")+'" value="'+escapeHtml(s.taxFileNum)+'" oninput="updateEmp(\'taxCoordination.sources.'+idx+'.taxFileNum\',this.value)">') +
-          f101FieldWrap("f101_ts_"+idx+"_incomeType","סוג הכנסה",true,'<select id="f101_ts_'+idx+'_incomeType" class="'+e("f101_ts_"+idx+"_incomeType")+'" onchange="updateEmp(\'taxCoordination.sources.'+idx+'.incomeType\',this.value)"><option value="">בחר/י...</option>'+CODE_TABLES.otherIncomeTypes.map(t=>'<option value="'+t.id+'" '+(s.incomeType===t.id?"selected":"")+'>'+escapeHtml(t.name)+'</option>').join("")+'</select>') +
+          f101FieldWrap("f101_ts_"+idx+"_incomeType","סוג הכנסה",true,'<select id="f101_ts_'+idx+'_incomeType" class="'+e("f101_ts_"+idx+"_incomeType")+'" onchange="updateEmp(\'taxCoordination.sources.'+idx+'.incomeType\',this.value)"><option value="">'+trPlain("select_placeholder","בחר/י...")+'</option>'+CODE_TABLES.otherIncomeTypes.map(t=>'<option value="'+t.id+'" '+(s.incomeType===t.id?"selected":"")+'>'+codeName("otherIncomeType",t,true)+'</option>').join("")+'</select>') +
           f101FieldWrap("f101_ts_"+idx+"_monthlyIncome","הכנסה חודשית",true,'<input type="number" id="f101_ts_'+idx+'_monthlyIncome" class="'+e("f101_ts_"+idx+"_monthlyIncome")+'" value="'+s.monthlyIncome+'" oninput="updateEmp(\'taxCoordination.sources.'+idx+'.monthlyIncome\',this.value)">') +
           f101FieldWrap("f101_ts_"+idx+"_taxWithheld","מס שנוכה לפי תלושים",true,'<input type="number" id="f101_ts_'+idx+'_taxWithheld" class="'+e("f101_ts_"+idx+"_taxWithheld")+'" value="'+s.taxWithheld+'" oninput="updateEmp(\'taxCoordination.sources.'+idx+'.taxWithheld\',this.value)">') +
         '</div>' +
       '</div>';
     }).join("") + '</div>' +
-    '<div style="margin-top:10px;"><button class="btn-add-green" onclick="addIncomeSource()">+ הוסף מקור הכנסה</button></div>' +
-    (ui.errors["f101_taxCoordSources"]?'<div class="field-error">'+ui.errors["f101_taxCoordSources"]+'</div>':'') +
-    '<div class="card-hint" style="margin-top:10px;display:flex;align-items:flex-start;gap:8px;">'+WARNING_ICON+'<b>מסמך נדרש: תלוש שכר או אסמכתא רלוונטית לכל מקור הכנסה.</b></div>';
+    '<div style="margin-top:10px;"><button class="btn-add-green" onclick="addIncomeSource()">+ '+tr("add_income_source_btn","הוסף מקור הכנסה")+'</button></div>' +
+    (ui.errors["f101_taxCoordSources"]?'<div class="field-error">'+tr(ui.errors["f101_taxCoordSources"],ui.errors["f101_taxCoordSources"])+'</div>':'') +
+    '<div class="card-hint" style="margin-top:10px;display:flex;align-items:flex-start;gap:8px;">'+WARNING_ICON+'<b>'+tr("document_required_prefix","מסמך נדרש:")+' '+tr("sec_i_sourcesDocument","תלוש שכר או אסמכתא רלוונטית לכל מקור הכנסה.")+'</b></div>';
   }
   if(tco.option==="approved"){
-    sourcesHtml = '<div class="card-hint" style="margin-top:10px;display:flex;align-items:flex-start;gap:8px;">'+WARNING_ICON+'<b>מסמך נדרש: אישור תיאום מס מפקיד השומה.</b></div>';
+    sourcesHtml = '<div class="card-hint" style="margin-top:10px;display:flex;align-items:flex-start;gap:8px;">'+WARNING_ICON+'<b>'+tr("document_required_prefix","מסמך נדרש:")+' '+tr("sec_i_approvedDocument","אישור תיאום מס מפקיד השומה.")+'</b></div>';
   }
   return '' +
-  '<h2 class="section-title" id="sec-i">ט. תיאום מס</h2>' +
+  '<h2 class="section-title" id="sec-i">'+sectionTitleHtml("ט","sec_i_title","תיאום מס")+'</h2>' +
   '<div class="panel">' +
-    '<label class="check-row"><input type="checkbox" id="f101_taxCoordRequested" '+(tco.requested?"checked":"")+' onchange="toggleTaxCoordRequested(this.checked)"> אני מבקש/ת תיאום מס</label>' +
+    '<label class="check-row"><input type="checkbox" id="f101_taxCoordRequested" '+(tco.requested?"checked":"")+' onchange="toggleTaxCoordRequested(this.checked)"> '+tr("sec_i_requestLabel","אני מבקש/ת תיאום מס")+'</label>' +
     (tco.requested ? ('' +
-      '<div class="field" id="f101_taxCoordOption_wrap" style="margin-top:14px;"><label>סיבת הבקשה <span class="req-star">*</span></label>' +
+      '<div class="field" id="f101_taxCoordOption_wrap" style="margin-top:14px;"><label>'+tr("sec_i_reasonLabel","סיבת הבקשה")+' <span class="req-star">*</span></label>' +
         '<div class="radio-group" style="flex-direction:column;align-items:flex-start;gap:10px;">' +
-          opts.map(o=>'<label><input type="radio" name="taxCoordOption" value="'+o.id+'" '+(tco.option===o.id?"checked":"")+' onchange="updateEmp(\'taxCoordination.option\',\''+o.id+'\')"> '+escapeHtml(o.name)+'</label>').join("") +
+          opts.map(o=>'<label><input type="radio" name="taxCoordOption" value="'+o.id+'" '+(tco.option===o.id?"checked":"")+' onchange="updateEmp(\'taxCoordination.option\',\''+o.id+'\')"> '+o.name+'</label>').join("") +
         '</div>' +
-        (ui.errors["f101_taxCoordOption"]?'<div class="field-error">'+ui.errors["f101_taxCoordOption"]+'</div>':'') +
+        (ui.errors["f101_taxCoordOption"]?'<div class="field-error">'+tr(ui.errors["f101_taxCoordOption"],ui.errors["f101_taxCoordOption"])+'</div>':'') +
       '</div>' +
       sourcesHtml
     ) : '') +
@@ -2485,16 +2638,16 @@ function renderForm101SectionJ(c){
   const emp = c.employee;
   const done = emp.form101Status === "completed";
   return '' +
-  '<h2 class="section-title" id="sec-j">י. הצהרה וסיום</h2>' +
+  '<h2 class="section-title" id="sec-j">'+sectionTitleHtml("י","sec_j_title","הצהרה וסיום")+'</h2>' +
   '<div class="panel">' +
-    '<label class="check-row"><input type="checkbox" id="f101_declaration" '+(emp.declarationAccepted?"checked":"")+' onchange="updateEmp(\'declarationAccepted\',this.checked)"> אני מצהיר/ה כי הפרטים שמסרתי בטופס מלאים ונכונים.</label>' +
-    (ui.errors["f101_declaration"]?'<div class="field-error">'+ui.errors["f101_declaration"]+'</div>':'') +
-    (done ? '<div class="alert alert-info">טופס זה כבר סומן כהושלם. יש לבטל את תיבת ההצהרה כדי לערוך ולסמן מחדש.</div>' : '') +
+    '<label class="check-row"><input type="checkbox" id="f101_declaration" '+(emp.declarationAccepted?"checked":"")+' onchange="updateEmp(\'declarationAccepted\',this.checked)"> '+tr("sec_j_declarationLabel","אני מצהיר/ה כי הפרטים שמסרתי בטופס מלאים ונכונים.")+'</label>' +
+    (ui.errors["f101_declaration"]?'<div class="field-error">'+tr(ui.errors["f101_declaration"],ui.errors["f101_declaration"])+'</div>':'') +
+    (done ? '<div class="alert alert-info">'+tr("sec_j_alreadyCompleted","טופס זה כבר סומן כהושלם. יש לבטל את תיבת ההצהרה כדי לערוך ולסמן מחדש.")+'</div>' : '') +
     '<div class="btn-row">' +
-      '<button class="btn btn-secondary" onclick="printForm(\''+c.id+'\',\'form101\')">תצוגה מקדימה</button>' +
-      '<button class="btn btn-primary" '+(done?"disabled":"")+' onclick="submitForm101()">סיימתי</button>' +
+      '<button class="btn btn-secondary" onclick="printForm(\''+c.id+'\',\'form101\')">'+tr("preview_btn","תצוגה מקדימה")+'</button>' +
+      '<button class="btn btn-primary" '+(done?"disabled":"")+' onclick="submitForm101()">'+tr("finish_btn","סיימתי")+'</button>' +
     '</div>' +
-    '<div class="field-hint-static" style="margin-top:10px;">אין חתימה דיגיטלית — הטופס יודפס ויחתם פיזית על ידי העובד/ת.</div>' +
+    '<div class="field-hint-static" style="margin-top:10px;">'+tr("sec_j_noDigitalSignatureHint","אין חתימה דיגיטלית — הטופס יודפס ויחתם פיזית על ידי העובד/ת.")+'</div>' +
   '</div>';
 }
 
