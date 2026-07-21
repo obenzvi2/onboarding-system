@@ -4,6 +4,8 @@
   --border-teal:#A9D9EC;
   --primary-btn:#2FA745;
   --primary-btn-hover:#268a39;
+  --hr-accent:#FFC000;
+  --hr-accent-hover:#E0AC00;
   --danger-btn:#C4726A;
   --danger-btn-hover:#b05a52;
   --error:#C63D3D;
@@ -169,6 +171,14 @@ input[type=radio],input[type=checkbox]{width:17px;height:17px;accent-color:var(-
 .btn-icon-danger:hover{background-color:#c9302c;}
 .btn-add-green{background:var(--primary-btn);color:#fff;border:none;border-radius:6px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
 .btn-row{display:flex;gap:10px;margin-top:22px;justify-content:flex-start;}
+
+/* עמודי HR (ר' .hr-theme על #app ב-renderNow) מקבלים גוון כתום ללחצני
+   הפעולה הראשיים במקום הירוק - כדי ליצור הבחנה ברורה מול עמודי העובד/ת,
+   ששומרים על הירוק. */
+.hr-theme .btn-primary{background:var(--hr-accent);}
+.hr-theme .btn-primary:hover{background:var(--hr-accent-hover);}
+.hr-theme .btn-add-green{background:var(--hr-accent);}
+.hr-theme .btn-add-green:hover{background:var(--hr-accent-hover);}
 
 /* ===== Table ===== */
 .table-wrap{overflow-x:auto;border:1px solid var(--border-teal);border-radius:var(--radius);}

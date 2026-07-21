@@ -158,6 +158,12 @@ function renderNow(){
     if(focusId && "selectionStart" in activeEl){ selStart = activeEl.selectionStart; selEnd = activeEl.selectionEnd; }
   }catch(e){ /* type אינו תומך selection (כגון date/number/checkbox) - מתעלמים */ }
   let html = "";
+  // מסכי הדפסה משותפים לשני הצדדים (HR ועובד/ת פותחים אותם), ולכן לא
+  // שייכים לערכת הצבעים הכתומה של HR - רק מסכי ה-HR "הרגילים" מסומנים כך
+  // (ר' .hr-theme ב-styles.css) כדי שכפתורי btn-primary/btn-add-green
+  // ייצבעו בכתום שם בלבד, בעוד שאצל העובד/ת (כולל טופס 101/בנק) הם יישארו ירוקים.
+  const isHrScreen = ui.mode!=="employee" && !["print-form101","print-bank","print-form101-bank","print-generic"].includes(ui.screen);
+  app.className = isHrScreen ? "hr-theme" : "";
   try{
     if(ui.screen==="print-form101"){ html = renderPrintForm101(); }
     else if(ui.screen==="print-bank"){ html = renderPrintBank(); }
@@ -1028,9 +1034,9 @@ function renderCaseHome(){
   const items = relevantChecklistItems(c);
   const total = items.length, done = items.filter(i=>i.completed).length;
   const allDone = total>0 && done===total;
-  const actionBtn = '<button class="btn-link" onclick="openEmployeeFillTab(\''+c.id+'\',\'checklist\')">לעמוד מילוי טפסים</button>';
+  const actionBtn = '<button class="btn btn-primary" onclick="openEmployeeFillTab(\''+c.id+'\',\'checklist\')">לעמוד מילוי טפסים</button>';
   return '' +
-  '<button class="btn-link" onclick="backToList()">&rarr; חזרה לרשימת תיקי הקליטה</button>' +
+  '<button class="tab-btn active" onclick="backToList()">&rarr; חזרה לרשימת תיקי הקליטה</button>' +
   '<h1 style="margin-top:14px;">כרטיס עובד - '+escapeHtml(name)+'</h1>' +
   '<div class="panel" style="max-width:720px;">' +
     '<div class="kv">' +
@@ -2003,7 +2009,7 @@ function renderForm101(isHr){
   '<div class="anchor-nav no-print">' +
     anchors.map(a=>'<a href="#'+a[0]+'">'+a[1]+'</a>').join("") +
   '</div>' +
-  '<div class="btn-row" style="margin:16px 0;"><button class="btn-link" onmousedown="backToFormsHome()">&rarr; '+(isHr?"חזרה למסך התיק":"חזרה לרשימת הטפסים")+'</button></div>' +
+  '<div class="btn-row" style="margin:16px 0;"><button class="btn-back" onmousedown="backToFormsHome()">&rarr; '+(isHr?"חזרה למסך התיק":"חזרה לרשימת הטפסים")+'</button></div>' +
   '<h1 id="sec-a">כרטיס עובד (טופס 101)</h1>' +
   '<div class="page-desc">יש למלא את כל השדות המסומנים בכוכבית אדומה. לכל שדה עם סימן שאלה כחול ניתן ללחוץ לקבלת הסבר.</div>' +
   (errCount?('<div class="alert alert-error" id="error-summary"><b>נמצאו '+errCount+' שגיאות למילוי:</b><div>'+
@@ -2724,7 +2730,7 @@ function renderBankForm(isHr){
   const e = (k)=>ui.errors[k]?" err":"";
   const idLabel = emp.idType==="id" ? "מספר זהות" : "מספר דרכון";
   const idValue = emp.idType==="id" ? emp.idNumber : emp.passportNumber;
-  const backBtn = '<button class="btn-link" onmousedown="backToFormsHome()">&rarr; '+(isHr?"חזרה לתיק הקליטה":"חזרה לרשימת הטפסים")+'</button>';
+  const backBtn = '<button class="btn-back" onmousedown="backToFormsHome()">&rarr; '+(isHr?"חזרה לתיק הקליטה":"חזרה לרשימת הטפסים")+'</button>';
   const idOk = emp.idType==="id" ? !!(emp.idNumber||"").trim() : !!(emp.passportNumber||"").trim();
   const employeeOk = !!(emp.firstName && emp.lastName && idOk);
   const bankFieldsOk = !!(b.bankCode && b.branchCode && b.accountNumber && /^\d{1,15}$/.test((b.accountNumber||"").trim()));
