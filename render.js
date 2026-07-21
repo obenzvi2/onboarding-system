@@ -2091,9 +2091,11 @@ function renderPrintPensionConfirm(c, backOnclick, backLabel){
 /* מתג עברית/English - לא מודפס (no-print), ולא משפיע על נתונים או על
    ההדפסה - רק על הטקסט שמוצג במסך המילוי (ר' tr()/FORM101_I18N). */
 function form101LangSwitcherHtml(){
-  // "both" - גרסה ניסיונית נוספת (עברית + English יחד באותו מסך) שנוספה
-  // כדי להשוות מול המתג הרגיל - לא מחליפה את "he"/"en" הקיימים.
-  const langs = [["he","עברית"],["en","English"],["both","עברית + English"]];
+  // אפשרות "en" טהורה (בלי עברית על המסך) הוסרה מהמתג עצמו - הנוסח שדורש
+  // אישור disclaimer לפני הצגה (ר' form101DisclaimerHtml/disclaimerBlocking
+  // למטה) לא נחשב מספיק בשל למשתמשי הקצה; "both" (עברית + English) הוא
+  // המצב הלא-עברי היחיד שנשאר נגיש דרך המתג.
+  const langs = [["he","עברית"],["both","עברית + English"]];
   return '<div class="lang-switcher no-print">'+
     langs.map(l=>'<button class="lang-btn'+((ui.formLanguage||"he")===l[0]?" active":"")+'" onclick="setFormLanguage(\''+l[0]+'\')">'+l[1]+'</button>').join("") +
   '</div>';
@@ -2137,7 +2139,7 @@ function renderForm101(isHr){
   const disclaimerBlocking = ui.formLanguage==="en" && !ui.form101DisclaimerAck;
   return '' +
   form101LangSwitcherHtml() +
-  '<div dir="'+dir+'" class="form101-dir">' +
+  '<div dir="'+dir+'" class="form101-dir'+(ui.formLanguage==="both"?" lang-both":"")+'">' +
   '<div class="btn-row" style="margin:16px 0;"><button class="btn-back" onmousedown="backToFormsHome()">'+(dir==="ltr"?"&larr; ":"&rarr; ")+(isHr?tr("back_to_case","חזרה למסך התיק"):tr("back_to_forms_list","חזרה לרשימת הטפסים"))+'</button></div>' +
   '<h1 id="sec-a">'+tr("form101_title","כרטיס עובד (טופס 101)")+'</h1>' +
   (disclaimerBlocking ? form101DisclaimerHtml() : ('' +

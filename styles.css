@@ -180,7 +180,7 @@ input[type=radio],input[type=checkbox]{width:17px;height:17px;accent-color:var(-
 .btn-secondary:hover{background:var(--header-bg);}
 .btn-danger{background:var(--danger-btn);color:#fff;}
 .btn-danger:hover{background:var(--danger-btn-hover);}
-.btn-disabled,.btn:disabled{background:var(--disabled-bg)!important;color:var(--disabled-text)!important;cursor:not-allowed;}
+.btn-disabled,.btn:disabled{background:var(--disabled-bg)!important;color:var(--disabled-text)!important;cursor:not-allowed;border:1px solid var(--border-teal);}
 .btn-sm{padding:6px 12px;font-size:13px;}
 .btn-link{background:none;border:none;color:var(--header-text);cursor:pointer;font-size:13.5px;text-decoration:underline;padding:0;font-weight:600;}
 .btn-back{background:var(--header-bg);color:var(--header-text);border:none;border-radius:20px;padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;}
@@ -282,6 +282,12 @@ table.data-table tr:hover td{background:#E7E7E7;}
    .bi-he-block בלתי-נראה כמעט על רקע ירוק, ולכן כאן העברית מקבלת לבן
    ומודגשת יותר, כמו הטקסט האנגלי מעליה. */
 .btn-add-green .bi-he-block{color:#fff;font-weight:700;text-align:center;}
+/* בטופס 101 במצב "עברית + English" (ר' lang-both ב-renderForm101) הכפתור
+   הירוק מציג שתי שורות (אנגלית + עברית מתחתיה), מה שהופך אותו לגדול/כבד
+   מדי ביחס לשאר הכפתורים - כאן הוא מוקטן, והשורה העברית חוזרת למשקל רגיל
+   (לא bold) כדי שלא תתחרה חזותית עם האנגלית מעליה. */
+.lang-both .btn-add-green{padding:6px 14px;font-size:12.5px;}
+.lang-both .btn-add-green .bi-he-block{font-weight:400;}
 
 /* ===== Anchor nav for form 101 ===== */
 .anchor-nav{
