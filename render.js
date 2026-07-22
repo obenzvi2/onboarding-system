@@ -89,6 +89,15 @@ function trPlain(key, heFallback){
   const foreign = rawTranslation(bothLang, key);
   return foreign ? (foreign+" ("+heFallback+")") : heFallback;
 }
+/* כמו trPlain(), אבל בלי התוספת "(עברית)" במצב דו-לשוני - לשימוש בערך של
+   attribute (כמו placeholder="...") כשהעברית כבר מוצגת בנפרד ממש ליד השדה
+   (למשל בשורת ה-bi-he-block שמתחת לתווית) - הצגתה שוב בתוך ה-placeholder
+   מיותרת וגורמת לצפיפות. */
+function trAttrOnly(key, heFallback){
+  const bothLang = BOTH_LANG_OF[ui.formLanguage];
+  if(!bothLang) return tr(key, heFallback);
+  return rawTranslation(bothLang, key) || heFallback;
+}
 /* תרגום ערך מתוך CODE_TABLES (למשל מצב משפחתי, סוג הכנסה) - prefix מזהה
    את הטבלה (כדי שמפתחות מטבלאות שונות לא יתנגשו), item.id הוא הערך בפועל.
    plain=true מבקש טקסט רגיל בפורמט "English (עברית)" במקום ה-HTML העשיר
@@ -133,9 +142,25 @@ function setScreen(screen){
   window.scrollTo(0,0);
   render();
 }
+// מיפוי בין c.formLanguage (נבחר פעם אחת בעת פתיחת התיק - ר' submitNewCase -
+// "he"/"he_en"/"he_ru", קידוד "ידידותי" שמוצג ב-select) לבין ui.formLanguage
+// (הקידוד הפנימי של מנגנון התרגום בפועל - "he"/"both"/"both_ru", ר'
+// BOTH_LANG_OF) - קובע רק את השפה שבה טופס 101/טופס הבנק *נפתחים כברירת
+// מחדל* עבור התיק הזה; העובד/ת תמיד יכול/ה לשנות בפועל דרך מתג השפה
+// (ר' langSwitcherHtml/setFormLanguage) בלי שזה משפיע על ברירת המחדל
+// השמורה בתיק. רוב הטפסים האחרים קיימים כרגע רק בעברית, כך שהבחירה הזו
+// כלל לא משפיעה עליהם.
+const CASE_LANG_TO_UI_LANG = { he:"he", he_en:"both", he_ru:"both_ru" };
 function openCase(caseId, screen){
   // פרטי הזיהוי (שם, סוג זיהוי, מספר זהות/דרכון) נמסרים כבר בעת פתיחת
   // התיק, כך שאין יותר תלות בין טופס פרטי חשבון הבנק לבין השלמת טופס 101.
+  // ברירת המחדל של שפת התצוגה מתאפסת רק כשעוברים לתיק *אחר* מזה שכבר
+  // היה פתוח - כדי לא לבטל בחירת שפה ידנית של המשתמש/ת תוך כדי ניווט בין
+  // מסכים שונים באותו תיק עצמו.
+  if(ui.currentCaseId !== caseId){
+    const c = getCase(caseId);
+    ui.formLanguage = CASE_LANG_TO_UI_LANG[c && c.formLanguage] || "he";
+  }
   ui.currentCaseId = caseId;
   ui.screen = screen || "case-home";
   ui.errors = {};
@@ -572,11 +597,7 @@ function renderNewCase(){
       fld("companyId","חברה מעסיקה",'<select onchange="updateNewCaseDraft(\'companyId\',this.value)"><option value="">בחר/י חברה...</option>'+CODE_TABLES.companies.map(x=>'<option value="'+x.id+'" '+(d.companyId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select>') +
       fld("worksiteId","אתר עבודה",'<select '+(!d.companyId?"disabled":"")+' onchange="updateNewCaseDraft(\'worksiteId\',this.value)"><option value="">'+(d.companyId?"בחר/י אתר עבודה...":"יש לבחור חברה תחילה")+'</option>'+worksitesForCompany.map(x=>'<option value="'+x.id+'" '+(d.worksiteId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select>') +
       fld("startDate","תאריך תחילת עבודה",'<input type="date" value="'+d.startDate+'" onblur="updateNewCaseDraft(\'startDate\',this.value)">',null,true) +
-      fld("formLanguage","שפת טופס",'<select onchange="updateNewCaseDraft(\'formLanguage\',this.value)"><option value="he" '+(d.formLanguage==="he"?"selected":"")+'>עברית</option><option value="he_en" '+(d.formLanguage==="he_en"?"selected":"")+'>עברית + אנגלית</option><option value="he_ru" '+(d.formLanguage==="he_ru"?"selected":"")+'>עברית + רוסית</option><option value="he_ar" '+(d.formLanguage==="he_ar"?"selected":"")+'>עברית + ערבית</option></select>') +
-    '</div>' +
-    '<div class="alert alert-warning-yellow" style="display:flex;gap:10px;align-items:flex-start;">' +
-      '<span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:#8a6d00;color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;">!</span>' +
-      '<span><b style="display:block;margin-bottom:2px;">שימו לב</b>בגירסה זו כל תוכן הטופס יוצג בעברית בלבד, ללא קשר לבחירה כאן. שדה שפת הטופס מוצג להמחשת הכיוון העתידי של המערכת.</span>' +
+      fld("formLanguage","שפת טופס",'<select onchange="updateNewCaseDraft(\'formLanguage\',this.value)"><option value="he" '+(d.formLanguage==="he"?"selected":"")+'>עברית</option><option value="he_en" '+(d.formLanguage==="he_en"?"selected":"")+'>עברית + אנגלית</option><option value="he_ru" '+(d.formLanguage==="he_ru"?"selected":"")+'>עברית + רוסית</option></select>') +
     '</div>' +
     '<hr class="divider">' +
     '<h2 class="section-title">פרטי העובד/ת</h2>' +
@@ -2123,9 +2144,12 @@ function renderPrintPensionConfirm(c, backOnclick, backLabel){
 /* ============================================================
    10. טופס 101 — המסך המלא
    ============================================================ */
-/* מתג עברית/English/Русский - לא מודפס (no-print), ולא משפיע על נתונים או
-   על ההדפסה - רק על הטקסט שמוצג במסך המילוי (ר' tr()/FORM101_I18N). */
-function form101LangSwitcherHtml(){
+/* מתג עברית/English/Russian - לא מודפס (no-print), ולא משפיע על נתונים או
+   על ההדפסה - רק על הטקסט שמוצג במסך המילוי (ר' tr()/FORM101_I18N). משותף
+   לכל הטפסים הדו-לשוניים (טופס 101, טופס פרטי הבנק) - ר' ui.formLanguage
+   ב-render.js (מצב גלובלי אחד ב-ui, לא ריסט בין מסכים, כך שהעובד/ת בוחר/ת
+   שפה פעם אחת והיא נשמרת גם במעבר בין הטפסים). */
+function langSwitcherHtml(){
   // אפשרות שפה זרה "טהורה" (בלי עברית על המסך) הוסרה מהמתג עצמו - הנוסח
   // שדורש אישור disclaimer לפני הצגה (ר' form101DisclaimerHtml/
   // disclaimerBlocking למטה) לא נחשב מספיק בשל למשתמשי הקצה; המצבים
@@ -2170,13 +2194,13 @@ function renderForm101(isHr){
 
   const dir = FORM_LANG_DIR[ui.formLanguage] || "rtl";
   // ה-disclaimer חוסם רק במצב שפה זרה "טהור" (תרגום בלבד, בלי עברית על
-  // המסך) - לא נגיש כרגע דרך המתג (ר' form101LangSwitcherHtml). במצב "he"
+  // המסך) - לא נגיש כרגע דרך המתג (ר' langSwitcherHtml). במצב "he"
   // ובמצבים הדו-לשוניים ("both"/"both_ru") העברית המקורית תמיד נשארת גלויה
   // במלואה, ולכן אין סיכון להבנה מוטעית שמצדיק חסימה (ר' form101DisclaimerHtml).
   const disclaimerBlocking = (ui.formLanguage==="en" || ui.formLanguage==="ru") && !ui.form101DisclaimerAck;
   return '' +
-  form101LangSwitcherHtml() +
-  '<div dir="'+dir+'" class="form101-dir'+(BOTH_LANG_OF[ui.formLanguage]?" lang-bi":"")+'">' +
+  langSwitcherHtml() +
+  '<div dir="'+dir+'" class="form-dir'+(BOTH_LANG_OF[ui.formLanguage]?" lang-bi":"")+'">' +
   '<div class="btn-row" style="margin:16px 0;"><button class="btn-back" onmousedown="backToFormsHome()">'+(dir==="ltr"?"&larr; ":"&rarr; ")+(isHr?tr("back_to_case","חזרה למסך התיק"):tr("back_to_forms_list","חזרה לרשימת הטפסים"))+'</button></div>' +
   '<h1 id="sec-a">'+tr("form101_title","כרטיס עובד (טופס 101)")+'</h1>' +
   (disclaimerBlocking ? form101DisclaimerHtml() : ('' +
@@ -2921,9 +2945,14 @@ function renderBankForm(isHr){
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
   const emp = c.employee, b = c.bank;
   const e = (k)=>ui.errors[k]?" err":"";
+  // labelKey מפורש (במקום גזירה אוטומטית מ-id) כדי לשתף את אותו תרגום עם
+  // השדות המקבילים בטופס 101 (ר' f101FieldWrap/FORM101_I18N) - אין טעם
+  // לתרגם את אותו "שם פרטי"/"מספר זהות" פעמיים במילון.
+  const idLabelKey = emp.idType==="id" ? "id_number_label" : "passport_number_label";
   const idLabel = emp.idType==="id" ? "מספר זהות" : "מספר דרכון";
   const idValue = emp.idType==="id" ? emp.idNumber : emp.passportNumber;
-  const backBtn = '<button class="btn-back" onmousedown="backToFormsHome()">&rarr; '+(isHr?"חזרה לתיק הקליטה":"חזרה לרשימת הטפסים")+'</button>';
+  const dir = FORM_LANG_DIR[ui.formLanguage] || "rtl";
+  const backBtn = '<button class="btn-back" onmousedown="backToFormsHome()">'+(dir==="ltr"?"&larr; ":"&rarr; ")+(isHr?tr("back_to_case","חזרה לתיק הקליטה"):tr("back_to_forms_list","חזרה לרשימת הטפסים"))+'</button>';
   const idOk = emp.idType==="id" ? !!(emp.idNumber||"").trim() : !!(emp.passportNumber||"").trim();
   const employeeOk = !!(emp.firstName && emp.lastName && idOk);
   const bankFieldsOk = !!(b.bankCode && b.branchCode && b.accountNumber && /^\d{1,15}$/.test((b.accountNumber||"").trim()));
@@ -2934,37 +2963,40 @@ function renderBankForm(isHr){
   // התאריך אינו ניתן לעריכה ידנית - ננעל אוטומטית למועד האישור בפועל (ר' submitBankForm/updateBank)
   const displayDate = b.date || todayIso();
   return '' +
-  backBtn +
-  '<h1 style="margin-top:14px;">טופס פרטי חשבון בנק להעברת משכורת</h1>' +
-  '<div class="page-desc">מסך זה משמש להשלמת פרטי חשבון הבנק במועד מאוחר, עבור עובד/ת שכבר השלים/ה את טופס 101 ובחר/ה לדחות את מילוי פרטי הבנק. אין כתובת דוא"ל בטופס זה.</div>' +
-  '<h2 class="section-title">פרטי העובד/ת (מוזנים אוטומטית מפתיחת תיק הקליטה, לקריאה בלבד)</h2>' +
+  langSwitcherHtml() +
+  '<div dir="'+dir+'" class="form-dir'+(BOTH_LANG_OF[ui.formLanguage]?" lang-bi":"")+'">' +
+  '<div class="btn-row" style="margin:16px 0;">'+backBtn+'</div>' +
+  '<h1 style="margin-top:14px;">'+tr("bank_form_title","טופס פרטי חשבון בנק להעברת משכורת")+'</h1>' +
+  '<div class="page-desc">'+tr("bank_form_pageDesc","מסך זה משמש להשלמת פרטי חשבון הבנק במועד מאוחר, עבור עובד/ת שכבר השלים/ה את טופס 101 ובחר/ה לדחות את מילוי פרטי הבנק. אין כתובת דוא\"ל בטופס זה.")+'</div>' +
+  '<h2 class="section-title">'+tr("bank_employeeSection_title","פרטי העובד/ת (מוזנים אוטומטית מפתיחת תיק הקליטה, לקריאה בלבד)")+'</h2>' +
   '<div class="panel">' +
   '<div class="form-grid">' +
-    f101FieldWrap("bank_firstName_ro","שם פרטי",true,'<input type="text" value="'+escapeHtml(emp.firstName)+'" readonly disabled>') +
-    f101FieldWrap("bank_lastName_ro","שם משפחה",true,'<input type="text" value="'+escapeHtml(emp.lastName)+'" readonly disabled>') +
+    f101FieldWrap("bank_firstName_ro","שם פרטי",true,'<input type="text" value="'+escapeHtml(emp.firstName)+'" readonly disabled>',null,null,null,"f101_firstName_ro_label") +
+    f101FieldWrap("bank_lastName_ro","שם משפחה",true,'<input type="text" value="'+escapeHtml(emp.lastName)+'" readonly disabled>',null,null,null,"f101_lastName_ro_label") +
     f101FieldWrap("bank_idType_ro","זיהוי לפי",true,
-      '<div class="radio-group"><label><input type="radio" '+(emp.idType==="id"?"checked":"")+' disabled> תעודת זהות</label>'+
-      '<label><input type="radio" '+(emp.idType==="passport"?"checked":"")+' disabled> דרכון (עבור אזרח זר)</label></div>') +
-    f101FieldWrap("bank_idNumber_ro",idLabel,true,'<input type="text" value="'+escapeHtml(idValue)+'" readonly disabled>') +
-    f101FieldWrap("bank_mobilePhone_ro","מספר טלפון נייד",false,'<input type="tel" value="'+escapeHtml(emp.mobilePhone)+'" readonly disabled>') +
+      '<div class="radio-group"><label><input type="radio" '+(emp.idType==="id"?"checked":"")+' disabled> '+tr("id_type_id","תעודת זהות")+'</label>'+
+      '<label><input type="radio" '+(emp.idType==="passport"?"checked":"")+' disabled> '+tr("id_type_passport","דרכון (עבור אזרח זר)")+'</label></div>',null,null,null,"f101_idType_ro_label") +
+    f101FieldWrap("bank_idNumber_ro",idLabel,true,'<input type="text" value="'+escapeHtml(idValue)+'" readonly disabled>',null,null,null,idLabelKey) +
+    f101FieldWrap("bank_mobilePhone_ro","מספר טלפון נייד",false,'<input type="tel" value="'+escapeHtml(emp.mobilePhone)+'" readonly disabled>',null,null,null,"f101_mobilePhone_label") +
   '</div>' +
-  '<div class="field-hint-static">שם, סוג הזיהוי ומספר הזהות/דרכון נמסרו בעת פתיחת תיק הקליטה ואינם ניתנים לעריכה כאן.</div>' +
+  '<div class="field-hint-static">'+tr("sec_b_idHint","שם, סוג הזיהוי ומספר הזהות/דרכון נמסרו בעת פתיחת תיק הקליטה ואינם ניתנים לעריכה כאן.")+'</div>' +
   '</div>' +
-  '<h2 class="section-title">פרטי חשבון בנק</h2>' +
+  '<h2 class="section-title">'+tr("bank_details_title","פרטי חשבון בנק")+'</h2>' +
   '<div class="panel">' +
   '<div class="form-grid cols-2">' +
-    f101FieldWrap("bank_bankCode","בנק",true,comboFieldHtml("bank",b.bankCode,"בחר/י בנק, או הקלידו שם/קוד בנק...",false)) +
-    f101FieldWrap("bank_branchCode","סניף",true,comboFieldHtml("branch",b.branchCode,"בחר/י סניף, או הקלידו שם/קוד סניף...",!b.bankCode),null, b.bankCode?"":"יש לבחור בנק תחילה.") +
+    f101FieldWrap("bank_bankCode","בנק",true,comboFieldHtml("bank",b.bankCode,trAttrOnly("bank_bankCode_placeholder","בחר/י בנק, או הקלידו שם/קוד בנק..."),false)) +
+    f101FieldWrap("bank_branchCode","סניף",true,comboFieldHtml("branch",b.branchCode,trAttrOnly("bank_branchCode_placeholder","בחר/י סניף, או הקלידו שם/קוד סניף..."),!b.bankCode),null, b.bankCode?"":"יש לבחור בנק תחילה.") +
   '</div>' +
   f101FieldWrap("bank_accountNumber","מספר חשבון",true,'<input type="text" id="bank_accountNumber" class="'+e("bank_accountNumber")+'" value="'+escapeHtml(b.accountNumber)+'" onchange="updateBank(\'accountNumber\',this.value.trim())" style="max-width:260px;">',null,"אין צורך להוסיף אפסים בתחילת המספר.") +
   '<hr class="divider">' +
-  '<label class="check-row"><input type="checkbox" id="bank_confirmed" '+(b.confirmed?"checked":"")+' onchange="updateBank(\'confirmed\',this.checked)"> אני מאשר/ת כי פרטי החשבון שמסרתי נכונים.</label>' +
-  (ui.errors["bank_confirmed"]?'<div class="field-error">'+ui.errors["bank_confirmed"]+'</div>':'') +
-  '<div style="margin-top:14px;font-size:14px;"><b>תאריך:</b> '+escapeHtml(formatDateHe(displayDate))+'</div>' +
-  (done ? '<div class="alert alert-info">טופס זה כבר סומן כהושלם. יש לבטל את תיבת האישור כדי לערוך ולסמן מחדש.</div>' : '') +
+  '<label class="check-row"><input type="checkbox" id="bank_confirmed" '+(b.confirmed?"checked":"")+' onchange="updateBank(\'confirmed\',this.checked)"> '+tr("bank_confirmed_label","אני מאשר/ת כי פרטי החשבון שמסרתי נכונים.")+'</label>' +
+  (ui.errors["bank_confirmed"]?'<div class="field-error">'+tr(ui.errors["bank_confirmed"],ui.errors["bank_confirmed"])+'</div>':'') +
+  '<div style="margin-top:14px;font-size:14px;"><b>'+tr("bank_date_label","תאריך:")+'</b> '+escapeHtml(formatDateHe(displayDate))+'</div>' +
+  (done ? '<div class="alert alert-info">'+tr("bank_alreadyCompleted","טופס זה כבר סומן כהושלם. יש לבטל את תיבת האישור כדי לערוך ולסמן מחדש.")+'</div>' : '') +
   '<div class="btn-row">' +
-    '<button class="btn btn-secondary" onclick="printForm(\''+c.id+'\',\'bank\')">תצוגה מקדימה</button>' +
-    '<button class="btn btn-primary" '+(canSubmit?"":"disabled")+' onclick="submitBankForm()">סיימתי</button>' +
+    '<button class="btn btn-secondary" onclick="printForm(\''+c.id+'\',\'bank\')">'+tr("preview_btn","תצוגה מקדימה")+'</button>' +
+    '<button class="btn btn-primary" '+(canSubmit?"":"disabled")+' onclick="submitBankForm()">'+tr("finish_btn","סיימתי")+'</button>' +
+  '</div>' +
   '</div>' +
   '</div>';
 }

@@ -296,7 +296,27 @@ const FORM101_I18N = {
     "מספר טלפון יכול להכיל ספרות בלבד.": "Phone number can only contain digits.",
     "מספר זהות אינו תקין (בדיקת ספרת ביקורת נכשלה).": "Invalid ID number (checksum failed).",
     "יש להזין 3 עד 20 אותיות ו/או ספרות בלבד.": "Enter 3 to 20 letters and/or digits only.",
-    "ניתן לסמן רק אם סימנת שהילד נמצא בחזקתך.": "Can only be checked if you indicated the child is in your custody."
+    "ניתן לסמן רק אם סימנת שהילד נמצא בחזקתך.": "Can only be checked if you indicated the child is in your custody.",
+
+    // --- טופס פרטי חשבון בנק (ר' renderBankForm ב-render.js - חלק מהשדות
+    //     משתמשים במפתחות המשותפים עם טופס 101 שכבר הוגדרו למעלה, כמו
+    //     f101_firstName_ro_label/sec_b_idHint/id_type_id/preview_btn) ---
+    bank_form_title: "Bank Account Details Form for Salary Transfer",
+    bank_form_pageDesc: "This screen is used to complete bank account details at a later date, for an employee who has already completed Form 101 and chose to defer filling in the bank details. There is no email address field on this form.",
+    bank_employeeSection_title: "Employee Details (entered automatically when the case was opened, read-only)",
+    bank_details_title: "Bank Account Details",
+    bank_bankCode_label: "Bank",
+    bank_bankCode_placeholder: "Select a bank, or type a bank name/code...",
+    bank_branchCode_label: "Branch",
+    bank_branchCode_placeholder: "Select a branch, or type a branch name/code...",
+    bank_branchCode_hint: "Select a bank first.",
+    bank_accountNumber_label: "Account number",
+    bank_accountNumber_hint: "No need to add leading zeros to the number.",
+    bank_confirmed_label: "I confirm that the account details I provided are correct.",
+    bank_date_label: "Date:",
+    bank_alreadyCompleted: "This form has already been marked as completed. Uncheck the confirmation box to edit and mark it again.",
+    "יש להזין מספרים בלבד.": "Enter numbers only.",
+    "יש לאשר שהפרטים נכונים כדי לסיים.": "You must confirm the details are correct to finish."
   },
 
   /* מילון הרוסית נבנה במקביל למילון האנגלית מלמעלה (אותם מפתחות בדיוק) -
@@ -590,6 +610,24 @@ const FORM101_I18N = {
     "מספר טלפון יכול להכיל ספרות בלבד.": "Номер телефона может содержать только цифры.",
     "מספר זהות אינו תקין (בדיקת ספרת ביקורת נכשלה).": "Некорректный номер удостоверения личности (не пройдена проверка контрольной цифры).",
     "יש להזין 3 עד 20 אותיות ו/או ספרות בלבד.": "Введите от 3 до 20 букв и/или цифр.",
-    "ניתן לסמן רק אם סימנת שהילד נמצא בחזקתך.": "Можно отметить, только если указано, что ребёнок находится под вашей опекой."
+    "ניתן לסמן רק אם סימנת שהילד נמצא בחזקתך.": "Можно отметить, только если указано, что ребёнок находится под вашей опекой.",
+
+    // --- טופס פרטי חשבון בנק ---
+    bank_form_title: "Форма банковских реквизитов для перечисления зарплаты",
+    bank_form_pageDesc: "Этот экран используется для заполнения банковских реквизитов в более поздний срок — для работника, который уже заполнил форму 101 и решил отложить заполнение банковских реквизитов. В этой форме нет поля адреса электронной почты.",
+    bank_employeeSection_title: "Данные работника (заполнены автоматически при открытии дела, только для чтения)",
+    bank_details_title: "Банковские реквизиты",
+    bank_bankCode_label: "Банк",
+    bank_bankCode_placeholder: "Выберите банк или введите название/код банка...",
+    bank_branchCode_label: "Отделение",
+    bank_branchCode_placeholder: "Выберите отделение или введите название/код отделения...",
+    bank_branchCode_hint: "Сначала выберите банк.",
+    bank_accountNumber_label: "Номер счёта",
+    bank_accountNumber_hint: "Не нужно добавлять нули в начале номера.",
+    bank_confirmed_label: "Я подтверждаю, что указанные банковские реквизиты верны.",
+    bank_date_label: "Дата:",
+    bank_alreadyCompleted: "Эта форма уже отмечена как заполненная. Снимите отметку с подтверждения, чтобы отредактировать и отметить её заново.",
+    "יש להזין מספרים בלבד.": "Вводите только цифры.",
+    "יש לאשר שהפרטים נכונים כדי לסיים.": "Чтобы завершить, необходимо подтвердить, что данные верны."
   }
 };

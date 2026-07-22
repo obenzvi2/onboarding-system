@@ -125,15 +125,16 @@ input[type=date]::-webkit-calendar-picker-indicator{
   padding:0 8px;
   cursor:pointer;
 }
-/* טופס 101 במצב LTR (אנגלית/עברית+אנגלית) - האייקון של הלוח שנה עובר לצד
-   שמאל (תחילת השדה בקריאה LTR), במקום להישאר בצד ימין כמו בעברית.
-   ניסינו קודם direction:rtl על השדה עצמו (הגישה ה"נכונה" תיאורטית), אבל
-   בפועל הדפדפן מתעלם מ-direction על ה-shadow DOM הפנימי של
+/* טפסים דו-לשוניים במצב LTR (אנגלית/עברית+אנגלית, עברית+רוסית וכו' - ר'
+   .form-dir ב-render.js, משותף לטופס 101 ולטופס פרטי הבנק) - האייקון של
+   הלוח שנה עובר לצד שמאל (תחילת השדה בקריאה LTR), במקום להישאר בצד ימין
+   כמו בעברית. ניסינו קודם direction:rtl על השדה עצמו (הגישה ה"נכונה"
+   תיאורטית), אבל בפועל הדפדפן מתעלם מ-direction על ה-shadow DOM הפנימי של
    input[type=date] ולא מזיז את האייקון בכלל - לכן במקום זה ממקמים את
    ::-webkit-calendar-picker-indicator באופן absolute משמאל (טכניקה
    שעובדת בפועל, ולא תלויה בתמיכת הדפדפן ב-direction הפנימי). */
-.form101-dir[dir="ltr"] input[type=date]{position:relative;direction:ltr;text-align:left;padding:10px 10px 10px 48px;}
-.form101-dir[dir="ltr"] input[type=date]::-webkit-calendar-picker-indicator{
+.form-dir[dir="ltr"] input[type=date]{position:relative;direction:ltr;text-align:left;padding:10px 10px 10px 48px;}
+.form-dir[dir="ltr"] input[type=date]::-webkit-calendar-picker-indicator{
   position:absolute;left:8px;top:50%;transform:translateY(-50%);
   margin:0;margin-inline-start:0;border:none;border-inline-start:none;
   padding-right:8px;border-right:1px solid #C7D2D9;
@@ -242,11 +243,12 @@ table.data-table tr:hover td{background:#E7E7E7;}
 .filters-bar .field{min-width:150px;}
 .filters-bar .field label{font-size:12px;color:#5c7d8c;}
 
-/* טופס 101 בשפה שאינה עברית (אנגלית, וגם "עברית + English" - ר'
-   FORM_LANG_DIR) מוצג משמאל לימין - ה-dir דואג לכיוון הפריסה (flex/grid),
-   אבל text-align יורש מ-body (right, ערך פיזי ולא לוגי) ולכן חייבים
-   לדרוס אותו כאן במפורש כדי שהטקסט באמת יתיישר לשמאל. */
-.form101-dir[dir="ltr"]{text-align:left;}
+/* טופס דו-לשוני (טופס 101, טופס פרטי הבנק) בשפה שאינה עברית (אנגלית, רוסית
+   וכו' - ר' FORM_LANG_DIR/.form-dir ב-render.js) מוצג משמאל לימין - ה-dir
+   דואג לכיוון הפריסה (flex/grid), אבל text-align יורש מ-body (right, ערך
+   פיזי ולא לוגי) ולכן חייבים לדרוס אותו כאן במפורש כדי שהטקסט באמת יתיישר
+   לשמאל. */
+.form-dir[dir="ltr"]{text-align:left;}
 
 /* גרסת "עברית + English" (ר' tr() ב-render.js) - שורת תרגום עברית קטנה
    ואפורה בשורה נפרדת, בהשראת הפריסה של urist.co.il.
