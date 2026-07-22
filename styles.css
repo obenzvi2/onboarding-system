@@ -94,7 +94,12 @@ h2.section-title:first-child{margin-top:0;}
 }
 .card.disabled{background:var(--disabled-bg);color:var(--disabled-text);}
 .card.disabled .hint{color:var(--disabled-text);}
-.card-title{font-weight:700;color:var(--text-main);font-size:14.5px;display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+/* flex-wrap:wrap כאן (בדיוק כמו .field label) הוא מה שמאפשר לשורת התרגום
+   העברי (.bi-he-block, flex-basis:100%) "לשבור" לשורה נפרדת משלה בלי
+   לגרור את align-items:center לְמַרְכֵּז את סימן השאלה/כוכבית מול שתי
+   השורות יחד (מה שהיה גורם להם "לצוף" למרכז האנכי במקום להתיישר מול
+   שורת הכותרת הראשונה בלבד) - ר' creditCardShell ב-render.js. */
+.card-title{font-weight:700;color:var(--text-main);font-size:14.5px;display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
 .card.disabled .card-title{color:#7a8794;}
 .card-hint{font-size:12.5px;color:#5c7d8c;margin-top:6px;}
 .card.disabled-note{font-size:12.5px;color:#8a94a3;background:#eceff2;border-radius:6px;padding:8px 10px;margin-top:8px;}
@@ -280,6 +285,10 @@ table.data-table tr:hover td{background:#E7E7E7;}
    כאן משלים בדיוק את הרוחב של אות הסעיף + ". " כדי שהעברית תיושר עם
    תחילת הטקסט האנגלי (לא עם אות הסעיף עצמה). */
 .section-title .bi-he-block{margin-left:17px;}
+/* כרטיסי חלק ח' (16 כרטיסי פטור/זיכוי ממס, ר' creditCardShell) - כמו
+   ב-.radio-group/.check-group label, השורה העברית חוזרת לקצה השמאלי של
+   .card-title כולו (איפה שנמצא ה-checkbox), לא לתחילת הכותרת הזרה. */
+.card-title .bi-he-block{margin-left:28px;}
 /* כפתורים ירוקים מלאים (למשל "+ Add child") - הצבע האפור הרגיל של
    .bi-he-block בלתי-נראה כמעט על רקע ירוק, ולכן כאן העברית מקבלת לבן
    ומודגשת יותר, כמו הטקסט האנגלי מעליה. */

@@ -2460,11 +2460,26 @@ function creditCardShell(meta,disabled,disabledReason,bodyHtml,checkboxHtml){
   const num = numLang
     ? (rawTranslation(numLang,"cred_"+meta.key+"_num") || meta.num)
     : meta.num;
-  const title = tr("cred_"+meta.key+"_title", meta.title);
   const tooltip = meta.tooltip ? tr("cred_"+meta.key+"_tooltip", meta.tooltip) : meta.tooltip;
+  const qmark = tooltip ? qmarkHtml(tooltip) : "";
   const note = meta.note ? tr("cred_"+meta.key+"_note", meta.note) : meta.note;
+  // כמו ב-trLabelHtml/f101FieldWrap: סימן השאלה חייב להישאר צמוד לשורת
+  // הכותרת בשפה הזרה, ולא "לצוף" מתחת לשתי השורות (הזרה+עברית) - ולכן
+  // במצב דו-לשוני בונים כאן ידנית שני span נפרדים (זר ואז עברי) במקום
+  // span אחד עם bi-he-block מקונן בפנים, כדי ש-.card-title (flex-wrap)
+  // ישבור שורה בין השניים ויישר את הכוכבית/qmark רק מול השורה הראשונה.
+  const bothLang = BOTH_LANG_OF[ui.formLanguage];
+  let titleHtml;
+  if(bothLang){
+    const foreignTitle = rawTranslation(bothLang, "cred_"+meta.key+"_title");
+    titleHtml = foreignTitle
+      ? ('<span>'+num+': '+foreignTitle+'</span>'+qmark+'<span class="bi-he-block" dir="rtl">'+meta.num+': '+meta.title+'</span>')
+      : ('<span>'+meta.num+': '+meta.title+'</span>'+qmark);
+  } else {
+    titleHtml = '<span>'+num+': '+tr("cred_"+meta.key+"_title", meta.title)+'</span>'+qmark;
+  }
   return '<div class="card'+(disabled?" disabled":"")+'" id="cred_'+meta.key+'">' +
-    '<div class="card-title">'+checkboxHtml+'<span>'+num+': '+title+'</span>'+(tooltip?qmarkHtml(tooltip):'')+'</div>' +
+    '<div class="card-title">'+checkboxHtml+titleHtml+'</div>' +
     (note ? '<div class="card-hint">'+note+'</div>' : '') +
     (disabled && disabledReason ? '<div class="card disabled-note" style="margin-top:8px;">'+disabledReason+'</div>' : '') +
     (!disabled ? bodyHtml : '') +
