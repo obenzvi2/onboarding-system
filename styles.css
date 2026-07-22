@@ -282,12 +282,20 @@ table.data-table tr:hover td{background:#E7E7E7;}
    .bi-he-block בלתי-נראה כמעט על רקע ירוק, ולכן כאן העברית מקבלת לבן
    ומודגשת יותר, כמו הטקסט האנגלי מעליה. */
 .btn-add-green .bi-he-block{color:#fff;font-weight:700;text-align:center;}
-/* בטופס 101 במצב "עברית + English" (ר' lang-both ב-renderForm101) הכפתור
-   הירוק מציג שתי שורות (אנגלית + עברית מתחתיה), מה שהופך אותו לגדול/כבד
-   מדי ביחס לשאר הכפתורים - כאן הוא מוקטן, והשורה העברית חוזרת למשקל רגיל
-   (לא bold) כדי שלא תתחרה חזותית עם האנגלית מעליה. */
-.lang-both .btn-add-green{padding:6px 14px;font-size:12.5px;}
-.lang-both .btn-add-green .bi-he-block{font-weight:400;}
+/* בטופס 101 בכל מצב דו-לשוני (עברית + English/Русский - ר' lang-bi
+   ב-renderForm101/BOTH_LANG_OF) הכפתור הירוק מציג שתי שורות (השפה הזרה +
+   עברית מתחתיה), מה שהופך אותו לגדול/כבד מדי ביחס לשאר הכפתורים - כאן הוא
+   מוקטן, והשורה העברית חוזרת למשקל רגיל (לא bold) כדי שלא תתחרה חזותית עם
+   השפה הזרה מעליה. */
+.lang-bi .btn-add-green{padding:6px 14px;font-size:12.5px;}
+.lang-bi .btn-add-green .bi-he-block{font-weight:400;}
+/* כפתור "סיימתי" (btn-primary) בסוף טופס 101 - אותה בעיית ניגודיות כמו
+   בכפתור "+ Add child" (הצבע האפור הרגיל בלתי-נראה על רקע ירוק), אבל כאן
+   בלי הדגשה (לא bold) כי הכפתור הזה כבר קטן/צר מספיק. במצב disabled (הטופס
+   כבר סומן כהושלם - ר' renderForm101SectionJ) הרקע הופך לאפור בהיר, ולכן
+   העברית חוזרת לצבע ה-disabled הרגיל כדי שתישאר קריאה גם שם. */
+.btn-primary .bi-he-block{color:#fff;}
+.btn-primary:disabled .bi-he-block{color:var(--disabled-text);}
 
 /* ===== Anchor nav for form 101 ===== */
 .anchor-nav{

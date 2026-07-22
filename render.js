@@ -34,12 +34,19 @@ let ui = {
   hrBulkDeleteConfirmOpen:false, // האם דיאלוג אישור מחיקת תיקים מסומנים פתוח
   codeSystem:"shikulit", // מסך "טבלאות קוד": מערכת היעד המוצגת כרגע - "shikulit" | "blue"
   activeChecklistKey:null, // מפתח הטופס הפעיל כרגע בטאב מילוי הטפסים (FORM_CHECKLIST_DEFS)
-  formLanguage:"he", // שפת התצוגה של טופס 101 (לא משפיע על הנתונים עצמם או על ההדפסה) - "he" | "en"
+  formLanguage:"he", // שפת התצוגה של טופס 101 (לא משפיע על הנתונים עצמם או על ההדפסה) - "he" | "both" | "both_ru"
   form101DisclaimerAck:false // האם אושר ה-disclaimer של תרגום טופס 101 (נדרש בכל שפה שאינה עברית)
 };
+/* מיפוי בין מצב דו-לשוני (ui.formLanguage) לבין קוד השפה הזרה שהוא מציג
+   לצד העברית (ר' FORM101_I18N ב-i18n.js) - "both" היא הגרסה הוותיקה
+   (עברית+English), "both_ru" נוספה אחריה (עברית+Русский). כל מצב דו-לשוני
+   חדש שיתווסף בעתיד (עברית+ערבית וכו') צריך רק שורה נוספת כאן - שאר
+   tr()/trPlain()/codeName()/sectionTitleHtml()/f101FieldWrap() כבר כלליים
+   ולא צריכים שינוי. */
+const BOTH_LANG_OF = { both:"en", both_ru:"ru" };
 /* מחזירה את התרגום הגולמי (טקסט בלבד, ללא HTML) עבור key בשפה נתונה, או
-   null אם אין תרגום כזה במילון - עוזרת פנימית ל-tr()/trPlain() (גרסת
-   "עברית + English"). */
+   null אם אין תרגום כזה במילון - עוזרת פנימית ל-tr()/trPlain() (גרסאות
+   הדו-לשוניות, ר' BOTH_LANG_OF). */
 function rawTranslation(lang, key){
   const dict = FORM101_I18N[lang];
   const val = dict ? dict[key] : null;
@@ -47,11 +54,11 @@ function rawTranslation(lang, key){
 }
 /* מחזירה את התרגום עבור key בשפת ui.formLanguage הנוכחית, או heFallback אם
    השפה היא עברית או שהמפתח עדיין לא קיים במילון של השפה הנבחרת (ר' i18n.js).
-   במצב "both" (הטופס באנגלית, עם תרגום עברי קטן ואפור מתחתיו בשורה נפרדת -
-   ר' .bi-he-block ב-styles.css) התוצאה היא HTML ולא טקסט רגיל: אנגלית,
-   ואחריה span בעברית עם dir="rtl" משלו (כך שהעברית תמיד תיושר RTL כשורה
-   עצמאית, ולעולם לא תתערבב עם האנגלית באותה שורה - עברית RTL ואנגלית LTR
-   יחד בשורה אחת נראה מבולגן).
+   במצב דו-לשוני (הטופס בשפה זרה, עם תרגום עברי קטן ואפור מתחתיו בשורה
+   נפרדת - ר' .bi-he-block ב-styles.css) התוצאה היא HTML ולא טקסט רגיל:
+   השפה הזרה, ואחריה span בעברית עם dir="rtl" משלו (כך שהעברית תמיד תיושר
+   RTL כשורה עצמאית, ולעולם לא תתערבב עם הטקסט הזר באותה שורה - עברית RTL
+   ושפה זרה LTR יחד בשורה אחת נראה מבולגן).
    *** חשוב: בגלל זה אסור לעולם לעטוף קריאה ל-tr()/codeName() ב-escapeHtml()
    - זה ישבור את ה-span המוזרק (יהפוך אותו לטקסט גלוי "<span...>"). כל
    הקריאות הקיימות בקובץ הזה כבר לא עוטפות (הוסרו בכוונה) - כל תרגום חדש
@@ -63,43 +70,51 @@ function rawTranslation(lang, key){
 function tr(key, heFallback){
   const lang = ui.formLanguage;
   if(!lang || lang==="he") return heFallback;
-  if(lang==="both"){
-    const en = rawTranslation("en", key);
-    return en ? (en+'<span class="bi-he-block" dir="rtl">'+heFallback+'</span>') : heFallback;
+  const bothLang = BOTH_LANG_OF[lang];
+  if(bothLang){
+    const foreign = rawTranslation(bothLang, key);
+    return foreign ? (foreign+'<span class="bi-he-block" dir="rtl">'+heFallback+'</span>') : heFallback;
   }
   const val = rawTranslation(lang, key);
   return val!=null ? val : heFallback;
 }
 /* כמו tr(), אבל תמיד מחזירה טקסט רגיל בפורמט "English (עברית)" גם במצב
-   "both" - לשימוש בכל מקום שבו לא ניתן להזריק HTML גולמי: בתוך <option>
+   דו-לשוני - לשימוש בכל מקום שבו לא ניתן להזריק HTML גולמי: בתוך <option>
    של <select> (תוכן option לעולם לא מפורש כ-HTML), או בתוך ערך של attribute
    כמו title="..." (ה-span/מרכאות שמחזירה tr() היו שוברים את הפיענוח של
    התג עצמו). */
 function trPlain(key, heFallback){
-  if(ui.formLanguage!=="both") return tr(key, heFallback);
-  const en = rawTranslation("en", key);
-  return en ? (en+" ("+heFallback+")") : heFallback;
+  const bothLang = BOTH_LANG_OF[ui.formLanguage];
+  if(!bothLang) return tr(key, heFallback);
+  const foreign = rawTranslation(bothLang, key);
+  return foreign ? (foreign+" ("+heFallback+")") : heFallback;
 }
 /* תרגום ערך מתוך CODE_TABLES (למשל מצב משפחתי, סוג הכנסה) - prefix מזהה
    את הטבלה (כדי שמפתחות מטבלאות שונות לא יתנגשו), item.id הוא הערך בפועל.
    plain=true מבקש טקסט רגיל בפורמט "English (עברית)" במקום ה-HTML העשיר
-   שמצב "both" מחזיר בדרך כלל (ר' tr()) - נחוץ בתוך <option> של <select>,
+   שמצב דו-לשוני מחזיר בדרך כלל (ר' tr()) - נחוץ בתוך <option> של <select>,
    כי תוכן option לעולם לא מפורש כ-HTML בדפדפן (תג span היה מוצג כטקסט
    מילולי במקום להיות מעוצב). */
 function codeName(prefix,item,plain){
-  if(plain && ui.formLanguage==="both"){
-    const en = rawTranslation("en", prefix+"_"+item.id);
-    return en ? (en+" ("+item.name+")") : item.name;
+  const bothLang = BOTH_LANG_OF[ui.formLanguage];
+  if(plain && bothLang){
+    const foreign = rawTranslation(bothLang, prefix+"_"+item.id);
+    return foreign ? (foreign+" ("+item.name+")") : item.name;
   }
   return tr(prefix+"_"+item.id, item.name);
 }
-// אות הסעיף (א./ב./ג'...) של טופס 101 מוחלפת לגמרי לאות לטינית (A./B./C'...)
-// באנגלית/both - בדיוק כמו 2א/2ב בחלק ח' - כי היא רק סימון מספור ולא
-// תוכן שצריך לשמר. תוכן הכותרת עצמו (heContent) עדיין עובר דרך tr() הרגיל
-// עם שכפול/הצללה של עברית מתחת לאנגלית (ר' sectionTitleHtml).
+// אות הסעיף (א./ב./ג'...) של טופס 101 מוחלפת לגמרי לאות המקבילה בשפה הזרה
+// (A./B./C'... באנגלית, А./Б./В'... ברוסית) - בדיוק כמו 2א/2ב בחלק ח' - כי
+// היא רק סימון מספור ולא תוכן שצריך לשמר. תוכן הכותרת עצמו (heContent)
+// עדיין עובר דרך tr() הרגיל עם שכפול/הצללה של עברית מתחת לטקסט הזר (ר'
+// sectionTitleHtml).
 const SECTION_LETTER_EN = {"א":"A","ב":"B","ג":"C","ד":"D","ה":"E","ו":"F","ז":"G","ח":"H","ט":"I","י":"J"};
+const SECTION_LETTER_RU = {"א":"А","ב":"Б","ג":"В","ד":"Г","ה":"Д","ו":"Е","ז":"Ж","ח":"З","ט":"И","י":"Й"};
+const SECTION_LETTERS_BY_LANG = { en: SECTION_LETTER_EN, ru: SECTION_LETTER_RU };
 function sectionTitleHtml(heLetter, contentKey, heContent){
-  const letter = (ui.formLanguage==="en" || ui.formLanguage==="both") ? (SECTION_LETTER_EN[heLetter]||heLetter) : heLetter;
+  const lang = BOTH_LANG_OF[ui.formLanguage] || (ui.formLanguage!=="he" ? ui.formLanguage : null);
+  const letters = lang && SECTION_LETTERS_BY_LANG[lang];
+  const letter = letters ? (letters[heLetter]||heLetter) : heLetter;
   return letter+'. '+tr(contentKey, heContent);
 }
 function setFormLanguage(lang){
@@ -792,16 +807,17 @@ function f101FieldWrap(id,label,required,control,tooltipText,extraHint,spanCls,l
   const tooltip2 = tooltipText ? tr(tKey+"_tooltip", tooltipText) : tooltipText;
   const hint2 = extraHint ? tr(tKey+"_hint", extraHint) : extraHint;
   const err2 = err ? tr(err, err) : err;
-  // הכוכבית והסימן שאלה חייבים להישאר על שורת האנגלית (לא להידחק אחרי שורת
-  // התרגום העברי) - ולכן במצב "both" בונים כאן ידנית: אנגלית + כוכבית/qmark,
-  // ואז שורת העברית מתווספת בסוף, אחרי הכל (ר' tr() לפורמט הרגיל שמשמש
-  // בכל שאר המקומות שבהם אין את בעיית הסדר הזו).
+  // הכוכבית והסימן שאלה חייבים להישאר על שורת השפה הזרה (לא להידחק אחרי
+  // שורת התרגום העברי) - ולכן במצב דו-לשוני בונים כאן ידנית: שפה זרה +
+  // כוכבית/qmark, ואז שורת העברית מתווספת בסוף, אחרי הכל (ר' tr() לפורמט
+  // הרגיל שמשמש בכל שאר המקומות שבהם אין את בעיית הסדר הזו).
   const starAndTip = (required?' <span class="req-star">*</span>':'')+(tooltip2?qmarkHtml(tooltip2):'');
+  const bothLang = BOTH_LANG_OF[ui.formLanguage];
   let labelHtml;
-  if(ui.formLanguage==="both"){
-    const enLabel = rawTranslation("en", lKey);
-    labelHtml = enLabel
-      ? (enLabel + starAndTip + '<span class="bi-he-block" dir="rtl">'+label+'</span>')
+  if(bothLang){
+    const foreignLabel = rawTranslation(bothLang, lKey);
+    labelHtml = foreignLabel
+      ? (foreignLabel + starAndTip + '<span class="bi-he-block" dir="rtl">'+label+'</span>')
       : (label + starAndTip);
   } else {
     labelHtml = tr(lKey, label) + starAndTip;
@@ -812,6 +828,25 @@ function f101FieldWrap(id,label,required,control,tooltipText,extraHint,spanCls,l
     (hint2?'<div class="field-hint-static">'+hint2+'</div>':'') +
     (err2?'<div class="field-error">'+err2+'</div>':'') +
   '</div>';
+}
+/* בונה HTML של תווית (label) עם כוכבית חובה/סימן שאלה אופציונלי, לשימוש
+   בתוויות עצמאיות של קבוצת radio/checkbox שלא עוברות דרך f101FieldWrap
+   (אין להן control יחיד אחד, אלא כמה inputs מתחתן שנבנים בנפרד). אותה
+   בעיית סדר בדיוק כמו ב-f101FieldWrap: במצב דו-לשוני הכוכבית/qmark חייבים
+   להישאר צמודים לטקסט בשפה הזרה, ולא להידחק אחרי שורת התרגום העברי
+   (שמופיעה בשורה נפרדת בגלל .bi-he-block) - קריאה ישירה ל-tr() ואז הוספת
+   הכוכבית/qmark בסוף (כמו שהיה כאן לפני התיקון) גורמת להם "לצוף" מתחת
+   לשתי השורות במקום להישאר צמודים לשורה הראשונה. */
+function trLabelHtml(key, heFallback, required, tooltipText){
+  const starAndTip = (required?' <span class="req-star">*</span>':'')+(tooltipText?qmarkHtml(tooltipText):'');
+  const bothLang = BOTH_LANG_OF[ui.formLanguage];
+  if(bothLang){
+    const foreign = rawTranslation(bothLang, key);
+    return foreign
+      ? (foreign + starAndTip + '<span class="bi-he-block" dir="rtl">'+heFallback+'</span>')
+      : (heFallback + starAndTip);
+  }
+  return tr(key, heFallback) + starAndTip;
 }
 const IDNUM_TOOLTIP = "אין צורך להכניס אפסים בתחילת המספר והם לא ישמרו.";
 /* אייקון אזהרה (משולש צהוב עם סימן קריאה שחור) המוצג לפני שורות
@@ -2088,14 +2123,15 @@ function renderPrintPensionConfirm(c, backOnclick, backLabel){
 /* ============================================================
    10. טופס 101 — המסך המלא
    ============================================================ */
-/* מתג עברית/English - לא מודפס (no-print), ולא משפיע על נתונים או על
-   ההדפסה - רק על הטקסט שמוצג במסך המילוי (ר' tr()/FORM101_I18N). */
+/* מתג עברית/English/Русский - לא מודפס (no-print), ולא משפיע על נתונים או
+   על ההדפסה - רק על הטקסט שמוצג במסך המילוי (ר' tr()/FORM101_I18N). */
 function form101LangSwitcherHtml(){
-  // אפשרות "en" טהורה (בלי עברית על המסך) הוסרה מהמתג עצמו - הנוסח שדורש
-  // אישור disclaimer לפני הצגה (ר' form101DisclaimerHtml/disclaimerBlocking
-  // למטה) לא נחשב מספיק בשל למשתמשי הקצה; "both" (עברית + English) הוא
-  // המצב הלא-עברי היחיד שנשאר נגיש דרך המתג.
-  const langs = [["he","עברית"],["both","עברית + English"]];
+  // אפשרות שפה זרה "טהורה" (בלי עברית על המסך) הוסרה מהמתג עצמו - הנוסח
+  // שדורש אישור disclaimer לפני הצגה (ר' form101DisclaimerHtml/
+  // disclaimerBlocking למטה) לא נחשב מספיק בשל למשתמשי הקצה; המצבים
+  // הדו-לשוניים ("both"/"both_ru", ר' BOTH_LANG_OF) הם היחידים הנגישים
+  // דרך המתג מלבד עברית טהורה.
+  const langs = [["he","עברית"],["both","עברית + English"],["both_ru","עברית + Russian"]];
   return '<div class="lang-switcher no-print">'+
     langs.map(l=>'<button class="lang-btn'+((ui.formLanguage||"he")===l[0]?" active":"")+'" onclick="setFormLanguage(\''+l[0]+'\')">'+l[1]+'</button>').join("") +
   '</div>';
@@ -2118,7 +2154,7 @@ function form101DisclaimerHtml(){
   '</div>';
 }
 // כיוון תצוגה לפי שפה - עברית/ערבית הן RTL, אנגלית/רוסית הן LTR (ר' renderForm101).
-const FORM_LANG_DIR = { he:"rtl", en:"ltr", both:"ltr" };
+const FORM_LANG_DIR = { he:"rtl", en:"ltr", both:"ltr", ru:"ltr", both_ru:"ltr" };
 function renderForm101(isHr){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
@@ -2133,13 +2169,14 @@ function renderForm101(isHr){
   anchors.push(["sec-j","anchor_declaration","הצהרה וסיום"]);
 
   const dir = FORM_LANG_DIR[ui.formLanguage] || "rtl";
-  // ה-disclaimer חוסם רק במצב "en" טהור (תרגום בלבד, בלי עברית על המסך).
-  // במצב "he" ובמצב "both" העברית המקורית תמיד נשארת גלויה במלואה, ולכן
-  // אין סיכון להבנה מוטעית שמצדיק חסימה (ר' form101DisclaimerHtml).
-  const disclaimerBlocking = ui.formLanguage==="en" && !ui.form101DisclaimerAck;
+  // ה-disclaimer חוסם רק במצב שפה זרה "טהור" (תרגום בלבד, בלי עברית על
+  // המסך) - לא נגיש כרגע דרך המתג (ר' form101LangSwitcherHtml). במצב "he"
+  // ובמצבים הדו-לשוניים ("both"/"both_ru") העברית המקורית תמיד נשארת גלויה
+  // במלואה, ולכן אין סיכון להבנה מוטעית שמצדיק חסימה (ר' form101DisclaimerHtml).
+  const disclaimerBlocking = (ui.formLanguage==="en" || ui.formLanguage==="ru") && !ui.form101DisclaimerAck;
   return '' +
   form101LangSwitcherHtml() +
-  '<div dir="'+dir+'" class="form101-dir'+(ui.formLanguage==="both"?" lang-both":"")+'">' +
+  '<div dir="'+dir+'" class="form101-dir'+(BOTH_LANG_OF[ui.formLanguage]?" lang-bi":"")+'">' +
   '<div class="btn-row" style="margin:16px 0;"><button class="btn-back" onmousedown="backToFormsHome()">'+(dir==="ltr"?"&larr; ":"&rarr; ")+(isHr?tr("back_to_case","חזרה למסך התיק"):tr("back_to_forms_list","חזרה לרשימת הטפסים"))+'</button></div>' +
   '<h1 id="sec-a">'+tr("form101_title","כרטיס עובד (טופס 101)")+'</h1>' +
   (disclaimerBlocking ? form101DisclaimerHtml() : ('' +
@@ -2284,7 +2321,7 @@ function renderForm101SectionD(c){
   return '' +
   '<h2 class="section-title" id="sec-d">'+sectionTitleHtml("ד","sec_d_title","פרטים על הכנסותיי ממעסיק זה")+'</h2>' +
   '<div class="panel">' +
-    '<div class="field" style="margin-bottom:14px;"><label>'+tr("sec_d_incomeType_label","אני מקבל/ת")+' <span class="req-star">*</span>'+qmarkHtml(incomeTooltip)+'</label>' +
+    '<div class="field" style="margin-bottom:14px;"><label>'+trLabelHtml("sec_d_incomeType_label","אני מקבל/ת",true,incomeTooltip)+'</label>' +
       '<div class="radio-group">' +
         CODE_TABLES.incomeTypes.map(t=>'<label><input type="radio" name="incomeType" value="'+t.id+'" '+(emp.incomeType===t.id?"checked":"")+' onchange="updateEmp(\'incomeType\',\''+t.id+'\')"> '+codeName("incomeType",t)+'</label>').join("") +
       '</div>' +
@@ -2302,7 +2339,7 @@ function renderForm101SectionE(c){
   return '' +
   '<h2 class="section-title" id="sec-e">'+sectionTitleHtml("ה","sec_e_title","פרטים על הכנסות אחרות")+'</h2>' +
   '<div class="panel">' +
-    '<div class="field" id="f101_otherIncomeHas_wrap"><label>'+tr("sec_e_hasOtherIncome_label","יש לך הכנסות אחרות ממשכורת?")+' <span class="req-star">*</span></label>' +
+    '<div class="field" id="f101_otherIncomeHas_wrap"><label>'+trLabelHtml("sec_e_hasOtherIncome_label","יש לך הכנסות אחרות ממשכורת?",true)+'</label>' +
       '<div class="radio-group">' +
         '<label><input type="radio" name="otherIncomeHas" value="no" '+(oi.has==="no"?"checked":"")+' onchange="updateEmp(\'otherIncome.has\',\'no\')"> '+tr("sec_e_hasOtherIncome_no","אין לי הכנסות אחרות ממשכורת, קצבה או מלגה")+'</label>' +
         '<label><input type="radio" name="otherIncomeHas" value="yes" '+(oi.has==="yes"?"checked":"")+' onchange="updateEmp(\'otherIncome.has\',\'yes\')"> '+tr("sec_e_hasOtherIncome_yes","יש לי הכנסות אחרות")+'</label>' +
@@ -2311,7 +2348,7 @@ function renderForm101SectionE(c){
     '</div>' +
     (oi.has==="yes" ? ('' +
       '<hr class="divider">' +
-      '<div class="field"><label>'+tr("sec_e_typesLabel","פרוט הכנסות")+' <span class="req-star">*</span></label>' +
+      '<div class="field"><label>'+trLabelHtml("sec_e_typesLabel","פרוט הכנסות",true)+'</label>' +
         '<div class="check-group">' +
           CODE_TABLES.otherIncomeTypes.map(t=>{
             const checked = oi.types.includes(t.id);
@@ -2320,14 +2357,14 @@ function renderForm101SectionE(c){
         '</div>' +
         (ui.errors["f101_otherIncomeTypes"]?'<div class="field-error">'+tr(ui.errors["f101_otherIncomeTypes"],ui.errors["f101_otherIncomeTypes"])+'</div>':'') +
       '</div>' +
-      '<div class="field" style="margin-top:14px;"><label>'+tr("sec_e_creditPointsLabel","נקודות זיכוי")+' <span class="req-star">*</span></label>' +
+      '<div class="field" style="margin-top:14px;"><label>'+trLabelHtml("sec_e_creditPointsLabel","נקודות זיכוי",true)+'</label>' +
         '<div class="radio-group">' +
           '<label><input type="radio" name="creditPointsLoc" value="here" '+(emp.otherIncome.creditPointsLocation==="here"?"checked":"")+' onchange="updateEmp(\'otherIncome.creditPointsLocation\',\'here\')"> '+tr("sec_e_creditPointsHere","אבקש לקבל נקודות זיכוי ומדרגות מס כנגד הכנסתי זו (סעיף ד). איני מקבל/ת אותם בהכנסה אחרת.")+'</label>' +
           '<label><input type="radio" name="creditPointsLoc" value="other" '+(emp.otherIncome.creditPointsLocation==="other"?"checked":"")+' onchange="updateEmp(\'otherIncome.creditPointsLocation\',\'other\')"> '+tr("sec_e_creditPointsOther","אני מקבל/ת נקודות זיכוי ומדרגות מס בהכנסה אחרת ועל כן איני זכאי/ת להן כנגד הכנסה זו.")+'</label>' +
         '</div>' +
         (ui.errors["f101_creditPointsLoc"]?'<div class="field-error">'+tr(ui.errors["f101_creditPointsLoc"],ui.errors["f101_creditPointsLoc"])+'</div>':'') +
       '</div>' +
-      '<div class="field" style="margin-top:14px;"><label>'+tr("sec_e_depositsLabel","הפרשות")+' <span class="req-star">*</span></label>' +
+      '<div class="field" style="margin-top:14px;"><label>'+trLabelHtml("sec_e_depositsLabel","הפרשות",true)+'</label>' +
         '<div class="check-group" style="flex-direction:column;align-items:flex-start;">' +
           '<label><input type="checkbox" '+(emp.otherIncome.noHishtalmutDeposits?"checked":"")+' onchange="updateEmp(\'otherIncome.noHishtalmutDeposits\',this.checked)"> '+tr("sec_e_noHishtalmutDeposits","אין מפרישים עבורי לקרן השתלמות בגין הכנסתי האחרת, או שכל הפרשות המעסיק לקרן השתלמות בגין הכנסתי האחרת מצורפות להכנסתי האחרת.")+'</label>' +
           '<label><input type="checkbox" '+(emp.otherIncome.noPensionDeposits?"checked":"")+' onchange="updateEmp(\'otherIncome.noPensionDeposits\',this.checked)"> '+tr("sec_e_noPensionDeposits","אין מפרישים עבורי לקצבה/לביטוח אובדן כושר עבודה/פיצויים בגין הכנסתי האחרת, או שכל הפרשות המעסיק לקצבה/לביטוח אובדן כושר עבודה/פיצויים בגין הכנסתי האחרת מצורפות להכנסתי האחרת.")+'</label>' +
@@ -2391,12 +2428,13 @@ function renderForm101SectionG(){
 /* ---------- ח. פטור או זיכוי ממס — 16 כרטיסים ---------- */
 function creditCardShell(meta,disabled,disabledReason,bodyHtml,checkboxHtml){
   // meta.num הוא בדרך כלל מספר רגיל (זהה בכל שפה) חוץ מ-2א/2ב (אותיות
-  // עבריות) - אלה היחידים שצריכים תרגום בפועל (ל-2a/2b). זה מוחלף לגמרי
-  // (לא tr() הרגיל שהיה מציג "2a (2א)" במצב "both") כי האות העברית עצמה
-  // אינה מידע בעל ערך לשמר - היא רק סימון מספור, ולכן גם ב"both" מציגים
-  // רק את הגרסה הלטינית בלי כפילות מיותרת.
-  const num = (ui.formLanguage==="en" || ui.formLanguage==="both")
-    ? (rawTranslation("en","cred_"+meta.key+"_num") || meta.num)
+  // עבריות) - אלה היחידים שצריכים תרגום בפועל (ל-2a/2b, 2а/2б וכו').
+  // זה מוחלף לגמרי (לא tr() הרגיל שהיה מציג "2a (2א)" במצב דו-לשוני) כי
+  // האות העברית עצמה אינה מידע בעל ערך לשמר - היא רק סימון מספור, ולכן
+  // גם במצב דו-לשוני מציגים רק את הגרסה המתורגמת בלי כפילות מיותרת.
+  const numLang = BOTH_LANG_OF[ui.formLanguage] || (ui.formLanguage!=="he" ? ui.formLanguage : null);
+  const num = numLang
+    ? (rawTranslation(numLang,"cred_"+meta.key+"_num") || meta.num)
     : meta.num;
   const title = tr("cred_"+meta.key+"_title", meta.title);
   const tooltip = meta.tooltip ? tr("cred_"+meta.key+"_tooltip", meta.tooltip) : meta.tooltip;
