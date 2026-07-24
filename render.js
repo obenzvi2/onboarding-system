@@ -515,7 +515,7 @@ function printForm(caseId,type){
    ============================================================ */
 function goNewCase(){
   ui.newCaseDraft = {taxYear:2026, companyId:"", worksiteId:"", startDate:"", formLanguage:"he", formSelection: defaultFormSelection(),
-    firstName:"", lastName:"", idType:"id", idNumber:"", passportNumber:"",
+    firstName:"", lastName:"", idType:"id", idNumber:"", passportNumber:"", employeeNumber:"",
     departmentId:"", subDepartmentId:"", rankId:"", gradeId:""};
   ui.newCaseErrors = {};
   setScreen("new-case");
@@ -566,6 +566,9 @@ function submitNewCase(){
   c.employee.idType = d.idType;
   c.employee.idNumber = d.idType==="id" ? (d.idNumber||"").trim() : "";
   c.employee.passportNumber = d.idType==="passport" ? (d.passportNumber||"").trim() : "";
+  // שדה חופשי לא-חובה, ממולא ע"י מנהל/ת משאבי אנוש בעת פתיחת התיק - נועד
+  // ליצוא לשיקלולית/מערכת כחולה (ר' תכנון מיפוי היצוא), לא נבדק/מאומת.
+  c.employee.employeeNumber = (d.employeeNumber||"").trim();
   c.departmentId = d.departmentId||""; c.subDepartmentId = d.subDepartmentId||"";
   c.rankId = d.rankId||""; c.gradeId = d.gradeId||"";
   c.documents = buildDocuments(c);
@@ -582,7 +585,7 @@ function submitNewCase(){
 }
 function renderNewCase(){
   const d = ui.newCaseDraft || (ui.newCaseDraft={taxYear:2026,companyId:"",worksiteId:"",startDate:"",formLanguage:"he",formSelection:defaultFormSelection(),
-    firstName:"",lastName:"",idType:"id",idNumber:"",passportNumber:"",
+    firstName:"",lastName:"",idType:"id",idNumber:"",passportNumber:"",employeeNumber:"",
     departmentId:"",subDepartmentId:"",rankId:"",gradeId:""});
   const errs = ui.newCaseErrors || {};
   const worksitesForCompany = CODE_TABLES.worksites.filter(w=>w.companyId===d.companyId);
@@ -612,6 +615,12 @@ function renderNewCase(){
         :
         fld("idNumber","מספר תעודת זהות (9 ספרות)",'<input type="text" id="newcase_idNumber" maxlength="9" value="'+escapeHtml(d.idNumber||"")+'" oninput="updateNewCaseDraft(\'idNumber\',this.value.trim())">')
       ) +
+      fld("employeeNumber","מספר עובד",'<input type="text" id="newcase_employeeNumber" value="'+escapeHtml(d.employeeNumber||"")+'" oninput="updateNewCaseDraft(\'employeeNumber\',this.value)">',null,true) +
+      // תא ריק שממלא את הזוג של "מספר עובד" בשורה שלו - כדי שמחלקה/תת-מחלקה
+      // וגם דירוג/דרגה ימשיכו להיות זוגות באותה שורה בגריד cols-2 (בלי זה,
+      // מחלקה היה "נגרר" לתפוס את התא הפנוי ליד מספר עובד ומזיז את כל הזוגות
+      // אחריו בשורה אחת, ר' תיקון קודם עם span-2 שהיה רחב מדי).
+      '<div class="field"></div>' +
       fld("departmentId","מחלקה",'<select onchange="updateNewCaseDraft(\'departmentId\',this.value)"><option value="">בחר/י מחלקה...</option>'+CODE_TABLES.departments.map(x=>'<option value="'+x.id+'" '+(d.departmentId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select>',null,true) +
       fld("subDepartmentId","תת-מחלקה",'<select '+(!d.departmentId?"disabled":"")+' onchange="updateNewCaseDraft(\'subDepartmentId\',this.value)"><option value="">'+(d.departmentId?"בחר/י תת-מחלקה...":"יש לבחור מחלקה תחילה")+'</option>'+subDepartmentsForDepartment.map(x=>'<option value="'+x.id+'" '+(d.subDepartmentId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select>',null,true) +
       fld("rankId","דירוג",'<select onchange="updateNewCaseDraft(\'rankId\',this.value)"><option value="">בחר/י דירוג...</option>'+CODE_TABLES.ranks.map(x=>'<option value="'+x.id+'" '+(d.rankId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select>',null,true) +

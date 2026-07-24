@@ -12,7 +12,7 @@ function emptyChild(){
 
 function emptyEmployee(){
   return {
-    firstName:"",lastName:"",
+    firstName:"",lastName:"",employeeNumber:"",
     idType:"id", idNumber:"", passportNumber:"",
     birthDate:"", gender:"", maritalStatus:"",
     isIsraeliResident:"", aliyaDate:"",
