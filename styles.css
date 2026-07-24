@@ -411,7 +411,7 @@ details.row-menu[open] summary{background:var(--header-bg);}
 .row-menu-list button:hover{background:var(--header-bg);}
 .row-menu-list button.danger{color:var(--danger-btn);}
 .row-menu-list hr{border:none;border-top:1px solid #eef2f4;margin:4px 0;}
-.btn-icon{width:30px;height:30px;border:1px solid var(--border-teal);border-radius:6px;background:#fff;cursor:pointer;font-size:13px;color:var(--header-text);}
+.btn-icon{width:30px;height:30px;border:1px solid var(--border-teal);border-radius:6px;background:#fff;cursor:pointer;font-size:13px;color:var(--header-text);display:inline-flex;align-items:center;justify-content:center;}
 .btn-icon:hover{background:var(--header-bg);}
 
 /* ===== Combo (רשימה נפתחת עם הקלדה) ===== */

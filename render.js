@@ -893,7 +893,9 @@ const WARNING_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" style="fle
 const ICON_SVGS = {
   pencil: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>',
   trash: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
-  printer: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>'
+  printer: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+  folderOpen: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>',
+  download: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
 };
 /* כפתור אייקון "שקוף" - בלי מסגרת ובלי רקע, רק הקו של האייקון עצמו,
    באותו צבע כמו טקסט השורה; צבע שונה מופיע רק במעבר עכבר (ר' CSS
@@ -3101,20 +3103,30 @@ function requestCreateBatch(){
 function confirmExportAnyway(){ ui.pendingExportConfirm=false; createBatchNow(); }
 function cancelExportForBank(){ ui.pendingExportConfirm=false; render(); }
 function createBatchNow(){
-  // הערה לפיתוח האמיתי: אצווה זו מדמה יצירת קובץ Excel בלבד (ראו שורה
-  // הבאה - אין כאן קובץ אמיתי). כאשר ייכתב קוד ייצוא Excel אמיתי, יש
-  // לכתוב את קוד הסניף (וקוד הבנק) לתא מסוג טקסט (Text/String) ולא תא
-  // מסוג מספר, אחרת אפס מוביל בקוד הסניף (למשל "027") ייעלם.
   const ids = ui.exportSelection.slice();
-  const firstCase = getCase(ids[0]);
+  const cases = ids.map(getCase).filter(Boolean);
+  const firstCase = cases[0];
+  // rows (מערך שורות, כותרת+נתונים) נשמר כתמונת-מצב קבועה על האצווה עצמה
+  // בזמן היצירה - כך שגם אם פרטי העובד/ת ישתנו אח"כ, פתיחת הקובץ מהיסטוריית
+  // היצוא תמיד תציג בדיוק את מה שיוצא בפועל אז, לא נתונים מעודכנים. ר'
+  // openBatchFile/buildShikulitRows (export.js). יעד "כחולה" עדיין ללא
+  // מיפוי שדות מוסכם, ולכן rows נשאר null עבורו (הדמיה בלבד).
+  const rows = ui.exportTarget==="shikulit" ? buildShikulitRows(cases) : null;
   const batch = {
     id:nextId("batch"), target:ui.exportTarget, companyId: firstCase?firstCase.companyId:"",
-    employeeIds:ids, createdAt:new Date().toISOString(), createdBy:DB.currentUser,
-    sendStatus:"קובץ נוצר", importStatus:"טרם נוצר"
+    employeeIds:ids, createdAt:new Date().toISOString(), createdBy:DB.currentUser, rows:rows
   };
   DB.batches.push(batch);
-  const targetName = ui.exportTarget==="shikulit"?"שיקלולית":"המערכת הכחולה";
-  showToast("נוצר קובץ Excel ל"+targetName+" עבור "+ids.length+" עובדים.");
+  // "ל"+targetName כבר כולל את ה"-" הנדרשת בעצמה (למשל "למערכת הכחולה"),
+  // כדי לא לקבל כפל יידוע ("להמערכת") כשמצרפים תחילית "ל" לפני מילה
+  // שכבר מתחילה ב"ה" הידיעה.
+  const targetName = ui.exportTarget==="shikulit"?"לשיקלולית":"למערכת הכחולה";
+  if(rows){
+    downloadExcelRows(rows, "שיקלולית_"+batch.id+".xlsx");
+    showToast("נוצר והורד קובץ Excel "+targetName+" עבור "+ids.length+" עובדים.");
+  } else {
+    showToast("נוצרה אצווה "+targetName+" עבור "+ids.length+" עובדים (יצוא קובץ אמיתי למערכת הכחולה טרם מומש).");
+  }
   ui.exportSelection=[]; ui.exportTarget=""; ui.pendingExportConfirm=false;
   setScreen("batches");
 }
@@ -3214,63 +3226,38 @@ function renderArchiveScreen(){
 /* ============================================================
    14. מסך היסטוריית אצוות
    ============================================================ */
-function batchStatusPill(text){
-  const map={"קובץ נוצר":"pill-blue","נשלח":"pill-green","שליחה נכשלה":"pill-red","טרם נוצר":"pill-gray","אושר יבוא":"pill-green","נדרש יצוא מחדש":"pill-red"};
-  return '<span class="status-pill '+(map[text]||"pill-gray")+'">'+escapeHtml(text)+'</span>';
+// מפעיל שוב הורדת קובץ ה-Excel שנשמר על האצווה בזמן היצירה (ר' rows
+// ב-createBatchNow) - גם כפתור "פתיחה" וגם כפתור "הורד קובץ" קוראים לאותה
+// פונקציה, כי מדפדפן אין הבדל אמיתי בין "לפתוח" קובץ לבין "להוריד" אותו -
+// שתי הפעולות בפועל מורידות את הקובץ, והמשתמש/ת פותח/ת אותו בעצמו/ה.
+function openBatchFile(batchId){
+  const b = DB.batches.find(x=>x.id===batchId);
+  if(!b) return;
+  if(!b.rows){ showToast("יצוא קובץ אמיתי למערכת הכחולה טרם מומש באב הטיפוס."); return; }
+  downloadExcelRows(b.rows, "שיקלולית_"+b.id+".xlsx");
 }
-function downloadSampleFile(batchId){
-  showToast("הורדת קובץ לדוגמה (הדמיה בלבד — אין קובץ Excel אמיתי באב הטיפוס).");
-}
-function viewBatch(batchId){
-  ui.viewingBatchId = batchId;
-  render();
-}
-function closeBatchModal(){ ui.viewingBatchId=null; render(); }
 function clearBatchFilter(){ ui.batchFilterCaseId=""; render(); }
 function renderBatchesScreen(){
   let list = DB.batches.slice().sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   if(ui.batchFilterCaseId) list = list.filter(b=>b.employeeIds.includes(ui.batchFilterCaseId));
   const rows = list.map(b=>{
-    const emp0 = getCase(b.employeeIds[0]);
     return '<tr>' +
       '<td>'+b.id+'</td>' +
       '<td>'+(b.target==="shikulit"?"שיקלולית":"מערכת כחולה")+'</td>' +
       '<td>'+b.employeeIds.length+'</td>' +
       '<td>'+formatDateTimeHe(b.createdAt)+'</td>' +
       '<td class="row-actions">' +
-        '<button class="btn-icon" title="צפייה" onclick="viewBatch(\''+b.id+'\')">👁</button>' +
-        '<button class="btn-icon" title="הורד קובץ לדוגמה" onclick="downloadSampleFile(\''+b.id+'\')">⬇</button>' +
+        '<button class="btn-icon" title="פתיחה" onclick="openBatchFile(\''+b.id+'\')">'+ICON_SVGS.folderOpen+'</button>' +
+        '<button class="btn-icon" title="הורד קובץ" onclick="openBatchFile(\''+b.id+'\')">'+ICON_SVGS.download+'</button>' +
       '</td>' +
     '</tr>';
   }).join("");
-  const modal = ui.viewingBatchId ? renderBatchModal(ui.viewingBatchId) : "";
   return '' +
   '<h1>היסטוריית יצוא קבצים</h1>' +
   (ui.batchFilterCaseId ? '<div class="alert alert-info">מוצגת היסטוריה עבור עובד/ת נבחר/ת בלבד. <button class="btn-link" onclick="clearBatchFilter()">הצג את כל האצוות</button></div>' : '') +
   (list.length ? ('<div class="table-wrap"><table class="data-table"><thead><tr>'+
     '<th>מספר אצווה</th><th>יעד</th><th>מספר עובדים</th><th>תאריך ושעת יצירה</th><th>פעולות</th>'+
-  '</tr></thead><tbody>'+rows+'</tbody></table></div>') : '<div class="empty-state">לא נוצרו אצוות עדיין.</div>') +
-  modal;
-}
-function renderBatchModal(batchId){
-  const b = DB.batches.find(x=>x.id===batchId);
-  if(!b) return "";
-  const names = b.employeeIds.map(id=>{ const c=getCase(id); return c ? (c.employee.firstName+" "+c.employee.lastName) : "(לא נמצא)"; });
-  return '<div class="modal-overlay" onclick="if(event.target===this) closeBatchModal()"><div class="modal-box">' +
-    '<h2 class="section-title" style="margin-top:0;">פרטי אצווה '+b.id+'</h2>' +
-    '<div class="kv">' +
-      '<div class="k">יעד</div><div>'+(b.target==="shikulit"?"שיקלולית":"מערכת כחולה")+'</div>' +
-      '<div class="k">חברה</div><div>'+escapeHtml(companyName(b.companyId))+'</div>' +
-      '<div class="k">נוצרה</div><div>'+formatDateTimeHe(b.createdAt)+'</div>' +
-      '<div class="k">יוצר/ת</div><div>'+escapeHtml(b.createdBy)+'</div>' +
-      '<div class="k">סטטוס שליחה</div><div>'+batchStatusPill(b.sendStatus)+'</div>' +
-      '<div class="k">סטטוס יבוא</div><div>'+batchStatusPill(b.importStatus)+'</div>' +
-    '</div>' +
-    '<hr class="divider">' +
-    '<div class="k" style="margin-bottom:6px;color:#5c7d8c;font-weight:600;">עובדים באצווה ('+names.length+')</div>' +
-    '<ul>'+names.map(n=>'<li>'+escapeHtml(n)+'</li>').join("")+'</ul>' +
-    '<div class="btn-row"><button class="btn btn-secondary" onclick="closeBatchModal()">סגור</button></div>' +
-  '</div></div>';
+  '</tr></thead><tbody>'+rows+'</tbody></table></div>') : '<div class="empty-state">לא נוצרו אצוות עדיין.</div>');
 }
 
 /* ============================================================

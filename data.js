@@ -45,17 +45,20 @@ const CODE_TABLES = {
     {id:"pension",name:"קצבה",tooltip:"אין לדווח על קצבה פטורה מביטוח לאומי וקצבת שאירים שכולה פטורה.",shikulitCode:"",blueCode:""},
     {id:"scholarship",name:"מלגה",tooltip:null,shikulitCode:"",blueCode:""}
   ],
+  // shikulitCode כאן ממולא מראש לפי הערכים שנקבעו בתכנון היצוא לשיקלולית
+  // (כללית=1, מכבי=2, לאומית=3, מאוחדת=4, לא חבר=5) - עדיין ניתן לעריכה
+  // דרך מסך "טבלאות קוד" אם יתעדכן בעתיד (ר' buildShikulitRow ב-export.js).
   healthFunds:[
-    {id:"clalit",name:"כללית",shikulitCode:"",blueCode:""},
-    {id:"maccabi",name:"מכבי",shikulitCode:"",blueCode:""},
-    {id:"leumit",name:"לאומית",shikulitCode:"",blueCode:""},
-    {id:"meuhedet",name:"מאוחדת",shikulitCode:"",blueCode:""},
+    {id:"clalit",name:"כללית",shikulitCode:"1",blueCode:""},
+    {id:"maccabi",name:"מכבי",shikulitCode:"2",blueCode:""},
+    {id:"leumit",name:"לאומית",shikulitCode:"3",blueCode:""},
+    {id:"meuhedet",name:"מאוחדת",shikulitCode:"4",blueCode:""},
     // "לא חבר" - לא אפשרות אמיתית לבחירת קופת חולים בטופס 101 (שם זה
     // מיוצג ע"י שדה healthFundMember="no" נפרד - ר' renderForm101SectionB),
     // אלא רק שורה נוספת במסך "טבלאות קוד" כדי לאפשר להזין קוד יצוא (למשל
     // לשיקלולית) גם למקרה הזה - ולכן מסוננת החוצה במפורש בטופס 101 (ר'
     // ה-filter לפני ה-map ברינדור הרדיו).
-    {id:"none",name:"לא חבר",shikulitCode:"",blueCode:""}
+    {id:"none",name:"לא חבר",shikulitCode:"5",blueCode:""}
   ],
   spouseIncomeOptions:[
     {id:"none",name:"אין לבן/בת הזוג כל הכנסה"},
