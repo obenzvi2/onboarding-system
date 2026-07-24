@@ -6,9 +6,10 @@
    ============================================================ */
 let ui = {
   mode:"hr", // "hr" | "employee"
-  screen:"hr-list", // hr-list | new-case | case-home | form101 | bank-form | documents | export | batches | admin | print-form101 | print-bank | print-form101-bank
+  screen:"hr-list", // hr-list | new-case | case-home | form101 | bank-form | documents | export | batches | archive | admin | print-form101 | print-bank | print-form101-bank
   currentCaseId:null,
   filters:{company:"",worksite:"",search:""},
+  archiveFilters:{company:"",worksite:"",search:"",dateRange:"3m"}, // מסך "ארכיון עובדים" - כמו filters, ועוד טווח תאריכי קליטה
   toast:null,
   errors:{}, // form101 field errors
   errorSummaryOpen:false,
@@ -198,20 +199,6 @@ function bankStatusInfo(c){
   if(c.bank.status==="completed") return {text:"הושלם",cls:"pill-green"};
   return {text:"ממתין למילוי",cls:"pill-yellow"};
 }
-function latestBatchFor(caseId,target){
-  const list = DB.batches.filter(b=>b.target===target && b.employeeIds.includes(caseId));
-  if(!list.length) return null;
-  return list.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt))[0];
-}
-function exportStatusInfo(c,target){
-  const b = latestBatchFor(c.id,target);
-  if(!b) return {text:"טרם נוצר",cls:"pill-gray"};
-  const map = {
-    "קובץ נוצר":"pill-blue","נשלח":"pill-green","שליחה נכשלה":"pill-red",
-    "אושר יבוא":"pill-green","נדרש יצוא מחדש":"pill-red"
-  };
-  return {text:b.importStatus==="נדרש יצוא מחדש" ? "נדרש יצוא מחדש" : b.sendStatus, cls: map[b.importStatus==="נדרש יצוא מחדש"?"נדרש יצוא מחדש":b.sendStatus] || "pill-gray"};
-}
 function caseReadyForExport(c){
   return c.employee.form101Status==="completed";
 }
@@ -340,9 +327,10 @@ function renderHrShell(){
     {id:"hr-list",label:"תיקי קליטה"},
     {id:"export",label:"יצוא טפסים"},
     {id:"batches",label:"היסטוריית יצוא"},
+    {id:"archive",label:"ארכיון עובדים"},
     {id:"admin",label:"הגדרות מערכת"}
   ];
-  const topScreen = ["hr-list","new-case"].includes(ui.screen) ? "hr-list" : (["export"].includes(ui.screen)?"export":(["batches"].includes(ui.screen)?"batches":(ui.screen==="admin"?"admin":"case")));
+  const topScreen = ["hr-list","new-case"].includes(ui.screen) ? "hr-list" : (["export"].includes(ui.screen)?"export":(["batches"].includes(ui.screen)?"batches":(ui.screen==="archive"?"archive":(ui.screen==="admin"?"admin":"case"))));
   let body = "";
   switch(ui.screen){
     case "hr-list": body = renderHrList(); break;
@@ -353,6 +341,7 @@ function renderHrShell(){
     case "documents": body = renderDocumentsScreen(); break;
     case "export": body = renderExportScreen(); break;
     case "batches": body = renderBatchesScreen(); break;
+    case "archive": body = renderArchiveScreen(); break;
     case "admin": body = renderAdminScreen(); break;
     default: body = renderHrList();
   }
@@ -364,7 +353,7 @@ function renderHrShell(){
     '</div>' +
     '<div class="user-chip">משתמש/ת: '+escapeHtml(DB.currentUser)+'</div>' +
   '</div>' +
-  '<main class="'+(["hr-list","batches","admin"].includes(ui.screen)?"wide":(["new-case","documents"].includes(ui.screen)?"form-narrow":""))+'">' + body + '</main>';
+  '<main class="'+(["hr-list","batches","archive","admin"].includes(ui.screen)?"wide":(["new-case","documents"].includes(ui.screen)?"form-narrow":""))+'">' + body + '</main>';
 }
 
 /* ============================================================
@@ -391,7 +380,6 @@ function renderHrList(){
     const name = (emp.firstName||emp.lastName) ? (emp.firstName+" "+emp.lastName) : "(טרם הוזן שם)";
     const idv = emp.idType==="id" ? (emp.idNumber||"—") : (emp.passportNumber||"—");
     const docs = docsStatusInfo(c);
-    const sk = exportStatusInfo(c,"shikulit"), bl = exportStatusInfo(c,"blue");
     const prog = checklistProgress(c);
     const progPct = prog.total ? Math.round(prog.done/prog.total*100) : 0;
     const missing = missingFormsInfo(c);
@@ -405,12 +393,10 @@ function renderHrList(){
       '<td><span class="status-pill '+docs.cls+'">'+docs.text+'</span></td>'+
       '<td><div style="display:flex;align-items:center;gap:8px;"><div style="width:60px;background:#EEF1F3;border-radius:20px;height:8px;overflow:hidden;flex-shrink:0;"><div style="width:'+progPct+'%;height:100%;background:#2FA745;"></div></div><span style="font-size:12.5px;color:#5c7d8c;white-space:nowrap;">'+prog.done+'/'+prog.total+'</span></div></td>'+
       '<td><span class="status-pill '+missing.cls+'">'+missing.text+'</span></td>'+
-      '<td><span class="status-pill '+sk.cls+'">'+sk.text+'</span></td>'+
-      '<td><span class="status-pill '+bl.cls+'">'+bl.text+'</span></td>'+
     '</tr>';
   }).join("");
   if(!filtered.length){
-    rows = '<tr><td colspan="11"><div class="empty-state">לא נמצאו תיקי קליטה התואמים את הסינון.</div></td></tr>';
+    rows = '<tr><td colspan="9"><div class="empty-state">לא נמצאו תיקי קליטה התואמים את הסינון.</div></td></tr>';
   }
   return '' +
   '<h1>ניהול עובדים — תיקי קליטה</h1>' +
@@ -426,7 +412,7 @@ function renderHrList(){
   '<div class="table-wrap" id="hrListTableWrap"><table class="data-table"><thead><tr>'+
     '<th></th><th>שם עובד</th><th>ת.ז/דרכון</th><th>חברה מעסיקה</th><th>אתר עבודה</th>'+
     '<th>ת. השלמת טופס</th><th>סטטוס מסמכים</th><th>התקדמות טפסים</th>'+
-    '<th>טפסים חסרים</th><th>יצוא לשיקלולית</th><th>יצוא לכחולה</th>'+
+    '<th>טפסים חסרים</th>'+
   '</tr></thead><tbody>'+rows+'</tbody></table></div>' +
   renderBulkDeleteCasesModal();
 }
@@ -3063,6 +3049,12 @@ function toggleExportSelect(caseId,checked){
   else { ui.exportSelection = ui.exportSelection.filter(id=>id!==caseId); }
   render();
 }
+// תיבת הסימון בכותרת הטבלה (renderExportScreen) - מסמנת/מבטלת סימון של כל
+// השורות המוצגות (כל העובדים הזכאים ליצוא) בבת אחת.
+function toggleExportSelectAll(checked,ids){
+  ui.exportSelection = checked ? ids.slice() : [];
+  render();
+}
 function setExportTarget(t){ ui.exportTarget=t; ui.pendingExportConfirm=false; render(); }
 function requestCreateBatch(){
   if(!ui.exportSelection.length){ showToast("יש לבחור לפחות עובד/ת אחד/ת ליצוא."); return; }
@@ -3093,22 +3085,28 @@ function createBatchNow(){
   ui.exportSelection=[]; ui.exportTarget=""; ui.pendingExportConfirm=false;
   setScreen("batches");
 }
-function renderExportScreen(){
-  const eligible = DB.cases.filter(caseReadyForExport);
-  const rows = eligible.map(c=>{
+/* טבלת בחירת עובדים ליצוא (סימון + יעד יצוא + כפתור יצירה) - משותפת בין
+   מסך "יצוא טפסים" (רק עובדים שהשלימו טופס 101) ומסך "ארכיון עובדים" (כל
+   העובדים שנקלטו, מסונן) כדי לא לשכפל את מנגנון היצוא פעמיים. שתי המסכים
+   כותבים לאותו מצב משותף (ui.exportSelection/ui.exportTarget וכו') - ר'
+   toggleExportSelect/setExportTarget/requestCreateBatch למעלה. */
+function exportSelectionPanelHtml(casesList, emptyMessage){
+  const allSelected = casesList.length>0 && casesList.every(c=>ui.exportSelection.includes(c.id));
+  const idsJson = escapeHtml(JSON.stringify(casesList.map(c=>c.id)));
+  const rows = casesList.map(c=>{
     const emp=c.employee;
     const bankOk = !c.needsBankForm || c.bank.status==="completed";
+    const name = (emp.firstName||emp.lastName) ? (emp.firstName+" "+emp.lastName) : "(טרם הוזן שם)";
     return '<tr>' +
       '<td><input type="checkbox" '+(ui.exportSelection.includes(c.id)?"checked":"")+' onchange="toggleExportSelect(\''+c.id+'\',this.checked)"></td>' +
-      '<td>'+escapeHtml(emp.firstName+" "+emp.lastName)+'</td>' +
+      '<td>'+escapeHtml(name)+'</td>' +
       '<td>'+escapeHtml(companyName(c.companyId))+'</td>' +
       '<td>'+escapeHtml(worksiteName(c.worksiteId))+'</td>' +
+      '<td>'+escapeHtml(formatDateHe((c.createdAt||"").slice(0,10)))+'</td>' +
       '<td>'+(bankOk?'<span class="status-pill pill-green">פרטי בנק מלאים</span>':'<span class="status-pill pill-yellow">פרטי בנק חסרים</span>')+'</td>' +
     '</tr>';
   }).join("");
   return '' +
-  '<h1>יצוא קבצים</h1>' +
-  '<div class="page-desc">ניתן לבחור עובד/ת אחד/ת או יותר שהשלימו טופס 101, וליצור עבורם אצווה מדומה לשיקלולית או למערכת הכחולה.</div>' +
   '<div class="panel">' +
     '<div class="field" style="margin-bottom:16px;"><label>יעד יצוא</label>' +
       '<div class="radio-group">' +
@@ -3121,11 +3119,63 @@ function renderExportScreen(){
         '<div class="alert-actions"><button class="btn btn-primary btn-sm" onclick="confirmExportAnyway()">המשך ביצוא</button><button class="btn btn-secondary btn-sm" onclick="cancelExportForBank()">ביטול והשלמת פרטי בנק</button></div>' +
       '</div>'
     ) : '') +
-    (eligible.length ? ('<div class="table-wrap"><table class="data-table"><thead><tr><th></th><th>שם עובד</th><th>חברה</th><th>אתר עבודה</th><th>סטטוס בנק</th></tr></thead><tbody>'+rows+'</tbody></table></div>') : '<div class="empty-state">אין עובדים שהשלימו טופס 101 וזמינים ליצוא.</div>') +
+    (casesList.length ? ('<div class="table-wrap"><table class="data-table"><thead><tr><th><input type="checkbox" '+(allSelected?"checked":"")+' onchange="toggleExportSelectAll(this.checked,'+idsJson+')"></th><th>שם עובד</th><th>חברה</th><th>אתר עבודה</th><th>תאריך פתיחת תיק</th><th>סטטוס פרטי בנק</th></tr></thead><tbody>'+rows+'</tbody></table></div>') : '<div class="empty-state">'+emptyMessage+'</div>') +
     '<div class="btn-row">' +
       '<button class="btn btn-primary" onclick="requestCreateBatch()">צור קובץ Excel</button>' +
     '</div>' +
   '</div>';
+}
+function renderExportScreen(){
+  const eligible = DB.cases.filter(caseReadyForExport);
+  return '' +
+  '<h1>יצוא קבצים</h1>' +
+  '<div class="page-desc">ניתן לבחור עובד/ת אחד/ת או יותר שהשלימו טופס 101, וליצור עבורם אצווה מדומה לשיקלולית או למערכת הכחולה.</div>' +
+  exportSelectionPanelHtml(eligible, "אין עובדים שהשלימו טופס 101 וזמינים ליצוא.");
+}
+/* מסך "ארכיון עובדים" - כמו מסך היצוא, אבל מציג את כל העובדים שנקלטו אי
+   פעם (לא רק מי שהשלים/ה טופס 101), עם סרגל סינון/חיפוש כמו ב-hr-list
+   ובנוסף סינון לפי טווח תאריך קליטה (c.createdAt). */
+function passesArchiveFilters(c){
+  const f = ui.archiveFilters;
+  if(f.company && c.companyId!==f.company) return false;
+  if(f.worksite && c.worksiteId!==f.worksite) return false;
+  if(f.search){
+    const s = f.search.trim();
+    const name = (c.employee.firstName+" "+c.employee.lastName).trim();
+    const idv = c.employee.idType==="id"?c.employee.idNumber:c.employee.passportNumber;
+    if(!name.includes(s) && !(idv||"").includes(s)) return false;
+  }
+  if(f.dateRange && f.dateRange!=="all"){
+    const months = {"3m":3,"6m":6,"1y":12}[f.dateRange];
+    if(months){
+      const cutoff = new Date();
+      cutoff.setMonth(cutoff.getMonth()-months);
+      if(new Date(c.createdAt) < cutoff) return false;
+    }
+  }
+  return true;
+}
+function resetArchiveFilters(){ ui.archiveFilters={company:"",worksite:"",search:"",dateRange:"3m"}; render(); }
+function renderArchiveScreen(){
+  const filtered = DB.cases.filter(passesArchiveFilters);
+  const options = (arr,valKey,labelKey)=>arr.map(x=>'<option value="'+x[valKey]+'">'+escapeHtml(x[labelKey])+'</option>').join("");
+  const f = ui.archiveFilters;
+  return '' +
+  '<h1>ארכיון עובדים</h1>' +
+  '<div class="page-desc">כל העובדים שנקלטו עד כה במערכת. ניתן לסנן, לחפש, ולבחור עובד/ת אחד/ת או יותר ליצוא לשיקלולית או למערכת הכחולה.</div>' +
+  '<div class="filters-bar">' +
+    '<div class="field"><label>חברה</label><select onchange="ui.archiveFilters.company=this.value;render()"><option value="">הכל</option>'+options(CODE_TABLES.companies,"id","name")+'</select></div>' +
+    '<div class="field"><label>אתר עבודה</label><select onchange="ui.archiveFilters.worksite=this.value;render()"><option value="">הכל</option>'+options(CODE_TABLES.worksites,"id","name")+'</select></div>' +
+    '<div class="field"><label>נקלטו ב</label><select onchange="ui.archiveFilters.dateRange=this.value;render()">' +
+      '<option value="all" '+(f.dateRange==="all"?"selected":"")+'>כולם</option>' +
+      '<option value="3m" '+(f.dateRange==="3m"?"selected":"")+'>3 חודשים אחרונים</option>' +
+      '<option value="6m" '+(f.dateRange==="6m"?"selected":"")+'>6 חודשים אחרונים</option>' +
+      '<option value="1y" '+(f.dateRange==="1y"?"selected":"")+'>שנה אחרונה</option>' +
+    '</select></div>' +
+    '<div class="field"><label>חיפוש לפי שם / ת.ז</label><input type="text" value="'+escapeHtml(f.search)+'" oninput="ui.archiveFilters.search=this.value;render()" placeholder="הקלד/י לחיפוש..."></div>' +
+    '<div class="field"><button class="btn btn-secondary btn-sm" onclick="resetArchiveFilters()">איפוס סינונים</button></div>' +
+  '</div>' +
+  exportSelectionPanelHtml(filtered, "לא נמצאו עובדים התואמים את הסינון.");
 }
 
 /* ============================================================
@@ -3134,15 +3184,6 @@ function renderExportScreen(){
 function batchStatusPill(text){
   const map={"קובץ נוצר":"pill-blue","נשלח":"pill-green","שליחה נכשלה":"pill-red","טרם נוצר":"pill-gray","אושר יבוא":"pill-green","נדרש יצוא מחדש":"pill-red"};
   return '<span class="status-pill '+(map[text]||"pill-gray")+'">'+escapeHtml(text)+'</span>';
-}
-function resendBatch(batchId){
-  const b = DB.batches.find(x=>x.id===batchId);
-  if(!b) return;
-  const ok = Math.random() > 0.25;
-  b.sendStatus = ok ? "נשלח" : "שליחה נכשלה";
-  b.importStatus = ok ? "אושר יבוא" : "נדרש יצוא מחדש";
-  showToast(ok ? "האצווה נשלחה מחדש בהצלחה (הדמיה)." : "השליחה נכשלה (הדמיה) — נא לנסות שוב.");
-  render();
 }
 function downloadSampleFile(batchId){
   showToast("הורדת קובץ לדוגמה (הדמיה בלבד — אין קובץ Excel אמיתי באב הטיפוס).");
@@ -3161,15 +3202,10 @@ function renderBatchesScreen(){
     return '<tr>' +
       '<td>'+b.id+'</td>' +
       '<td>'+(b.target==="shikulit"?"שיקלולית":"מערכת כחולה")+'</td>' +
-      '<td>'+escapeHtml(companyName(b.companyId))+'</td>' +
       '<td>'+b.employeeIds.length+'</td>' +
       '<td>'+formatDateTimeHe(b.createdAt)+'</td>' +
-      '<td>'+escapeHtml(b.createdBy)+'</td>' +
-      '<td>'+batchStatusPill(b.sendStatus)+'</td>' +
-      '<td>'+batchStatusPill(b.importStatus)+'</td>' +
       '<td class="row-actions">' +
         '<button class="btn-icon" title="צפייה" onclick="viewBatch(\''+b.id+'\')">👁</button>' +
-        '<button class="btn-icon" title="שלח שוב" onclick="resendBatch(\''+b.id+'\')">↻</button>' +
         '<button class="btn-icon" title="הורד קובץ לדוגמה" onclick="downloadSampleFile(\''+b.id+'\')">⬇</button>' +
       '</td>' +
     '</tr>';
@@ -3179,7 +3215,7 @@ function renderBatchesScreen(){
   '<h1>היסטוריית יצוא קבצים</h1>' +
   (ui.batchFilterCaseId ? '<div class="alert alert-info">מוצגת היסטוריה עבור עובד/ת נבחר/ת בלבד. <button class="btn-link" onclick="clearBatchFilter()">הצג את כל האצוות</button></div>' : '') +
   (list.length ? ('<div class="table-wrap"><table class="data-table"><thead><tr>'+
-    '<th>מספר אצווה</th><th>יעד</th><th>חברה</th><th>מספר עובדים</th><th>תאריך ושעת יצירה</th><th>משתמש יוצר</th><th>סטטוס שליחה</th><th>סטטוס יבוא</th><th>פעולות</th>'+
+    '<th>מספר אצווה</th><th>יעד</th><th>מספר עובדים</th><th>תאריך ושעת יצירה</th><th>פעולות</th>'+
   '</tr></thead><tbody>'+rows+'</tbody></table></div>') : '<div class="empty-state">לא נוצרו אצוות עדיין.</div>') +
   modal;
 }

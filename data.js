@@ -107,7 +107,6 @@ CODE_TABLES.grades.sort((a,b)=>a.name.localeCompare(b.name,"he"));
    ============================================================ */
 const CODED_FIELDS = [
   {key:"healthFunds", label:"קופת חולים"},
-  {key:"maritalStatuses", label:"מצב משפחתי"},
   {key:"incomeTypes", label:"סוגי הכנסה (חלק ד׳)"}
 ];
 
