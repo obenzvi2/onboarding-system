@@ -481,10 +481,30 @@ function startEmployeeFill(caseId){
    בכתובת הטאב (employeeCase=<מזהה>), והנתונים משותפים בין הטאבים דרך
    localStorage (ר' saveDB/loadDB) - כך שהעובד/ת יכול/ה למלא, לשמור,
    לסגור את החלון ולחזור מאוחר יותר לאותו קישור בלי לאבד מידע. */
+/* בונה את כתובת הטאב הנפרד למילוי עצמי (ר' openEmployeeFillTab), משותפת
+   גם עם כפתור "העתק קישור" (copyEmployeeLink) - כדי ששני המקומות תמיד
+   ייצרו בדיוק אותה כתובת ולא יסטו זה מזה בטעות. */
+function employeeFillUrl(caseId, screen){
+  const base = location.href.split("?")[0].split("#")[0];
+  return base + "?employeeCase=" + encodeURIComponent(caseId) + "&screen=" + encodeURIComponent(screen||"checklist");
+}
+// מעתיק את קישור הטאב הנפרד ללוח (בלי לפתוח אותו) - לשימוש כשרוצים לשלוח
+// את הקישור לעובד/ת עצמו/ה (למשל בווטסאפ/מייל), בניגוד לכפתור "לעמוד מילוי
+// טפסים" שמיועד לפתיחה עצמית של מש"א.
+function copyEmployeeLink(caseId){
+  const url = employeeFillUrl(caseId,"checklist");
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(
+      ()=>showToast("הקישור לעובד/ת הועתק."),
+      ()=>showToast("שגיאה בהעתקת הקישור.")
+    );
+  } else {
+    showToast("שגיאה בהעתקת הקישור.");
+  }
+}
 function openEmployeeFillTab(caseId, screen){
   saveDB();
-  const base = location.href.split("?")[0].split("#")[0];
-  const url = base + "?employeeCase=" + encodeURIComponent(caseId) + "&screen=" + encodeURIComponent(screen||"checklist");
+  const url = employeeFillUrl(caseId, screen);
   const win = window.open(url, "_blank");
   if(!win){ showToast("חוסם חלונות קופצים מנע פתיחת טאב נפרד. יש לאשר חלונות קופצים לעמוד זה ולנסות שוב."); }
 }
@@ -1181,7 +1201,6 @@ function renderCaseHome(){
   const items = relevantChecklistItems(c);
   const total = items.length, done = items.filter(i=>i.completed).length;
   const allDone = total>0 && done===total;
-  const actionBtn = '<button class="btn btn-primary" onclick="openEmployeeFillTab(\''+c.id+'\',\'checklist\')">לעמוד מילוי טפסים</button>';
   return '' +
   '<button class="tab-btn active" onclick="backToList()">&rarr; חזרה לרשימת תיקי הקליטה</button>' +
   '<h1 style="margin-top:14px;">כרטיס עובד - '+escapeHtml(name)+'</h1>' +
@@ -1197,7 +1216,21 @@ function renderCaseHome(){
     '<div style="font-weight:700;font-size:15px;color:var(--header-text);">'+done+' מתוך '+total+' טפסים הושלמו</div>' +
   '</div>' +
   '<div class="checklist-wrap">'+checklistRowsHtml(items,"view")+'</div>' +
-  '<div class="btn-row">'+actionBtn+'</div>';
+  // אין יותר כפתור פתיחה ישירה של הטאב הנפרד - רק קישור להעתקה (ר'
+  // copyEmployeeLink/employeeFillUrl למעלה) - מש"א מעתיק/ה ופותח/ת
+  // ידנית בעמדת מילוי הטפסים עצמה.
+  '<div class="panel" style="max-width:720px;">' +
+    '<div style="font-size:13.5px;color:var(--header-text);margin-bottom:10px;">העתיקו את הקישור ופתחו אותו בעמדת מילוי הטפסים.</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;">' +
+      // צבע ירוק קבוע ב-inline style (לא class btn-primary/btn-add-green) כי
+      // שניהם הופכים כתומים במסכי HR (ר' .hr-theme ב-styles.css) - כאן רוצים
+      // ירוק תמיד, בלי קשר לערכת הצבע של המסך.
+      '<button class="btn btn-sm" style="background:#2FA745;color:#fff;" onclick="copyEmployeeLink(\''+c.id+'\')">העתק</button>' +
+      '<div style="flex:1;background:var(--bg-page);border:1px solid var(--border-teal);border-radius:8px;padding:8px 10px;">' +
+        '<input readonly dir="ltr" value="'+escapeHtml(employeeFillUrl(c.id,"checklist"))+'" style="width:100%;border:none;background:transparent;font-size:13px;color:var(--header-text);text-align:left;outline:none;">' +
+      '</div>' +
+    '</div>' +
+  '</div>';
 }
 
 /* ============================================================
@@ -2297,7 +2330,7 @@ function renderForm101SectionB(c){
       '<label><input type="radio" name="healthFundMember" value="no" '+(emp.healthFundMember==="no"?"checked":"")+' onchange="updateEmp(\'healthFundMember\',\'no\')"> '+no+'</label></div>'+
       (emp.healthFundMember==="yes" ? '<div style="margin-top:10px;"><label style="font-size:13.5px;font-weight:600;color:var(--text-main);">'+tr("sec_b_healthFundNameLabel","שם הקופה")+'</label>'+
         '<div class="radio-group" style="flex-direction:column;align-items:flex-start;margin-top:6px;">'+
-        CODE_TABLES.healthFunds.map(h=>'<label><input type="radio" name="healthFundName" value="'+h.name+'" '+(emp.healthFundName===h.name?"checked":"")+' onchange="updateEmp(\'healthFundName\',\''+h.name+'\')"> '+codeName("healthFund",h)+'</label>').join("")+
+        CODE_TABLES.healthFunds.filter(h=>h.id!=="none").map(h=>'<label><input type="radio" name="healthFundName" value="'+h.name+'" '+(emp.healthFundName===h.name?"checked":"")+' onchange="updateEmp(\'healthFundName\',\''+h.name+'\')"> '+codeName("healthFund",h)+'</label>').join("")+
         '</div>'+(ui.errors["f101_healthFundName"]?'<div class="field-error">'+tr(ui.errors["f101_healthFundName"],ui.errors["f101_healthFundName"])+'</div>':'')+'</div>' : '')) +
   '</div>' +
   '</div>';

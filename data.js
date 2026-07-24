@@ -48,8 +48,14 @@ const CODE_TABLES = {
   healthFunds:[
     {id:"clalit",name:"כללית",shikulitCode:"",blueCode:""},
     {id:"maccabi",name:"מכבי",shikulitCode:"",blueCode:""},
+    {id:"leumit",name:"לאומית",shikulitCode:"",blueCode:""},
     {id:"meuhedet",name:"מאוחדת",shikulitCode:"",blueCode:""},
-    {id:"leumit",name:"לאומית",shikulitCode:"",blueCode:""}
+    // "לא חבר" - לא אפשרות אמיתית לבחירת קופת חולים בטופס 101 (שם זה
+    // מיוצג ע"י שדה healthFundMember="no" נפרד - ר' renderForm101SectionB),
+    // אלא רק שורה נוספת במסך "טבלאות קוד" כדי לאפשר להזין קוד יצוא (למשל
+    // לשיקלולית) גם למקרה הזה - ולכן מסוננת החוצה במפורש בטופס 101 (ר'
+    // ה-filter לפני ה-map ברינדור הרדיו).
+    {id:"none",name:"לא חבר",shikulitCode:"",blueCode:""}
   ],
   spouseIncomeOptions:[
     {id:"none",name:"אין לבן/בת הזוג כל הכנסה"},
