@@ -894,8 +894,7 @@ const ICON_SVGS = {
   pencil: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>',
   trash: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
   printer: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
-  folderOpen: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>',
-  download: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
+  folderOpen: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>'
 };
 /* כפתור אייקון "שקוף" - בלי מסגרת ובלי רקע, רק הקו של האייקון עצמו,
    באותו צבע כמו טקסט השורה; צבע שונה מופיע רק במעבר עכבר (ר' CSS
@@ -3122,7 +3121,7 @@ function createBatchNow(){
   // שכבר מתחילה ב"ה" הידיעה.
   const targetName = ui.exportTarget==="shikulit"?"לשיקלולית":"למערכת הכחולה";
   if(rows){
-    downloadExcelRows(rows, "שיקלולית_"+batch.id+".xlsx");
+    downloadExcelRows(rows, batchFileName(batch));
     showToast("נוצר והורד קובץ Excel "+targetName+" עבור "+ids.length+" עובדים.");
   } else {
     showToast("נוצרה אצווה "+targetName+" עבור "+ids.length+" עובדים (יצוא קובץ אמיתי למערכת הכחולה טרם מומש).");
@@ -3230,11 +3229,24 @@ function renderArchiveScreen(){
 // ב-createBatchNow) - גם כפתור "פתיחה" וגם כפתור "הורד קובץ" קוראים לאותה
 // פונקציה, כי מדפדפן אין הבדל אמיתי בין "לפתוח" קובץ לבין "להוריד" אותו -
 // שתי הפעולות בפועל מורידות את הקובץ, והמשתמש/ת פותח/ת אותו בעצמו/ה.
+// שם קובץ אחיד - נקרא גם מהטבלה (עמודת "שם הקובץ") וגם מהורדה בפועל
+// (openBatchFile/createBatchNow), כדי ששני המקומות תמיד יציגו בדיוק אותו
+// שם. אין קובץ אמיתי עדיין ליעד "כחולה" (ר' b.rows), ולכן אין שם קובץ.
+// שם הקובץ בלי סיומת (משמש להצגה בטבלת ההיסטוריה) - "batch" מוסר ממזהה
+// האצווה כדי שהשם יהיה "שיקלולית_1008" ולא "שיקלולית_batch1008".
+function batchFileBaseName(b){
+  return b.rows ? ("שיקלולית_"+b.id.replace(/^batch/,"")) : "";
+}
+// שם הקובץ בפועל, כולל הסיומת - נדרש רק בפועל בהורדה (ר' openBatchFile/
+// createBatchNow), לא בטבלה עצמה.
+function batchFileName(b){
+  return b.rows ? (batchFileBaseName(b)+".xlsx") : "";
+}
 function openBatchFile(batchId){
   const b = DB.batches.find(x=>x.id===batchId);
   if(!b) return;
   if(!b.rows){ showToast("יצוא קובץ אמיתי למערכת הכחולה טרם מומש באב הטיפוס."); return; }
-  downloadExcelRows(b.rows, "שיקלולית_"+b.id+".xlsx");
+  downloadExcelRows(b.rows, batchFileName(b));
 }
 function clearBatchFilter(){ ui.batchFilterCaseId=""; render(); }
 function renderBatchesScreen(){
@@ -3242,13 +3254,12 @@ function renderBatchesScreen(){
   if(ui.batchFilterCaseId) list = list.filter(b=>b.employeeIds.includes(ui.batchFilterCaseId));
   const rows = list.map(b=>{
     return '<tr>' +
-      '<td>'+b.id+'</td>' +
+      '<td>'+escapeHtml(batchFileBaseName(b)||b.id)+'</td>' +
       '<td>'+(b.target==="shikulit"?"שיקלולית":"מערכת כחולה")+'</td>' +
       '<td>'+b.employeeIds.length+'</td>' +
       '<td>'+formatDateTimeHe(b.createdAt)+'</td>' +
       '<td class="row-actions">' +
         '<button class="btn-icon" title="פתיחה" onclick="openBatchFile(\''+b.id+'\')">'+ICON_SVGS.folderOpen+'</button>' +
-        '<button class="btn-icon" title="הורד קובץ" onclick="openBatchFile(\''+b.id+'\')">'+ICON_SVGS.download+'</button>' +
       '</td>' +
     '</tr>';
   }).join("");
@@ -3256,7 +3267,7 @@ function renderBatchesScreen(){
   '<h1>היסטוריית יצוא קבצים</h1>' +
   (ui.batchFilterCaseId ? '<div class="alert alert-info">מוצגת היסטוריה עבור עובד/ת נבחר/ת בלבד. <button class="btn-link" onclick="clearBatchFilter()">הצג את כל האצוות</button></div>' : '') +
   (list.length ? ('<div class="table-wrap"><table class="data-table"><thead><tr>'+
-    '<th>מספר אצווה</th><th>יעד</th><th>מספר עובדים</th><th>תאריך ושעת יצירה</th><th>פעולות</th>'+
+    '<th>שם הקובץ</th><th>יעד</th><th>מספר עובדים</th><th>תאריך ושעת יצירה</th><th>פעולות</th>'+
   '</tr></thead><tbody>'+rows+'</tbody></table></div>') : '<div class="empty-state">לא נוצרו אצוות עדיין.</div>');
 }
 
