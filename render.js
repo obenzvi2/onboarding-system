@@ -636,7 +636,7 @@ function renderNewCase(){
     '<h2 class="section-title" style="margin-top:0;">טפסים רלוונטיים לעובד/ת זה</h2>' +
     '<div class="page-desc" style="margin-top:-6px;">סמן את הטפסים שהעובד נדרש למלא.</div>' +
     '<div class="form-grid cols-2">' +
-      FORM_CHECKLIST_DEFS.map(def=>'<div class="field"><label class="check-row"><input type="checkbox" '+(d.formSelection[def.key]?"checked":"")+' onchange="updateNewCaseFormSelection(\''+def.key+'\',this.checked)"> '+escapeHtml(def.label)+'</label></div>').join("") +
+      FORM_CHECKLIST_DEFS.map(def=>'<div class="field span-2"><label class="check-row"><input type="checkbox" '+(d.formSelection[def.key]?"checked":"")+' onchange="updateNewCaseFormSelection(\''+def.key+'\',this.checked)"> '+escapeHtml(def.label)+'</label></div>').join("") +
     '</div>' +
     '<div class="btn-row">' +
       '<button class="btn btn-primary" onclick="submitNewCase()">התחל מילוי טפסים</button>' +
@@ -1227,7 +1227,10 @@ function renderCaseHome(){
       // שניהם הופכים כתומים במסכי HR (ר' .hr-theme ב-styles.css) - כאן רוצים
       // ירוק תמיד, בלי קשר לערכת הצבע של המסך.
       '<button class="btn btn-sm" style="background:#2FA745;color:#fff;" onclick="copyEmployeeLink(\''+c.id+'\')">העתק</button>' +
-      '<div style="flex:1;background:var(--bg-page);border:1px solid var(--border-teal);border-radius:8px;padding:8px 10px;">' +
+      // רוחב זהה (בקירוב) לרוחב הטקסט של משפט ההנחיה מעליו ("העתיקו את
+      // הקישור...") - נמדד בפועל בדפדפן, לא ניחוש - כדי שהתיבה תיראה
+      // מיושרת איתו במקום קצרה/ארוכה ממנו בבירור.
+      '<div style="width:312px;background:var(--bg-page);border:1px solid var(--border-teal);border-radius:8px;padding:8px 10px;">' +
         '<input readonly dir="ltr" value="'+escapeHtml(employeeFillUrl(c.id,"checklist"))+'" style="width:100%;border:none;background:transparent;font-size:13px;color:var(--header-text);text-align:left;outline:none;">' +
       '</div>' +
     '</div>' +
