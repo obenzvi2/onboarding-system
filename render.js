@@ -33,6 +33,7 @@ let ui = {
   worksiteDeleteId:null, // מזהה אתר עבודה שבתהליך מחיקה (הגדרות מערכת), null = סגור
   hrListSelection:[], // מזהי תיקי קליטה מסומנים ב-checkbox (ניהול עובדים)
   hrBulkDeleteConfirmOpen:false, // האם דיאלוג אישור מחיקת תיקים מסומנים פתוח
+  caseHomeEditDraft:null, // טיוטת חלון עריכת פרטי העובד/ת ב"כרטיס עובד" (מספר עובד/אתר עבודה/מחלקה/תת-מחלקה/דירוג/דרגה בלבד), null = סגור
   codeSystem:"shikulit", // מסך "טבלאות קוד": מערכת היעד המוצגת כרגע - "shikulit" | "blue"
   activeChecklistKey:null, // מפתח הטופס הפעיל כרגע בטאב מילוי הטפסים (FORM_CHECKLIST_DEFS)
   formLanguage:"he", // שפת התצוגה של טופס 101 (לא משפיע על הנתונים עצמם או על ההדפסה) - "he" | "both" | "both_ru"
@@ -1202,6 +1203,77 @@ function checklistCheckIcon(checked){
   if(!checked) return '';
   return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 12.5l6 6L20 6" stroke="#2FA745" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
 }
+/* עריכת פרטי העובד/ת ב"כרטיס עובד" (אחרי פתיחת התיק) - מוגבלת בכוונה
+   לשדות שלא מוזרמים לאף טופס (מספר עובד, אתר עבודה, מחלקה/תת-מחלקה,
+   דירוג/דרגה), ולכן בטוח לערוך אותם גם אחרי שהעובד/ת כבר מילא/ה וחתמ/ה
+   על הטפסים - בניגוד לשם/ת.ז/חברה מעסיקה, שנשארים לקריאה בלבד. העריכה
+   נעשית בחלון נפרד עם טיוטה משלו (ui.caseHomeEditDraft) - השינויים חלים
+   בתיק בפועל רק בלחיצה על "שמור שינויים"; "בטל"/סגירה סוגרים את החלון
+   בלי לגעת בתיק כלל. */
+function openCaseHomeEdit(){
+  const c = currentCase();
+  ui.caseHomeEditDraft = {
+    employeeNumber: c.employee.employeeNumber||"",
+    worksiteId: c.worksiteId||"",
+    departmentId: c.departmentId||"",
+    subDepartmentId: c.subDepartmentId||"",
+    rankId: c.rankId||"",
+    gradeId: c.gradeId||""
+  };
+  render();
+}
+function updateCaseHomeEditField(field,value){
+  const d = ui.caseHomeEditDraft;
+  if(!d) return;
+  d[field] = value;
+  if(field==="departmentId") d.subDepartmentId = "";
+  render();
+}
+function cancelCaseHomeEdit(){
+  ui.caseHomeEditDraft = null;
+  render();
+}
+function saveCaseHomeEdit(){
+  const d = ui.caseHomeEditDraft;
+  if(!d) return;
+  const c = currentCase();
+  c.employee.employeeNumber = d.employeeNumber.trim();
+  c.worksiteId = d.worksiteId;
+  c.departmentId = d.departmentId;
+  c.subDepartmentId = d.subDepartmentId;
+  c.rankId = d.rankId;
+  c.gradeId = d.gradeId;
+  ui.caseHomeEditDraft = null;
+  showToast("הפרטים עודכנו בהצלחה.");
+  render();
+}
+function renderCaseHomeEditModal(){
+  const d = ui.caseHomeEditDraft;
+  if(!d) return "";
+  const c = currentCase();
+  const worksitesForCompany = CODE_TABLES.worksites.filter(w=>w.companyId===c.companyId);
+  const subDepartmentsForDepartment = CODE_TABLES.subDepartments.filter(sd=>sd.departmentId===d.departmentId);
+  return '<div class="modal-overlay" onclick="if(event.target===this) cancelCaseHomeEdit()">' +
+    '<div class="modal-box" style="max-width:640px;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+        '<h1 style="margin:0;">עריכת פרטי העובד/ת</h1>' +
+        '<button onclick="cancelCaseHomeEdit()" title="סגור" style="border:none;background:none;font-size:22px;line-height:1;cursor:pointer;color:var(--header-text);">&times;</button>' +
+      '</div>' +
+      '<div class="form-grid cols-2" style="margin-top:16px;">' +
+        '<div class="field"><label>מספר עובד</label><input type="text" id="caseHomeEdit_employeeNumber" value="'+escapeHtml(d.employeeNumber)+'" oninput="updateCaseHomeEditField(\'employeeNumber\',this.value)"></div>' +
+        '<div class="field"><label>אתר עבודה</label><select id="caseHomeEdit_worksiteId" onchange="updateCaseHomeEditField(\'worksiteId\',this.value)"><option value="">בחר/י אתר עבודה...</option>'+worksitesForCompany.map(x=>'<option value="'+x.id+'" '+(d.worksiteId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select></div>' +
+        '<div class="field"><label>מחלקה</label><select id="caseHomeEdit_departmentId" onchange="updateCaseHomeEditField(\'departmentId\',this.value)"><option value="">בחר/י מחלקה...</option>'+CODE_TABLES.departments.map(x=>'<option value="'+x.id+'" '+(d.departmentId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select></div>' +
+        '<div class="field"><label>תת-מחלקה</label><select id="caseHomeEdit_subDepartmentId" '+(!d.departmentId?"disabled":"")+' onchange="updateCaseHomeEditField(\'subDepartmentId\',this.value)"><option value="">'+(d.departmentId?"בחר/י תת-מחלקה...":"יש לבחור מחלקה תחילה")+'</option>'+subDepartmentsForDepartment.map(x=>'<option value="'+x.id+'" '+(d.subDepartmentId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select></div>' +
+        '<div class="field"><label>דירוג</label><select id="caseHomeEdit_rankId" onchange="updateCaseHomeEditField(\'rankId\',this.value)"><option value="">בחר/י דירוג...</option>'+CODE_TABLES.ranks.map(x=>'<option value="'+x.id+'" '+(d.rankId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select></div>' +
+        '<div class="field"><label>דרגה</label><select id="caseHomeEdit_gradeId" onchange="updateCaseHomeEditField(\'gradeId\',this.value)"><option value="">בחר/י דרגה...</option>'+CODE_TABLES.grades.map(x=>'<option value="'+x.id+'" '+(d.gradeId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select></div>' +
+      '</div>' +
+      '<div class="btn-row" style="margin-top:20px;">' +
+        '<button class="btn btn-primary" onclick="saveCaseHomeEdit()">שמור שינויים</button>' +
+        '<button class="btn btn-secondary" onclick="cancelCaseHomeEdit()">בטל</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
 function renderCaseHome(){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
@@ -1213,19 +1285,22 @@ function renderCaseHome(){
   return '' +
   '<button class="tab-btn active" onclick="backToList()">&rarr; חזרה לרשימת תיקי הקליטה</button>' +
   '<h1 style="margin-top:14px;">כרטיס עובד - '+escapeHtml(name)+'</h1>' +
-  '<div class="panel" style="max-width:720px;">' +
+  '<div class="panel" style="max-width:720px;padding-top:10px;">' +
+    // text-align:left (לא flex justify-content) - כדי שהמיקום יהיה בפינה
+    // השמאלית הפיזית של הפאנל בוודאות, בלי תלות בכיוון RTL/flex.
+    '<div style="text-align:left;margin-top:4px;margin-bottom:2px;">'+ICON_BTN("pencil","עריכת פרטי העובד/ת","openCaseHomeEdit()","edit")+'</div>' +
     '<div class="kv">' +
+      '<div class="k">שנת מס</div><div>'+c.taxYear+'</div>' +
       '<div class="k">שם עובד/ת</div><div>'+escapeHtml(name)+'</div>' +
       '<div class="k">ת.ז/דרכון</div><div>'+escapeHtml(emp.idType==="id" ? (emp.idNumber||"—") : (emp.passportNumber||"—"))+'</div>' +
       '<div class="k">מספר עובד</div><div>'+escapeHtml(emp.employeeNumber||"—")+'</div>' +
+      '<div class="k">תאריך תחילת עבודה</div><div>'+formatDateHe(c.startDate)+'</div>' +
       '<div class="k">חברה מעסיקה</div><div>'+escapeHtml(companyName(c.companyId))+'</div>' +
       '<div class="k">אתר עבודה</div><div>'+escapeHtml(worksiteName(c.worksiteId))+'</div>' +
       '<div class="k">מחלקה</div><div>'+escapeHtml(c.departmentId?departmentName(c.departmentId):"—")+'</div>' +
       '<div class="k">תת-מחלקה</div><div>'+escapeHtml(c.subDepartmentId?subDepartmentName(c.subDepartmentId):"—")+'</div>' +
       '<div class="k">דירוג</div><div>'+escapeHtml(c.rankId?rankName(c.rankId):"—")+'</div>' +
       '<div class="k">דרגה</div><div>'+escapeHtml(c.gradeId?gradeName(c.gradeId):"—")+'</div>' +
-      '<div class="k">תאריך תחילת עבודה</div><div>'+formatDateHe(c.startDate)+'</div>' +
-      '<div class="k">שנת מס</div><div>'+c.taxYear+'</div>' +
     '</div>' +
   '</div>' +
   '<div class="panel" style="max-width:720px;">' +
@@ -1249,7 +1324,8 @@ function renderCaseHome(){
         '<input readonly dir="ltr" value="'+escapeHtml(employeeFillUrl(c.id,"checklist"))+'" style="width:100%;border:none;background:transparent;font-size:13px;color:var(--header-text);text-align:left;outline:none;">' +
       '</div>' +
     '</div>' +
-  '</div>';
+  '</div>' +
+  renderCaseHomeEditModal();
 }
 
 /* ============================================================
