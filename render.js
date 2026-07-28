@@ -592,13 +592,9 @@ function submitNewCase(){
   c.documents = buildDocuments(c);
   DB.cases.push(c);
   showToast("תיק הקליטה נפתח בהצלחה.");
-  // טאב מילוי הטפסים נפתח עבור העובד/ת בטאב נפרד לגמרי (ר' openEmployeeFillTab) -
-  // כך שלעובד/ת אין גישה למסכי משאבי אנוש, וטאב משאבי אנוש הזה נשאר
-  // על מסך התיק ויכול לשמש למעקב אחר ההתקדמות. נפתח ישירות לרשימת
-  // הטפסים (checklist), כל עוד נבחר לפחות טופס אחד רלוונטי לעובד/ת.
-  if(Object.keys(c.formSelection).some(k=>c.formSelection[k])){
-    openEmployeeFillTab(c.id,"checklist");
-  }
+  // לא פותחים יותר טאב נפרד לעובד/ת אוטומטית עם פתיחת התיק (כך שהיה
+  // בעבר) - עוברים ישירות למסך "כרטיס עובד", שבו מש"א יכול/ה להעתיק
+  // את הקישור לעובד/ת ידנית כשנוח (ר' copyEmployeeLink/employeeFillUrl).
   openCase(c.id,"case-home");
 }
 function renderNewCase(){
@@ -1219,8 +1215,15 @@ function renderCaseHome(){
   '<h1 style="margin-top:14px;">כרטיס עובד - '+escapeHtml(name)+'</h1>' +
   '<div class="panel" style="max-width:720px;">' +
     '<div class="kv">' +
+      '<div class="k">שם עובד/ת</div><div>'+escapeHtml(name)+'</div>' +
+      '<div class="k">ת.ז/דרכון</div><div>'+escapeHtml(emp.idType==="id" ? (emp.idNumber||"—") : (emp.passportNumber||"—"))+'</div>' +
+      '<div class="k">מספר עובד</div><div>'+escapeHtml(emp.employeeNumber||"—")+'</div>' +
       '<div class="k">חברה מעסיקה</div><div>'+escapeHtml(companyName(c.companyId))+'</div>' +
       '<div class="k">אתר עבודה</div><div>'+escapeHtml(worksiteName(c.worksiteId))+'</div>' +
+      '<div class="k">מחלקה</div><div>'+escapeHtml(c.departmentId?departmentName(c.departmentId):"—")+'</div>' +
+      '<div class="k">תת-מחלקה</div><div>'+escapeHtml(c.subDepartmentId?subDepartmentName(c.subDepartmentId):"—")+'</div>' +
+      '<div class="k">דירוג</div><div>'+escapeHtml(c.rankId?rankName(c.rankId):"—")+'</div>' +
+      '<div class="k">דרגה</div><div>'+escapeHtml(c.gradeId?gradeName(c.gradeId):"—")+'</div>' +
       '<div class="k">תאריך תחילת עבודה</div><div>'+formatDateHe(c.startDate)+'</div>' +
       '<div class="k">שנת מס</div><div>'+c.taxYear+'</div>' +
     '</div>' +
