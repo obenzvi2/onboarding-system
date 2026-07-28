@@ -583,7 +583,10 @@ function submitNewCase(){
   c.employee.firstName = (d.firstName||"").trim();
   c.employee.lastName = (d.lastName||"").trim();
   c.employee.idType = d.idType;
-  c.employee.idNumber = d.idType==="id" ? (d.idNumber||"").trim() : "";
+  // normalizeIsraeliId משלים אפסים מובילים ל-9 ספרות (למשל "1234567" ->
+  // "001234567") - כדי שהמספר יישמר בפורמט המלא הנדרש בטופס 101 וביצוא
+  // לשיקלולית מיד עם פתיחת התיק, ולא רק בעת בדיקת ספרת הביקורת עצמה.
+  c.employee.idNumber = d.idType==="id" ? normalizeIsraeliId(d.idNumber) : "";
   c.employee.passportNumber = d.idType==="passport" ? (d.passportNumber||"").trim() : "";
   // שדה חופשי לא-חובה, ממולא ע"י מנהל/ת משאבי אנוש בעת פתיחת התיק - נועד
   // ליצוא לשיקלולית/מערכת כחולה (ר' תכנון מיפוי היצוא), לא נבדק/מאומת.
