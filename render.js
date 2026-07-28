@@ -407,8 +407,9 @@ function renderHrList(){
     '<div class="field"><label>חברה</label><select onchange="ui.filters.company=this.value;render()"><option value="">הכל</option>'+options(CODE_TABLES.companies,"id","name")+'</select></div>' +
     '<div class="field"><label>אתר עבודה</label><select onchange="ui.filters.worksite=this.value;render()"><option value="">הכל</option>'+options(CODE_TABLES.worksites,"id","name")+'</select></div>' +
     '<div class="field"><label>חיפוש לפי שם / ת.ז</label><input type="text" value="'+escapeHtml(ui.filters.search)+'" oninput="ui.filters.search=this.value;render()" placeholder="הקלד/י לחיפוש..."></div>' +
-    '<div class="field"><button class="btn btn-secondary btn-sm" onclick="resetFilters()">איפוס סינונים</button>'+(ui.hrListSelection.length ? ICON_BTN("trash","מחק תיקים מסומנים ("+ui.hrListSelection.length+")","requestBulkDeleteCases()","delete") : "")+'</div>' +
+    '<div class="field"><button class="btn btn-secondary btn-sm" onclick="resetFilters()">איפוס סינונים</button></div>' +
   '</div>' +
+  (ui.hrListSelection.length ? '<div style="display:flex;justify-content:flex-start;margin-bottom:8px;">'+ICON_BTN("trash","מחק תיקים מסומנים ("+ui.hrListSelection.length+")","requestBulkDeleteCases()","delete")+'</div>' : "") +
   '<div class="table-wrap" id="hrListTableWrap"><table class="data-table"><thead><tr>'+
     '<th></th><th>שם עובד</th><th>ת.ז/דרכון</th><th>חברה מעסיקה</th><th>אתר עבודה</th>'+
     '<th>ת. השלמת טופס</th><th>סטטוס מסמכים</th><th>התקדמות טפסים</th>'+
