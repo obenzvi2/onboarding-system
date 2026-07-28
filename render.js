@@ -536,6 +536,17 @@ function updateNewCaseFormSelection(key,checked){
   ui.newCaseDraft.formSelection[key] = checked;
   render();
 }
+/* בדיקת תקינות מיידית ביציאה מהשדה (onblur) - בדיוק כמו finalFieldError
+   בטופס 101 - כדי שלא יהיה צריך ללחוץ "התחל מילוי טפסים" כדי לגלות
+   שספרת הביקורת לא תקינה. */
+function blurNewCaseIdNumber(value){
+  const d = ui.newCaseDraft;
+  d.idNumber = (value||"").trim();
+  ui.newCaseErrors = ui.newCaseErrors || {};
+  if(d.idType==="id" && d.idNumber && !validIsraeliId(d.idNumber)) ui.newCaseErrors.idNumber="המספר אינו תקין.";
+  else delete ui.newCaseErrors.idNumber;
+  render();
+}
 function validateNewCase(){
   const d = ui.newCaseDraft, errs={};
   if(!d.taxYear) errs.taxYear="שדה חובה.";
@@ -547,7 +558,7 @@ function validateNewCase(){
   if(!d.idType) errs.idType="שדה חובה.";
   else if(d.idType==="id"){
     if(!d.idNumber) errs.idNumber="שדה חובה.";
-    else if(!validIsraeliId(d.idNumber)) errs.idNumber="מספר זהות אינו תקין (בדיקת ספרת ביקורת נכשלה).";
+    else if(!validIsraeliId(d.idNumber)) errs.idNumber="המספר אינו תקין.";
   } else if(d.idType==="passport"){
     if(!d.passportNumber) errs.idNumber="שדה חובה.";
     else if(!/^[A-Za-z0-9]{3,20}$/.test(d.passportNumber)) errs.idNumber="יש להזין 3 עד 20 אותיות ו/או ספרות בלבד.";
@@ -619,7 +630,7 @@ function renderNewCase(){
       (d.idType==="passport" ?
         fld("idNumber","מספר דרכון",'<input type="text" id="newcase_idNumber" maxlength="20" value="'+escapeHtml(d.passportNumber||"")+'" oninput="updateNewCaseDraft(\'passportNumber\',this.value.trim())">')
         :
-        fld("idNumber","מספר תעודת זהות (9 ספרות)",'<input type="text" id="newcase_idNumber" maxlength="9" value="'+escapeHtml(d.idNumber||"")+'" oninput="updateNewCaseDraft(\'idNumber\',this.value.trim())">')
+        fld("idNumber","מספר תעודת זהות (9 ספרות)",'<input type="text" id="newcase_idNumber" maxlength="9" value="'+escapeHtml(d.idNumber||"")+'" oninput="updateNewCaseDraft(\'idNumber\',this.value.trim())" onblur="blurNewCaseIdNumber(this.value)">')
       ) +
       fld("employeeNumber","מספר עובד",'<input type="text" id="newcase_employeeNumber" value="'+escapeHtml(d.employeeNumber||"")+'" oninput="updateNewCaseDraft(\'employeeNumber\',this.value)">',null,true) +
       // תא ריק שממלא את הזוג של "מספר עובד" בשורה שלו - כדי שמחלקה/תת-מחלקה
@@ -722,7 +733,7 @@ function liveFormatError(path, value){
 function finalFieldError(path, value, emp){
   let m;
   if(path==="idNumber"){
-    if(emp.idType==="id" && value && !validIsraeliId(value)) return "מספר זהות אינו תקין (בדיקת ספרת ביקורת נכשלה).";
+    if(emp.idType==="id" && value && !validIsraeliId(value)) return "המספר אינו תקין.";
     return null;
   }
   if(path==="passportNumber"){
