@@ -496,12 +496,13 @@ details.row-menu[open] summary{background:var(--header-bg);}
 .pf-kids-table th,.pf-kids-table td{border:1px solid #9fb3bd;padding:3px 5px;text-align:center;}
 .pf-kids-table th{background:#EEF6FA;}
 
-/* ===== התאמה למובייל - מסכי העובד/ת בלבד =====
+/* ===== התאמה למובייל - מסכי העובד/ת + מסך "פתיחת קליטת עובד חדש" =====
    main.narrow הוא מזהה ייחודי לעטיפת מסכי renderEmployeeShell (הצ'קליסט
-   וכל טפסי המילוי) - אף מסך אחר (כולל HR) לא משתמש במחלקה הזו לבדה
-   (ר' renderNow/renderHrShell), כך שהסקופ כאן לא נוגע בתצוגת ה-PC/HR בשום
-   אופן; מתחת לרוחב הסף הזה בלבד הכללים האלה "נדלקים", מעליו התצוגה
-   הרגילה (כולל שולחן העבודה) נשארת בדיוק כפי שהיא היום. */
+   וכל טפסי המילוי); main.form-narrow ייחודי למסכי "new-case"/"documents"
+   (ר' renderHrShell) - אף מסך PC/HR אחר לא משתמש באחת משתי המחלקות האלה,
+   כך שהסקופ כאן לא נוגע בשום תצוגה אחרת; מתחת לרוחב הסף הזה בלבד הכללים
+   האלה "נדלקים", מעליו התצוגה הרגילה (כולל שולחן העבודה) נשארת בדיוק כפי
+   שהיא היום. */
 @media (max-width:640px){
   main.narrow{padding:16px 14px 30px;}
   .employee-topbar{padding:12px 16px;flex-wrap:wrap;row-gap:6px;}
@@ -511,12 +512,22 @@ details.row-menu[open] summary{background:var(--header-bg);}
   main.narrow .form-grid.cols-2,
   main.narrow .form-grid.cols-3,
   main.narrow .form-grid.cols-4,
-  main.narrow .form-grid.cols-5{grid-template-columns:1fr;}
+  main.narrow .form-grid.cols-5,
+  main.form-narrow .form-grid,
+  main.form-narrow .form-grid.cols-2,
+  main.form-narrow .form-grid.cols-3,
+  main.form-narrow .form-grid.cols-4,
+  main.form-narrow .form-grid.cols-5{grid-template-columns:1fr;}
   main.narrow .field.span-2,
-  main.narrow .field.span-3{grid-column:span 1;}
-  main.narrow .panel,main.narrow .card{padding:14px 14px;}
+  main.narrow .field.span-3,
+  main.form-narrow .field.span-2,
+  main.form-narrow .field.span-3{grid-column:span 1;}
+  main.narrow .panel,main.narrow .card,
+  main.form-narrow .panel,main.form-narrow .card{padding:14px 14px;}
   main.narrow .checklist-row{grid-template-columns:1fr auto auto;gap:8px;padding:11px 12px;font-size:13px;}
   main.narrow .anchor-nav{padding:8px 14px;gap:2px;}
   main.narrow .anchor-nav a{padding:5px 8px;font-size:12px;}
-  main.narrow .btn-row{flex-wrap:wrap;}
+  main.narrow .btn-row,
+  main.form-narrow .btn-row{flex-wrap:wrap;}
+  main.form-narrow{padding:16px 14px 30px;}
 }
