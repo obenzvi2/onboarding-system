@@ -354,7 +354,10 @@ function renderHrShell(){
     '</div>' +
     '<div class="user-chip">משתמש/ת: '+escapeHtml(DB.currentUser)+'</div>' +
   '</div>' +
-  '<main class="'+(["hr-list","batches","archive","admin"].includes(ui.screen)?"wide":(["new-case","documents"].includes(ui.screen)?"form-narrow":""))+'">' + body + '</main>';
+  // "case-home" מקבל מחלקה ייעודית (case-home-page) רק בשביל לתחום את
+  // תיקוני התצוגה במובייל (ר' styles.css) - בניגוד ל-wide/form-narrow,
+  // אין לה שום כלל CSS קבוע/רגיל משלה, ולכן אין לה שום השפעה על תצוגת ה-PC.
+  '<main class="'+(["hr-list","batches","archive","admin"].includes(ui.screen)?"wide":(["new-case","documents"].includes(ui.screen)?"form-narrow":(ui.screen==="case-home"?"case-home-page":"")))+'">' + body + '</main>';
 }
 
 /* ============================================================
@@ -1323,7 +1326,7 @@ function renderCaseHome(){
       // רוחב זהה (בקירוב) לרוחב הטקסט של משפט ההנחיה מעליו ("העתיקו את
       // הקישור...") - נמדד בפועל בדפדפן, לא ניחוש - כדי שהתיבה תיראה
       // מיושרת איתו במקום קצרה/ארוכה ממנו בבירור.
-      '<div style="width:312px;background:var(--bg-page);border:1px solid var(--border-teal);border-radius:8px;padding:8px 10px;">' +
+      '<div class="copy-link-box" style="width:312px;background:var(--bg-page);border:1px solid var(--border-teal);border-radius:8px;padding:8px 10px;">' +
         '<input readonly dir="ltr" value="'+escapeHtml(employeeFillUrl(c.id,"checklist"))+'" style="width:100%;border:none;background:transparent;font-size:13px;color:var(--header-text);text-align:left;outline:none;">' +
       '</div>' +
     '</div>' +

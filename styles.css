@@ -530,4 +530,18 @@ details.row-menu[open] summary{background:var(--header-bg);}
   main.narrow .btn-row,
   main.form-narrow .btn-row{flex-wrap:wrap;}
   main.form-narrow{padding:16px 14px 30px;}
+  /* מסך "מסמכים נדרשים" (renderDocumentsScreen): כרטיס התווית+כפתורים
+     בנוי כ-flex-row עם style מוטבע ישירות ב-HTML (לא מחלקת CSS) - צריך
+     !important כדי לדרוס אותו, אבל זה עדיין מוגבל לגמרי לתוך ה-media
+     query הזה (מתחת ל-640px), כך שב-PC הכרטיס נשאר flex-row כרגיל. */
+  main.form-narrow .card{flex-direction:column!important;align-items:flex-start!important;gap:10px!important;}
+  /* מסך "כרטיס עובד" (renderCaseHome, HR) - case-home-page היא מחלקה
+     ייעודית רק לתיחום התיקונים כאן; אין לה שום כלל CSS קבוע אחר (בניגוד
+     ל-narrow/form-narrow), ולכן אין לה שום השפעה על תצוגת ה-PC. */
+  main.case-home-page{padding:16px 14px 30px;}
+  main.case-home-page .panel{padding:14px 14px;}
+  main.case-home-page .checklist-row{grid-template-columns:1fr auto auto;gap:8px;padding:11px 12px;font-size:13px;}
+  /* תיבת הקישור להעתקה - ברוחב קבוע (312px, מדויק לרוחב משפט ההנחיה
+     ב-PC) שגולש במסך צר; כאן חוזרת לרוחב גמיש. */
+  main.case-home-page .copy-link-box{width:auto!important;flex:1;min-width:0;}
 }
