@@ -14,6 +14,18 @@ function formatDateHe(iso){
   if(isNaN(d.getTime())) return "";
   return d.getDate().toString().padStart(2,"0")+"/"+(d.getMonth()+1).toString().padStart(2,"0")+"/"+d.getFullYear();
 }
+/* הופכת dd/mm/yyyy (כפי שמוקלד בשדות התאריך - ר' commitDateField ב-render.js)
+   ל-ISO (yyyy-mm-dd) הפנימי שבו משתמש מודל הנתונים בכל מקום אחר. מחזירה ""
+   אם הטקסט לא dd/mm/yyyy מלא/תקין (כולל תאריך לא קיים, כמו 31/02) - בדיוק
+   כמו הערך הריק שהיה מתקבל משדה <input type="date"> native לא-שלם. */
+function parseDmyDate(s){
+  const m = String(s||"").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(!m) return "";
+  const day = Number(m[1]), month = Number(m[2]), year = Number(m[3]);
+  const d = new Date(year, month-1, day);
+  if(d.getFullYear()!==year || d.getMonth()!==month-1 || d.getDate()!==day) return "";
+  return year+"-"+String(month).padStart(2,"0")+"-"+String(day).padStart(2,"0");
+}
 function formatDateTimeHe(iso){
   if(!iso) return "";
   const d = new Date(iso);

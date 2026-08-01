@@ -119,31 +119,14 @@ h2.section-title:first-child{margin-top:0;}
 .field.span-3{grid-column:span 3;}
 .field label{font-size:13.5px;font-weight:700;color:var(--text-main);display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
 .req-star{color:var(--error);font-weight:700;}
-input[type=text],input[type=date],input[type=email],input[type=tel],input[type=number],select,textarea{
+input[type=text],input[type=email],input[type=tel],input[type=number],select,textarea{
   border:1px solid #C7D2D9;border-radius:6px;padding:10px 12px;font-size:14.5px;
   font-family:inherit;background:#fff;color:var(--text-main);width:100%;
 }
-input[type=date]{direction:ltr;text-align:right;padding:10px 6px 10px 12px;}
-input[type=date]::-webkit-calendar-picker-indicator{
-  margin-inline-start:8px;
-  border-inline-start:1px solid #C7D2D9;
-  padding:0 8px;
-  cursor:pointer;
-}
-/* טפסים דו-לשוניים במצב LTR (אנגלית/עברית+אנגלית, עברית+רוסית וכו' - ר'
-   .form-dir ב-render.js, משותף לטופס 101 ולטופס פרטי הבנק) - האייקון של
-   הלוח שנה עובר לצד שמאל (תחילת השדה בקריאה LTR), במקום להישאר בצד ימין
-   כמו בעברית. ניסינו קודם direction:rtl על השדה עצמו (הגישה ה"נכונה"
-   תיאורטית), אבל בפועל הדפדפן מתעלם מ-direction על ה-shadow DOM הפנימי של
-   input[type=date] ולא מזיז את האייקון בכלל - לכן במקום זה ממקמים את
-   ::-webkit-calendar-picker-indicator באופן absolute משמאל (טכניקה
-   שעובדת בפועל, ולא תלויה בתמיכת הדפדפן ב-direction הפנימי). */
-.form-dir[dir="ltr"] input[type=date]{position:relative;direction:ltr;text-align:left;padding:10px 10px 10px 48px;}
-.form-dir[dir="ltr"] input[type=date]::-webkit-calendar-picker-indicator{
-  position:absolute;left:8px;top:50%;transform:translateY(-50%);
-  margin:0;margin-inline-start:0;border:none;border-inline-start:none;
-  padding-right:8px;border-right:1px solid #C7D2D9;
-}
+/* שדות תאריך (dd/mm/yyyy) - ר' ההסבר ב-render.js ליד dateTextMask/commitDateField
+   לגבי הסיבה שהם <input type="text"> רגילים ולא <input type="date"> native. */
+.date-input-dmy{direction:ltr;text-align:right;}
+.form-dir[dir="ltr"] .date-input-dmy{text-align:left;}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--header-text);box-shadow:0 0 0 3px rgba(25,94,123,0.12);}
 input.err,select.err{border-color:var(--error);background:#FFF6F6;}
 input:disabled,select:disabled{background:var(--disabled-bg);color:var(--disabled-text);cursor:not-allowed;}
