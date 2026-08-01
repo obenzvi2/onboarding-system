@@ -531,10 +531,41 @@ function goNewCase(){
   ui.newCaseErrors = {};
   setScreen("new-case");
 }
+/* טיימר ה-Debounce של בדיקת ספרת הביקורת לשדה ת.ז במסך "פתיחת קליטת
+   עובד חדש" - ר' scheduleNewCaseIdChecksumCheck. שדה יחיד במסך זה, לכן
+   די בטיימר בודד (בניגוד ל-idChecksumTimers של טופס 101 שיש בו כמה
+   שדות ת.ז). */
+let newCaseIdChecksumTimer = null;
+/* מריצה את בדיקת ספרת הביקורת (validIsraeliId) 500 מ"ש אחרי ההקלדה
+   האחרונה בשדה ת.ז - בדיוק כמו scheduleIdChecksumCheck בטופס 101 (ר'
+   שם להסבר המלא). שומרת את ui.newCaseDraft הנוכחי בסגירה (d) ובודקת
+   בזמן ההרצה שהוא עדיין אותו אובייקט - כדי שאם המשתמש ביטל וחזר למסך
+   זה מחדש (goNewCase מחליף את ui.newCaseDraft באובייקט חדש) הטיימר
+   הישן לא יכתוב בטעות שגיאה על טופס חדש. */
+function scheduleNewCaseIdChecksumCheck(){
+  if(newCaseIdChecksumTimer) clearTimeout(newCaseIdChecksumTimer);
+  const d = ui.newCaseDraft;
+  newCaseIdChecksumTimer = setTimeout(function(){
+    newCaseIdChecksumTimer = null;
+    if(ui.screen!=="new-case" || ui.newCaseDraft!==d) return;
+    ui.newCaseErrors = ui.newCaseErrors || {};
+    if(d.idType==="id" && d.idNumber && !validIsraeliId(d.idNumber)) ui.newCaseErrors.idNumber="המספר אינו תקין.";
+    else delete ui.newCaseErrors.idNumber;
+    render();
+  }, ID_CHECKSUM_DEBOUNCE_MS);
+}
+/* רץ תוך כדי הקלדה (oninput) על כל שדות הטיוטה. לשדה idNumber (ת.ז)
+   יש חריג כמו בטופס 101: מוחקת מיד שגיאת checksum קודמת שהוצגה
+   (מ-blur/מ-debounce קודם) ומתזמנת בדיקה מחודשת ב-Debounce - ר'
+   scheduleNewCaseIdChecksumCheck. */
 function updateNewCaseDraft(field,value){
   ui.newCaseDraft[field]=value;
   if(field==="companyId") ui.newCaseDraft.worksiteId="";
   if(field==="departmentId") ui.newCaseDraft.subDepartmentId="";
+  if(field==="idNumber"){
+    if(ui.newCaseErrors) delete ui.newCaseErrors.idNumber;
+    scheduleNewCaseIdChecksumCheck();
+  }
   render();
 }
 function updateNewCaseFormSelection(key,checked){
@@ -543,8 +574,10 @@ function updateNewCaseFormSelection(key,checked){
 }
 /* בדיקת תקינות מיידית ביציאה מהשדה (onblur) - בדיוק כמו finalFieldError
    בטופס 101 - כדי שלא יהיה צריך ללחוץ "התחל מילוי טפסים" כדי לגלות
-   שספרת הביקורת לא תקינה. */
+   שספרת הביקורת לא תקינה. מבטלת קודם כל טיימר Debounce ממתין (ר'
+   scheduleNewCaseIdChecksumCheck) - הבדיקה המיידית כאן גוברת עליו. */
 function blurNewCaseIdNumber(value){
+  if(newCaseIdChecksumTimer){ clearTimeout(newCaseIdChecksumTimer); newCaseIdChecksumTimer=null; }
   const d = ui.newCaseDraft;
   d.idNumber = (value||"").trim();
   ui.newCaseErrors = ui.newCaseErrors || {};
@@ -715,8 +748,17 @@ function errorKeyForPath(path){
       לחלוטין לבדיקה שהייתה קיימת, רק שרצה כעת אך ורק ב-blur (יציאה
       מהשדה) או בשליחת הטופס (validateForm101), ולא תוך כדי הקלדה.
    ============================================================ */
+function isIdChecksumPath(path){
+  return path==="idNumber" || path==="spouse.idNumber" || /^children\.\d+\.idNumber$/.test(path);
+}
+/* שדות שבהם finalFieldError רצה גם תוך כדי הקלדה, ב-Debounce (ר'
+   scheduleDebouncedFinalCheck) - שדות ת.ז (בדיקת ספרת ביקורת) וגם
+   שדות טלפון (בדיקת "מספר תקין"). */
+function isDebouncedFinalCheckPath(path){
+  return isIdChecksumPath(path) || path==="mobilePhone" || path==="phone2";
+}
 function liveFormatError(path, value){
-  if(path==="idNumber" || path==="spouse.idNumber" || /^children\.\d+\.idNumber$/.test(path)){
+  if(isIdChecksumPath(path)){
     if(value && !/^\d*$/.test(value)) return "יש להזין ספרות בלבד.";
     return null;
   }
@@ -729,7 +771,10 @@ function liveFormatError(path, value){
     return null;
   }
   if(path==="mobilePhone" || path==="phone2"){
-    if(value && !/^\d*$/.test(value)) return "מספר טלפון יכול להכיל ספרות בלבד.";
+    // הבדיקה חוסמת כל תו שאינו ספרה (מקף, רווח, אותיות וכו') - במכוון בלי
+    // רשימת קידומות סלולר אמיתיות (050/052/054/058 וכו'), כדי לא לפסול
+    // קידומות עתידיות/פחות נפוצות.
+    if(value && !/^\d*$/.test(value)) return "נא להשתמש בספרות בלבד.";
     return null;
   }
   return null; // אין כלל פורמט חי לשדה זה (למשל תאריך/מספר) - הבדיקה המלאה רצה רק ב-blur
@@ -755,7 +800,7 @@ function finalFieldError(path, value, emp){
   if(path==="mobilePhone" || path==="phone2"){
     const p1ok = emp.mobilePhone && validPhone(emp.mobilePhone);
     const p2ok = emp.phone2 && validPhone(emp.phone2);
-    if((emp.mobilePhone||emp.phone2) && !p1ok && !p2ok) return "יש למלא לפחות מספר טלפון אחד תקין (לדוגמה: 050-1234567).";
+    if((emp.mobilePhone||emp.phone2) && !p1ok && !p2ok) return "המספר אינו תקין.";
     return null;
   }
   if(path==="spouse.idNumber"){
@@ -768,10 +813,37 @@ function finalFieldError(path, value, emp){
   }
   return null; // לשדה זה אין בדיקת תוכן - רק בדיקת "שדה חובה" שנשארת לשליחה
 }
+/* טיימרים של בדיקות "שלמות" ב-Debounce תוך כדי הקלדה (ת.ז + טלפון) -
+   ר' updateEmp/scheduleDebouncedFinalCheck. מפתח: errKey (מזהה הודעת
+   השגיאה). */
+const idChecksumTimers = {};
+const ID_CHECKSUM_DEBOUNCE_MS = 500;
+/* מריצה את הבדיקה המלאה (finalFieldError - ספרת ביקורת לת.ז, "מספר
+   תקין" לטלפון) 500 מ"ש אחרי ההקלדה האחרונה בשדה - לא בכל הקשת מקש,
+   כדי לא להציג שגיאה על ערך חלקי שעדיין בתהליך הקלדה רציף. כל הקשה
+   מבטלת ומתזמנת מחדש את הטיימר הקודם (debounce אמיתי). */
+function scheduleDebouncedFinalCheck(path, errKey){
+  if(idChecksumTimers[errKey]) clearTimeout(idChecksumTimers[errKey]);
+  const c = currentCase();
+  idChecksumTimers[errKey] = setTimeout(function(){
+    delete idChecksumTimers[errKey];
+    // אם בינתיים עברו למסך/תיק אחר, הבדיקה כבר לא רלוונטית - לא לגעת ב-ui.errors של מסך אחר.
+    if(ui.screen!=="form101" || currentCase()!==c) return;
+    const value = getPath(c.employee, path);
+    const err = finalFieldError(path, value, c.employee);
+    if(err) ui.errors[errKey] = err;
+    else delete ui.errors[errKey];
+    render();
+  }, ID_CHECKSUM_DEBOUNCE_MS);
+}
 /* רץ תוך כדי הקלדה (oninput): מעדכן את הערך ומריץ רק את בדיקת הפורמט
-   החיה. אינו מריץ את הבדיקה המלאה - כך שהודעת שגיאה על שלמות/היגיון
-   הערך (אם הייתה קיימת מ-blur קודם) נמחקת מיד כשמתחילים לערוך מחדש,
-   ותופיע שוב רק אחרי היציאה הבאה מהשדה. */
+   החיה. אינו מריץ את הבדיקה המלאה מיידית - כך שהודעת שגיאה על שלמות/
+   היגיון הערך (אם הייתה קיימת מ-blur קודם) נמחקת מיד כשמתחילים לערוך
+   מחדש. לשדות ת.ז וטלפון (ר' isDebouncedFinalCheckPath) יש חריג:
+   הבדיקה המלאה כן רצה תוך כדי הקלדה, אך ב-Debounce של חצי שנייה (ר'
+   scheduleDebouncedFinalCheck) - כך שהיא לא מוצגת על כל הקשה אלא רק
+   אחרי הפסקה בהקלדה. לשאר השדות הבדיקה המלאה עדיין רצה רק ב-blur/
+   בשליחה. */
 function updateEmp(path,value){
   const c = currentCase();
   setPath(c.employee, path, value);
@@ -786,15 +858,26 @@ function updateEmp(path,value){
   const fmtErr = liveFormatError(path, value);
   if(fmtErr) ui.errors[errKey] = fmtErr;
   else delete ui.errors[errKey];
+  if(isDebouncedFinalCheckPath(path)){
+    if(fmtErr){
+      // כבר יש שגיאת תווים לא חוקיים מוצגת - אין טעם לתזמן גם את הבדיקה המלאה עליה.
+      if(idChecksumTimers[errKey]){ clearTimeout(idChecksumTimers[errKey]); delete idChecksumTimers[errKey]; }
+    } else {
+      scheduleDebouncedFinalCheck(path, errKey);
+    }
+  }
   render();
 }
 /* רץ ביציאה מהשדה (onblur): מריץ את הבדיקה המלאה הקיימת (ללא שינוי
-   בכללים עצמם), בדיוק כפי שהיא תרוץ גם בשליחת הטופס. */
+   בכללים עצמם), בדיוק כפי שהיא תרוץ גם בשליחת הטופס. מבטלת קודם כל
+   טיימר Debounce ממתין לאותו שדה (ר' scheduleDebouncedFinalCheck) -
+   הבדיקה המיידית כאן גוברת עליו. */
 function finalizeEmpField(path,value){
   if(isRerendering) return; // blur מלאכותי שנגרם מהרינדור עצמו (ר' isRerendering) - לא פעולת יציאה אמיתית
+  const errKey = (path==="phone2") ? "f101_mobilePhone" : errorKeyForPath(path);
+  if(idChecksumTimers[errKey]){ clearTimeout(idChecksumTimers[errKey]); delete idChecksumTimers[errKey]; }
   const c = currentCase();
   setPath(c.employee, path, value);
-  const errKey = (path==="phone2") ? "f101_mobilePhone" : errorKeyForPath(path);
   const err = finalFieldError(path, value, c.employee);
   if(err) ui.errors[errKey] = err;
   else delete ui.errors[errKey];
