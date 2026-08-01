@@ -852,7 +852,7 @@ function liveFormatError(path, value){
   }
   return null; // אין כלל פורמט חי לשדה זה (למשל תאריך/מספר) - הבדיקה המלאה רצה רק ב-blur
 }
-function finalFieldError(path, value, emp){
+function finalFieldError(path, value, emp, taxYear){
   let m;
   if(path==="idNumber"){
     if(emp.idType==="id" && value && !validIsraeliId(value)) return "המספר אינו תקין.";
@@ -863,7 +863,26 @@ function finalFieldError(path, value, emp){
     return null;
   }
   if(path==="birthDate"){
-    if(value && value>todayIso()) return "תאריך לידה אינו יכול להיות עתידי.";
+    if(value && value>todayIso()) return "התאריך שהכנסת הוא בעתיד.";
+    if(value){
+      const age = ageAt(value);
+      if(age<14) return "לפי תאריך הלידה שציינת גילך הוא "+age+". הגיל המינימלי הוא 14.";
+    }
+    return null;
+  }
+  if(path==="spouse.birthDate"){
+    if(value && value>todayIso()) return "התאריך שהכנסת הוא בעתיד.";
+    return null;
+  }
+  // ילדים בחלק ג' רלוונטיים רק אם טרם מלאו להם 19 בשנת המס (ר' כותרת הסעיף) -
+  // "ימלאו" כאן, כמו ב-ageEligible1618, הוא הפרש שנים פשוט (taxYear פחות שנת
+  // הלידה) ולא גיל מדויק ליום - כך גם מוגדרת זכאות נקודות הזיכוי בפועל.
+  if((m = path.match(/^children\.(\d+)\.birthDate$/))){
+    if(value && value>todayIso()) return "התאריך שהכנסת הוא בעתיד.";
+    if(value && taxYear){
+      const ageInTaxYear = taxYear - Number(value.slice(0,4));
+      if(ageInTaxYear>19) return "לפי תאריך הלידה שציינת ימלאו לילד/ה "+ageInTaxYear+" בשנת המס. יש לציין רק ילדים שימלאו להם 19 שנים או פחות בשנת המס.";
+    }
     return null;
   }
   if(path==="email"){
@@ -916,7 +935,7 @@ function scheduleDebouncedFinalCheck(path, errKey){
     // אם בינתיים עברו למסך/תיק אחר, הבדיקה כבר לא רלוונטית - לא לגעת ב-ui.errors של מסך אחר.
     if(ui.screen!=="form101" || currentCase()!==c) return;
     const value = getPath(c.employee, path);
-    const err = finalFieldError(path, value, c.employee);
+    const err = finalFieldError(path, value, c.employee, c.taxYear);
     if(err) ui.errors[errKey] = err;
     else delete ui.errors[errKey];
     render();
@@ -964,7 +983,7 @@ function finalizeEmpField(path,value){
   if(idChecksumTimers[errKey]){ clearTimeout(idChecksumTimers[errKey]); delete idChecksumTimers[errKey]; }
   const c = currentCase();
   setPath(c.employee, path, value);
-  const err = finalFieldError(path, value, c.employee);
+  const err = finalFieldError(path, value, c.employee, c.taxYear);
   if(err) ui.errors[errKey] = err;
   else delete ui.errors[errKey];
   render();
@@ -1095,16 +1114,16 @@ function validateForm101(c){
   if(!c.startDate) errs["f101_startDate"]="שדה חובה.";
   // שם, סוג זיהוי ומספר זהות/דרכון מאומתים בעת פתיחת התיק (ר' validateNewCase)
   // ומוצגים כאן לקריאה בלבד - אין צורך לאמת אותם שוב במסך זה.
+  // תוכן שדות התאריך/טלפון (עתידי, גיל מינימלי/מקסימלי וכו') נבדק דרך
+  // finalFieldError עצמה (ולא כפילות של הלוגיקה) כדי שהודעות השגיאה יישארו
+  // תמיד זהות בין ההקלדה/blur לבין בדיקת השליחה כאן.
   if(!emp.birthDate) errs["f101_birthDate"]="שדה חובה.";
-  else if(emp.birthDate > todayIso()) errs["f101_birthDate"]="תאריך לידה אינו יכול להיות עתידי.";
+  else{ const birthDateErr = finalFieldError("birthDate", emp.birthDate, emp); if(birthDateErr) errs["f101_birthDate"]=birthDateErr; }
   if(!emp.gender) errs["f101_gender"]="שדה חובה.";
   if(!emp.maritalStatus) errs["f101_maritalStatus"]="שדה חובה.";
   if(!emp.isIsraeliResident) errs["f101_isIsraeliResident"]="שדה חובה.";
   if(!emp.healthFundMember) errs["f101_healthFundMember"]="שדה חובה.";
   else if(emp.healthFundMember==="yes" && !emp.healthFundName) errs["f101_healthFundName"]="שדה חובה כאשר חבר/ה בקופת חולים.";
-  // כל שדה טלפון נבדק בנפרד - אין כלל צולב בין השניים. משתמשים ב-finalFieldError
-  // עצמה (ולא בכפילות של הבדיקה) כדי שהודעת "נא להשתמש בספרות בלבד" מול "המספר
-  // אינו תקין" תישאר תמיד זהה בין ההקלדה/blur לבין בדיקת השליחה.
   const mobilePhoneErr = finalFieldError("mobilePhone", emp.mobilePhone, emp);
   if(mobilePhoneErr) errs["f101_mobilePhone"] = mobilePhoneErr;
   const phone2Err = finalFieldError("phone2", emp.phone2, emp);
@@ -1133,6 +1152,7 @@ function validateForm101(c){
       if(!sp.passportNumber) errs["f101_spouse_passportNumber"]="שדה חובה.";
     }
     if(!sp.birthDate) errs["f101_spouse_birthDate"]="שדה חובה.";
+    else{ const spouseBirthDateErr = finalFieldError("spouse.birthDate", sp.birthDate, emp); if(spouseBirthDateErr) errs["f101_spouse_birthDate"]=spouseBirthDateErr; }
     if(!sp.incomeStatus) errs["f101_spouse_incomeStatus"]="שדה חובה.";
   }
 
@@ -1141,6 +1161,7 @@ function validateForm101(c){
     if(!kid.idNumber) errs["f101_kid_"+idx+"_idNumber"]="שדה חובה.";
     else if(!validIsraeliId(kid.idNumber)) errs["f101_kid_"+idx+"_idNumber"]="מספר זהות אינו תקין.";
     if(!kid.birthDate) errs["f101_kid_"+idx+"_birthDate"]="שדה חובה.";
+    else{ const kidBirthDateErr = finalFieldError("children."+idx+".birthDate", kid.birthDate, emp, c.taxYear); if(kidBirthDateErr) errs["f101_kid_"+idx+"_birthDate"]=kidBirthDateErr; }
   });
 
   const tc = emp.taxCredits;
@@ -2625,7 +2646,7 @@ function renderForm101SectionC(c){
         '<div class="form-grid cols-3">' +
           f101FieldWrap("f101_kid_"+idx+"_name","שם",true,'<input type="text" id="f101_kid_'+idx+'_name" class="'+e("f101_kid_"+idx+"_name")+'" value="'+escapeHtml(kid.name)+'" oninput="updateEmp(\'children.'+idx+'.name\',this.value)">') +
           f101FieldWrap("f101_kid_"+idx+"_idNumber","מספר זהות (9 ספרות)",true,'<input type="text" id="f101_kid_'+idx+'_idNumber" class="'+e("f101_kid_"+idx+"_idNumber")+'" value="'+escapeHtml(kid.idNumber)+'" maxlength="9" oninput="updateEmp(\'children.'+idx+'.idNumber\',this.value.trim())" onblur="finalizeEmpField(\'children.'+idx+'.idNumber\',this.value.trim())">') +
-          f101FieldWrap("f101_kid_"+idx+"_birthDate","תאריך לידה",true,dmyDateInputHtml("f101_kid_"+idx+"_birthDate",kid.birthDate,"updateEmp",["children."+idx+".birthDate"],e("f101_kid_"+idx+"_birthDate"))) +
+          f101FieldWrap("f101_kid_"+idx+"_birthDate","תאריך לידה",true,dmyDateInputHtml("f101_kid_"+idx+"_birthDate",kid.birthDate,"finalizeEmpField",["children."+idx+".birthDate"],e("f101_kid_"+idx+"_birthDate"))) +
         '</div>' +
         '<div class="form-grid cols-3" style="margin-top:8px;">' +
           '<div class="check-group"><label style="white-space:nowrap;"><input type="checkbox" '+(kid.inCustody?"checked":"")+' onchange="toggleChildCustody('+idx+',this.checked)"> '+tr("kid_inCustody_label","הילד/ה נמצא/ת בחזקתי")+'</label></div>' +
@@ -2735,7 +2756,7 @@ function renderForm101SectionF(c){
       :
       f101FieldWrap("f101_spouse_passportNumber","מספר דרכון",true,'<input type="text" id="f101_spouse_passportNumber" class="'+e("f101_spouse_passportNumber")+'" value="'+escapeHtml(sp.passportNumber)+'" maxlength="20" oninput="updateEmp(\'spouse.passportNumber\',this.value.trim())">')
     ) +
-    f101FieldWrap("f101_spouse_birthDate","תאריך לידה",true,dmyDateInputHtml("f101_spouse_birthDate",sp.birthDate,"updateEmp",["spouse.birthDate"],e("f101_spouse_birthDate"))) +
+    f101FieldWrap("f101_spouse_birthDate","תאריך לידה",true,dmyDateInputHtml("f101_spouse_birthDate",sp.birthDate,"finalizeEmpField",["spouse.birthDate"],e("f101_spouse_birthDate"))) +
     f101FieldWrap("f101_spouse_aliyaDate","תאריך עלייה",false,dmyDateInputHtml("f101_spouse_aliyaDate",sp.aliyaDate,"updateEmp",["spouse.aliyaDate"])) +
     f101FieldWrap("f101_spouse_incomeStatus","הכנסה",true,
       '<div class="radio-group">'+CODE_TABLES.spouseIncomeOptions.map(o=>'<label><input type="radio" name="spouseIncomeStatus" value="'+o.id+'" '+(sp.incomeStatus===o.id?"checked":"")+' onchange="updateEmp(\'spouse.incomeStatus\',\''+o.id+'\')"> '+codeName("spouseIncome",o)+'</label>').join("")+'</div>') +
