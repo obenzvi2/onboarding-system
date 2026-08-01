@@ -771,9 +771,9 @@ function liveFormatError(path, value){
     return null;
   }
   if(path==="mobilePhone" || path==="phone2"){
-    // הבדיקה חוסמת כל תו שאינו ספרה (מקף, רווח, אותיות וכו') - במכוון בלי
-    // רשימת קידומות סלולר אמיתיות (050/052/054/058 וכו'), כדי לא לפסול
-    // קידומות עתידיות/פחות נפוצות.
+    // הבדיקה חוסמת כל תו שאינו ספרה (מקף, רווח, אותיות וכו'). בדיקת
+    // קידומת הנייד (050/052/054/058 וכו') היא רק על "מספר טלפון נייד",
+    // ורצה בבדיקה המלאה (finalFieldError) - לא כאן.
     if(value && !/^\d*$/.test(value)) return "נא להשתמש בספרות בלבד.";
     return null;
   }
@@ -797,10 +797,17 @@ function finalFieldError(path, value, emp){
     if(value && !validEmail(value)) return "כתובת דוא\"ל אינה תקינה.";
     return null;
   }
-  if(path==="mobilePhone" || path==="phone2"){
-    const p1ok = emp.mobilePhone && validPhone(emp.mobilePhone);
-    const p2ok = emp.phone2 && validPhone(emp.phone2);
-    if((emp.mobilePhone||emp.phone2) && !p1ok && !p2ok) return "המספר אינו תקין.";
+  // כל שדה טלפון נבדק בנפרד לגמרי (אין יותר כלל צולב בין השניים - מספיק
+  // שאחד מהם תקין - שני השדות חובה משל עצמם אם מולאו). "מספר טלפון נייד"
+  // בלבד מחויב גם בקידומת נייד ישראלית מוכרת (validIsraeliMobilePhone);
+  // "מספר טלפון נוסף" יכול להיות גם קווי, ולכן נבדק רק בצורה הכללית
+  // (validPhone) בלי דרישת קידומת.
+  if(path==="mobilePhone"){
+    if(value && !validIsraeliMobilePhone(value)) return "המספר אינו תקין.";
+    return null;
+  }
+  if(path==="phone2"){
+    if(value && !validPhone(value)) return "המספר אינו תקין.";
     return null;
   }
   if(path==="spouse.idNumber"){
@@ -815,7 +822,8 @@ function finalFieldError(path, value, emp){
 }
 /* טיימרים של בדיקות "שלמות" ב-Debounce תוך כדי הקלדה (ת.ז + טלפון) -
    ר' updateEmp/scheduleDebouncedFinalCheck. מפתח: errKey (מזהה הודעת
-   השגיאה). */
+   השגיאה). כל שדה (כולל שני שדות הטלפון) עצמאי לגמרי - אין יותר כלל
+   צולב בין "מספר נייד" ל"מספר נוסף". */
 const idChecksumTimers = {};
 const ID_CHECKSUM_DEBOUNCE_MS = 500;
 /* מריצה את הבדיקה המלאה (finalFieldError - ספרת ביקורת לת.ז, "מספר
@@ -854,7 +862,7 @@ function updateEmp(path,value){
     c.employee.form101Status = "pending";
     c.employee.form101CompletedAt = null;
   }
-  const errKey = (path==="phone2") ? "f101_mobilePhone" : errorKeyForPath(path);
+  const errKey = errorKeyForPath(path);
   const fmtErr = liveFormatError(path, value);
   if(fmtErr) ui.errors[errKey] = fmtErr;
   else delete ui.errors[errKey];
@@ -874,7 +882,7 @@ function updateEmp(path,value){
    הבדיקה המיידית כאן גוברת עליו. */
 function finalizeEmpField(path,value){
   if(isRerendering) return; // blur מלאכותי שנגרם מהרינדור עצמו (ר' isRerendering) - לא פעולת יציאה אמיתית
-  const errKey = (path==="phone2") ? "f101_mobilePhone" : errorKeyForPath(path);
+  const errKey = errorKeyForPath(path);
   if(idChecksumTimers[errKey]){ clearTimeout(idChecksumTimers[errKey]); delete idChecksumTimers[errKey]; }
   const c = currentCase();
   setPath(c.employee, path, value);
@@ -1016,9 +1024,9 @@ function validateForm101(c){
   if(!emp.isIsraeliResident) errs["f101_isIsraeliResident"]="שדה חובה.";
   if(!emp.healthFundMember) errs["f101_healthFundMember"]="שדה חובה.";
   else if(emp.healthFundMember==="yes" && !emp.healthFundName) errs["f101_healthFundName"]="שדה חובה כאשר חבר/ה בקופת חולים.";
-  const p1ok = emp.mobilePhone && validPhone(emp.mobilePhone);
-  const p2ok = emp.phone2 && validPhone(emp.phone2);
-  if(!p1ok && !p2ok) errs["f101_mobilePhone"]="יש למלא לפחות מספר טלפון אחד תקין (לדוגמה: 050-1234567).";
+  // כל שדה טלפון נבדק בנפרד (ר' finalFieldError) - אין כלל צולב בין השניים.
+  if(emp.mobilePhone && !validIsraeliMobilePhone(emp.mobilePhone)) errs["f101_mobilePhone"]="המספר אינו תקין.";
+  if(emp.phone2 && !validPhone(emp.phone2)) errs["f101_phone2"]="המספר אינו תקין.";
   if(!emp.email||!emp.email.trim()) errs["f101_email"]="שדה חובה.";
   else if(!validEmail(emp.email)) errs["f101_email"]="כתובת דוא\"ל אינה תקינה.";
   if(!emp.street||!emp.street.trim()) errs["f101_street"]="שדה חובה.";
@@ -2484,7 +2492,7 @@ function renderForm101SectionB(c){
   '</div>' +
   '<div class="form-grid cols-2">' +
     f101FieldWrap("f101_mobilePhone","מספר טלפון נייד",false,'<input type="tel" id="f101_mobilePhone" class="'+e("f101_mobilePhone")+'" value="'+escapeHtml(emp.mobilePhone)+'" oninput="updateEmp(\'mobilePhone\',this.value)" onblur="finalizeEmpField(\'mobilePhone\',this.value)">') +
-    f101FieldWrap("f101_phone2","מספר טלפון נוסף",false,'<input type="tel" id="f101_phone2" value="'+escapeHtml(emp.phone2)+'" oninput="updateEmp(\'phone2\',this.value)" onblur="finalizeEmpField(\'phone2\',this.value)">') +
+    f101FieldWrap("f101_phone2","מספר טלפון נוסף",false,'<input type="tel" id="f101_phone2" class="'+e("f101_phone2")+'" value="'+escapeHtml(emp.phone2)+'" oninput="updateEmp(\'phone2\',this.value)" onblur="finalizeEmpField(\'phone2\',this.value)">') +
   '</div>' +
   '<div class="form-grid cols-2">' +
     f101FieldWrap("f101_email","כתובת דוא\"ל",true,'<input type="text" inputmode="email" autocapitalize="off" autocorrect="off" spellcheck="false" id="f101_email" class="'+e("f101_email")+'" dir="ltr" style="direction:ltr;unicode-bidi:plaintext;text-align:right;" value="'+escapeHtml(emp.email)+'" oninput="updateEmp(\'email\',this.value)" onblur="finalizeEmpField(\'email\',this.value)">') +
