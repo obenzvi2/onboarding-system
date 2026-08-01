@@ -803,10 +803,15 @@ function finalFieldError(path, value, emp){
   // "מספר טלפון נוסף" יכול להיות גם קווי, ולכן נבדק רק בצורה הכללית
   // (validPhone) בלי דרישת קידומת.
   if(path==="mobilePhone"){
+    // אם הסיבה לאי-התקינות היא תו שאינו ספרה (אותה סיבה שכבר נבדקת ב-liveFormatError
+    // תוך כדי הקלדה), ההודעה חייבת להישאר "נא להשתמש בספרות בלבד" גם כאן - כדי שלא
+    // תוחלף ל"המספר אינו תקין" ברגע ה-blur/השליחה, על אותה בעיה בדיוק.
+    if(value && !/^\d*$/.test(value)) return "נא להשתמש בספרות בלבד.";
     if(value && !validIsraeliMobilePhone(value)) return "המספר אינו תקין.";
     return null;
   }
   if(path==="phone2"){
+    if(value && !/^\d*$/.test(value)) return "נא להשתמש בספרות בלבד.";
     if(value && !validPhone(value)) return "המספר אינו תקין.";
     return null;
   }
@@ -1024,9 +1029,13 @@ function validateForm101(c){
   if(!emp.isIsraeliResident) errs["f101_isIsraeliResident"]="שדה חובה.";
   if(!emp.healthFundMember) errs["f101_healthFundMember"]="שדה חובה.";
   else if(emp.healthFundMember==="yes" && !emp.healthFundName) errs["f101_healthFundName"]="שדה חובה כאשר חבר/ה בקופת חולים.";
-  // כל שדה טלפון נבדק בנפרד (ר' finalFieldError) - אין כלל צולב בין השניים.
-  if(emp.mobilePhone && !validIsraeliMobilePhone(emp.mobilePhone)) errs["f101_mobilePhone"]="המספר אינו תקין.";
-  if(emp.phone2 && !validPhone(emp.phone2)) errs["f101_phone2"]="המספר אינו תקין.";
+  // כל שדה טלפון נבדק בנפרד - אין כלל צולב בין השניים. משתמשים ב-finalFieldError
+  // עצמה (ולא בכפילות של הבדיקה) כדי שהודעת "נא להשתמש בספרות בלבד" מול "המספר
+  // אינו תקין" תישאר תמיד זהה בין ההקלדה/blur לבין בדיקת השליחה.
+  const mobilePhoneErr = finalFieldError("mobilePhone", emp.mobilePhone, emp);
+  if(mobilePhoneErr) errs["f101_mobilePhone"] = mobilePhoneErr;
+  const phone2Err = finalFieldError("phone2", emp.phone2, emp);
+  if(phone2Err) errs["f101_phone2"] = phone2Err;
   if(!emp.email||!emp.email.trim()) errs["f101_email"]="שדה חובה.";
   else if(!validEmail(emp.email)) errs["f101_email"]="כתובת דוא\"ל אינה תקינה.";
   if(!emp.street||!emp.street.trim()) errs["f101_street"]="שדה חובה.";
