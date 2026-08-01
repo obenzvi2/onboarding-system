@@ -123,10 +123,22 @@ input[type=text],input[type=email],input[type=tel],input[type=number],select,tex
   border:1px solid #C7D2D9;border-radius:6px;padding:10px 12px;font-size:14.5px;
   font-family:inherit;background:#fff;color:var(--text-main);width:100%;
 }
-/* שדות תאריך (dd/mm/yyyy) - ר' ההסבר ב-render.js ליד dateTextMask/commitDateField
-   לגבי הסיבה שהם <input type="text"> רגילים ולא <input type="date"> native. */
-.date-input-dmy{direction:ltr;text-align:right;}
-.form-dir[dir="ltr"] .date-input-dmy{text-align:left;}
+/* שדה תאריך (dd/mm/yyyy) - קבוצת 3 תת-שדות (יום/חודש/שנה) בתוך תיבה אחת
+   שנראית כמו input רגיל, במקום <input type="date"> native - ר' ההסבר
+   ב-render.js ליד dmyDateInputHtml לגבי הסיבה (הדפדפן מציג input type=date
+   לפי שפת הממשק שלו ולא לפי lang="he" של הדף). */
+.date-input-dmy{
+  display:inline-flex;align-items:center;gap:2px;width:100%;direction:ltr;
+  border:1px solid #C7D2D9;border-radius:6px;padding:10px 12px;background:#fff;
+}
+.date-input-dmy:focus-within{border-color:var(--header-text);box-shadow:0 0 0 3px rgba(25,94,123,0.12);}
+.date-input-dmy.err{border-color:var(--error);background:#FFF6F6;}
+/* input.date-seg (לא רק .date-seg) בכוונה - כדי לנצח בספציפיות CSS את
+   הכלל הכללי input[type=text]{border/padding/width:100%} למעלה. */
+input.date-seg{border:none;padding:0;background:transparent;font-size:14.5px;font-family:inherit;color:var(--text-main);width:2ch;text-align:center;}
+input.date-seg:focus{outline:none;}
+input.date-seg-y{width:4ch;}
+.date-sep{color:#8a97a1;}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--header-text);box-shadow:0 0 0 3px rgba(25,94,123,0.12);}
 input.err,select.err{border-color:var(--error);background:#FFF6F6;}
 input:disabled,select:disabled{background:var(--disabled-bg);color:var(--disabled-text);cursor:not-allowed;}
