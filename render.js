@@ -2973,7 +2973,7 @@ function renderForm101SectionJ(c){
     (ui.errors["f101_declaration"]?'<div class="field-error">'+tr(ui.errors["f101_declaration"],ui.errors["f101_declaration"])+'</div>':'') +
     (done ? '<div class="alert alert-info">'+tr("sec_j_alreadyCompleted","טופס זה כבר סומן כהושלם. יש לבטל את תיבת ההצהרה כדי לערוך ולסמן מחדש.")+'</div>' : '') +
     '<div class="btn-row">' +
-      '<button class="btn btn-secondary" onclick="printForm(\''+c.id+'\',\'form101\')">'+tr("preview_btn","תצוגה מקדימה")+'</button>' +
+      '<button class="btn btn-secondary" onclick="printForm(\''+c.id+'\',\'form101\')">'+tr("preview_btn","תצוגה מקדימה (PDF)")+'</button>' +
       '<button class="btn btn-primary" '+(done?"disabled":"")+' onclick="submitForm101()">'+tr("finish_btn","סיימתי")+'</button>' +
     '</div>' +
     '<div class="field-hint-static" style="margin-top:10px;">'+tr("sec_j_noDigitalSignatureHint","אין חתימה דיגיטלית — הטופס יודפס ויחתם פיזית על ידי העובד/ת.")+'</div>' +

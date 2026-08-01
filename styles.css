@@ -363,7 +363,12 @@ table.code-table td:last-child, table.code-table th:last-child{width:90px;}
    ו-id נפרד, ר' renderForm101OfficialPage ב-print.js) - עמוד 1 עובר
    page-break-after:always כדי שעמוד 2 יתחיל בדף הדפסה חדש; עמוד 2 (האחרון)
    מקבל auto. */
-.form101-official-page{position:relative;width:210mm;height:297mm;margin:20px auto;background-size:100% 100%;background-repeat:no-repeat;background-color:#fff;box-shadow:0 0 0 1px #ddd, var(--shadow);page-break-after:always;}
+/* print-color-adjust:exact - בלי זה, דפדפנים (כולל Chrome/Edge) לא מדפיסים
+   background-image כלל כברירת מחדל (רק אם המשתמש/ת מסמן/ת ידנית "גרפיקת
+   רקע"/"Background graphics" בהגדרות ההדפסה) - וזה בדיוק תמונת הרקע של
+   הטופס הרשמי עצמו כאן, לא רק צבע רקע קישוטי. עם ההגדרה הזו הרקע מודפס
+   תמיד, בלי תלות בהגדרה הידנית של המשתמש/ת בדפדפן. */
+.form101-official-page{position:relative;width:210mm;height:297mm;margin:20px auto;background-size:100% 100%;background-repeat:no-repeat;background-color:#fff;box-shadow:0 0 0 1px #ddd, var(--shadow);page-break-after:always;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
 .form101-official-page.f101-page1{background-image:url('assets/form101_official_bg.png');}
 .form101-official-page.f101-page2{background-image:url('assets/form101_official_bg_page2.png');page-break-after:auto;}
 /* צבע כחול-עט - מדמה מילוי הטופס בעט כחול ע"י העובד/ת (בניגוד לטקסט

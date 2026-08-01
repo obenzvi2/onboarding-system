@@ -11,6 +11,22 @@ function maritalLabel(id){ const m=CODE_TABLES.maritalStatuses.find(x=>x.id===id
 function incomeTypeLabel(id){ const t=CODE_TABLES.incomeTypes.find(x=>x.id===id); return t?t.name:"—"; }
 function spouseIncomeLabel(id){ const o=CODE_TABLES.spouseIncomeOptions.find(x=>x.id===id); return o?o.name:"—"; }
 function kibbutzLabel(v){ return v==="yes_transferred"?"חבר/ה — הכנסות מועברות לקיבוץ":(v==="yes_not_transferred"?"חבר/ה — הכנסות אינן מועברות לקיבוץ":(v==="no"?"לא":"—")); }
+/* תקציר קריא של מספרי הילדים בכל טווח גיל שהוזן בסעיפי ח.7/ח.8 (ר'
+   creditRows ב-form101PrintFramesHtml) - מציג רק טווחים שהוזן בהם ערך,
+   כדי לא להציג "0" על כל טווח ריק שלא רלוונטי לעובד/ת. age18 קיים רק
+   בסעיף 7 (val.age18 יהיה undefined בסעיף 8, ולכן פשוט ידולג). */
+function form101CreditChildAgeBracketsSummary(val){
+  const parts = [
+    ["בשנת המס", val.bornThisYear],
+    ["1-2", val.age1to2],
+    ["3", val.age3],
+    ["4-5", val.age4to5],
+    ["6-17", val.age6to17],
+    ["18", val.age18]
+  ].filter(function(p){ return p[1]!==undefined && p[1]!==null && p[1]!==""; })
+   .map(function(p){ return p[0]+": "+escapeHtml(String(p[1])); });
+  return parts.length ? "ילדים שימלאו להם - "+parts.join(", ") : "לא פורט";
+}
 
 function printToolbar(caseId,backScreen,title){
   const isEmp = ui.mode==="employee";
@@ -156,14 +172,33 @@ function form101OfficialValues(c){
     spouseHasNoIncomeCheckbox: { checked: emp.spouse.incomeStatus==="none" },
     spouseHasIncomeCheckbox:   { checked: emp.spouse.incomeStatus==="has" },
 
-    // ---------- עמוד 2, ח. פטור או זיכוי ממס (17 תיבות סימון בלבד -
-    // תת-שדות כמו יישוב/תאריכים/מספר ילדים לכל סעיף עדיין לא ממופים,
-    // ר' ההערה מעל FORM101_FIELD_MAP בעמוד 2 ב-form101FieldMap.js) ----------
+    // ---------- עמוד 2, ח. פטור או זיכוי ממס (17 תיבות סימון) ----------
     ...Object.fromEntries(TAX_CREDIT_META.map(function(meta){
       const val = emp.taxCredits[meta.key];
       const checked = (typeof val==="object") ? !!(val && val.checked) : !!val;
       return ["taxCredit"+meta.key.charAt(0).toUpperCase()+meta.key.slice(1)+"Checkbox", { checked: checked }];
     })),
+    // תת-שדות של הסעיפים שיש להם יותר מתיבת סימון בודדת - ר' ההערה המקבילה
+    // ב-form101FieldMap.js למבנה emp.taxCredits.cX של כל אחד.
+    taxCreditC3FromDate:   { value: formatDateHe(emp.taxCredits.c3.fromDate) },
+    taxCreditC3Settlement: { value: emp.taxCredits.c3.settlement },
+    taxCreditC4FromDate:          { value: formatDateHe(emp.taxCredits.c4.fromDate) },
+    taxCreditC4NoIncomeUntilDate: { value: formatDateHe(emp.taxCredits.c4.noIncomeUntilDate) },
+    taxCreditC7BornThisYear: { value: emp.taxCredits.c7.bornThisYear },
+    taxCreditC7Age4to5:      { value: emp.taxCredits.c7.age4to5 },
+    taxCreditC7Age6to17:     { value: emp.taxCredits.c7.age6to17 },
+    taxCreditC7Age1to2:      { value: emp.taxCredits.c7.age1to2 },
+    taxCreditC7Age18:        { value: emp.taxCredits.c7.age18 },
+    taxCreditC7Age3:         { value: emp.taxCredits.c7.age3 },
+    taxCreditC8BornThisYear: { value: emp.taxCredits.c8.bornThisYear },
+    taxCreditC8Age4to5:      { value: emp.taxCredits.c8.age4to5 },
+    taxCreditC8Age6to17:     { value: emp.taxCredits.c8.age6to17 },
+    taxCreditC8Age1to2:      { value: emp.taxCredits.c8.age1to2 },
+    taxCreditC8Age3:         { value: emp.taxCredits.c8.age3 },
+    taxCreditC11Count:     { value: emp.taxCredits.c11.count },
+    taxCreditC14StartDate: { value: formatDateHe(emp.taxCredits.c14.startDate) },
+    taxCreditC14EndDate:   { value: formatDateHe(emp.taxCredits.c14.endDate) },
+    taxCreditC16Days:      { value: emp.taxCredits.c16.days },
 
     // ---------- עמוד 2, ט. תיאום מס - ר' ההערה מעל FORM101_TAXCOORDSOURCES_ROW
     // ב-form101FieldMap.js לגבי היעדר תיבת "מבקש/ת" נפרדת. ----------
@@ -629,6 +664,8 @@ function form101PrintFramesHtml(c,isLastDoc){
     let extra = "";
     if(checked){
       if(meta.key==="c3") extra = " — מתאריך "+formatDateHe(val.fromDate)+", יישוב: "+escapeHtml(val.settlement);
+      if(meta.key==="c4") extra = " — מתאריך "+formatDateHe(val.fromDate)+(val.noIncomeUntilDate?", ללא הכנסה עד "+formatDateHe(val.noIncomeUntilDate):"");
+      if(meta.key==="c7" || meta.key==="c8") extra = " — "+form101CreditChildAgeBracketsSummary(val);
       if(meta.key==="c11") extra = " — מספר ילדים: "+escapeHtml(val.count);
       if(meta.key==="c14") extra = " — מ-"+formatDateHe(val.startDate)+" עד "+formatDateHe(val.endDate);
       if(meta.key==="c16") extra = " — "+escapeHtml(val.days)+" ימי מילואים";
