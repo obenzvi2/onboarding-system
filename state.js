@@ -333,6 +333,30 @@ if(!loadDB()){
 } else {
   restoreSeqFromDB();
 }
+/* ============================================================
+   רשימת יישובים בישראל (עבור שדה "עיר או יישוב" בטופס 101 - ר'
+   f101CityDatalistHtml ב-render.js) - קובץ JSON נפרד (cities.json, לא
+   קוד JS) שנטען ברקע (fetch) ולא מוטמע ישירות בקוד, כי (א) זו רשימה
+   ארוכה וקבועה שלא קשורה ללוגיקה, ו-(ב) זה בכוונה אותו דפוס טעינה
+   (fetch לקובץ סטטי) שישמש בעתיד לטעינת מידע אמיתי משרת (ר' תוכנית
+   המעבר לשרת Node - קובץ JSON היום, endpoint אמיתי מחר, בלי לשנות את
+   קוד הטופס). זו קריאת ה-fetch הראשונה באפליקציה (עד כה הכל היה
+   סינכרוני לחלוטין) - ולכן, בשונה מ-CODE_TABLES/BANK_BRANCHES_DATA
+   שזמינים מיד, ISRAEL_CITIES מתחיל ריק ומתמלא רק כשהבקשה חוזרת. אם
+   הטעינה נכשלת (או עדיין לא הסתיימה), שדה העיר פשוט נשאר טקסט חופשי
+   רגיל בלי הצעות - אף פעם לא חוסם הקלדה, ר' ההסבר בשיחה עם המשתמשת. */
+let ISRAEL_CITIES = [];
+/* APP_BOOTED מסומן ל-true בסוף ה-DOMContentLoaded הראשי (ר' print.js) -
+   כדי שלא נפעיל render() נוסף מיותר אם הרשימה מזדמן ותיטען *לפני* ה-
+   render הראשוני של האפליקציה (במקרה כזה הוא כבר יכלול אותה ממילא). */
+let APP_BOOTED = false;
+function loadCities(){
+  fetch("cities.json")
+    .then(function(r){ return r.ok ? r.json() : []; })
+    .then(function(list){ ISRAEL_CITIES = list; if(APP_BOOTED) render(); })
+    .catch(function(){ /* אין רשת/הקובץ חסר - נשאר בלי הצעות, לא קריטי */ });
+}
+loadCities();
 function getCase(id){ return DB.cases.find(c=>c.id===id); }
 function currentCase(){ return getCase(ui.currentCaseId); }
 function companyName(id){ const c=CODE_TABLES.companies.find(x=>x.id===id); return c?c.name:""; }

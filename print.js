@@ -830,5 +830,7 @@ document.addEventListener("DOMContentLoaded", function(){
   // ומופעל רק דרך פרמטר URL נפרד, בלי לגעת בדגל הכיול הבסיסי עצמו.
   if(params.get("editform101")==="1") FORM101_EDIT_MODE = true;
   render();
+  // מסומן אחרי ה-render הראשוני - ר' ההסבר ליד APP_BOOTED/loadCities ב-state.js.
+  APP_BOOTED = true;
 });
 

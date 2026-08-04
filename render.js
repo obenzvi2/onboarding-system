@@ -693,6 +693,132 @@ function renderNewCase(){
   '</div>';
 }
 
+/* --- שדה "עיר או יישוב": אותה תצוגה חזותית בדיוק כמו ה-combobox הקיים
+   של בנק/סניף (רשימה נפתחת מעוצבת - .combo-wrap/.combo-input/
+   .combo-dropdown/.combo-item, ר' סעיף 11 למטה) - לבקשת המשתמשת, במקום
+   ה-<datalist> הקודם (native, לא עיצוב אחיד עם שאר האפליקציה).
+
+   זו עדיין לא הרחבה של comboNav/comboXxx הקיימים, אלא מימוש נפרד קטן
+   משלה - כי יש הבדל התנהגותי מהותי: אצל בנק/סניף *חובה* לבחור קוד
+   מהרשימה (הערך המאוחסן הוא קוד, לא הטקסט המוקלד; אם יוצאים מהשדה בלי
+   התאמה מדויקת, הטקסט חוזר לערך השמור הקודם - ר' comboBlur/
+   comboResetDisplay). בעיר, לעומת זאת, טקסט חופשי הוא תמיד ערך סופי
+   לגיטימי (ר' הדיון עם המשתמשת) - הרשימה היא רק הצעה, לעולם לא חוסמת.
+
+   ביצועים: cityComboInput (oninput) *לא* קוראת ל-render() המלא בכל
+   הקשה - בדיוק כמו ש-comboFilter של בנק/סניף לא עושה זאת - אלא מעדכנת
+   את המודל ישירות (setPath בלי render) ומרעננת את תיבת ההצעות בעצמה
+   ישירות ב-DOM (dd.innerHTML=...). render() מלא היה הורס ובונה מחדש את
+   כל ה-combo-wrap (כולל הרשימה הפתוחה) בכל הקשה - בדיוק הבעיה שהמשתמשת
+   דיווחה עליה עם ה-datalist הישן ("צף על גבי הטופס"). */
+let cityComboNav = { list: [], activeIndex: -1 };
+function cityComboSetList(query){
+  const q = (query||"").trim();
+  const list = !q ? ISRAEL_CITIES : ISRAEL_CITIES.filter(function(name){ return name.indexOf(q)!==-1; });
+  cityComboNav.list = list.slice(0,50); // מגבילים ל-50 תוצאות - רשימה מלאה של 1,272 אינה שימושית להצגה בכל הקשה
+  cityComboNav.activeIndex = -1;
+}
+function cityComboItemsHtml(){
+  if(!cityComboNav.list.length) return '<div class="combo-empty">לא נמצאו תוצאות</div>';
+  return cityComboNav.list.map(function(name,idx){
+    return '<div class="combo-item'+(idx===cityComboNav.activeIndex?" active":"")+'" id="f101_city_opt_'+idx+'" role="option" aria-selected="'+(idx===cityComboNav.activeIndex?"true":"false")+'" onmousedown="cityComboMouseSelect('+idx+')">'+escapeHtml(name)+'</div>';
+  }).join("");
+}
+function cityComboRenderDropdown(){
+  const dd = document.getElementById("f101_city_dd");
+  const inp = document.getElementById("f101_city");
+  if(!dd) return;
+  dd.innerHTML = cityComboItemsHtml();
+  if(inp){
+    if(cityComboNav.activeIndex>=0 && cityComboNav.list[cityComboNav.activeIndex]!==undefined) inp.setAttribute("aria-activedescendant","f101_city_opt_"+cityComboNav.activeIndex);
+    else inp.removeAttribute("aria-activedescendant");
+  }
+}
+function cityComboScrollActiveIntoView(){
+  if(cityComboNav.activeIndex<0) return;
+  const el = document.getElementById("f101_city_opt_"+cityComboNav.activeIndex);
+  if(el && el.scrollIntoView) el.scrollIntoView({block:"nearest"});
+}
+function cityComboOpenDropdown(){
+  const dd = document.getElementById("f101_city_dd");
+  const inp = document.getElementById("f101_city");
+  if(dd) dd.classList.add("open");
+  if(inp) inp.setAttribute("aria-expanded","true");
+}
+function cityComboCloseDropdown(){
+  const dd = document.getElementById("f101_city_dd");
+  const inp = document.getElementById("f101_city");
+  if(dd) dd.classList.remove("open");
+  cityComboNav.activeIndex = -1;
+  if(inp){ inp.setAttribute("aria-expanded","false"); inp.removeAttribute("aria-activedescendant"); }
+}
+function cityComboFocus(){
+  cityComboSetList(document.getElementById("f101_city") ? document.getElementById("f101_city").value : "");
+  cityComboOpenDropdown();
+  cityComboRenderDropdown();
+}
+/* רץ בכל הקשה: שומר את הטקסט החופשי במודל מיד (כמו updateEmp הרגיל,
+   אבל בלי render() - ר' ההסבר למעלה), ומרענן את רשימת ההצעות. */
+function cityComboInput(value){
+  currentCase().employee.city = value;
+  cityComboSetList(value);
+  cityComboOpenDropdown();
+  cityComboRenderDropdown();
+}
+/* בחירה מפורשת (קליק/Enter) - בניגוד להקלדה רציפה, render() מלא כאן
+   תקין לגמרי (הרשימה נסגרת ממילא). onmousedown (לא onclick) כדי לפעול
+   *לפני* ה-blur של השדה - בדיוק כמו comboMouseSelect של בנק/סניף. */
+function cityComboMouseSelect(idx){
+  const name = cityComboNav.list[idx];
+  if(name===undefined) return;
+  cityComboCloseDropdown();
+  updateEmp("city", name);
+}
+function cityComboBlur(){
+  setTimeout(function(){ cityComboCloseDropdown(); render(); }, 150);
+}
+function cityComboKeyDown(e){
+  const dd = document.getElementById("f101_city_dd");
+  const isOpen = !!(dd && dd.classList.contains("open"));
+  if(e.key==="ArrowDown"){
+    e.preventDefault();
+    if(!isOpen){
+      cityComboSetList(e.target.value);
+      cityComboOpenDropdown();
+      cityComboNav.activeIndex = cityComboNav.list.length ? 0 : -1;
+    } else if(cityComboNav.list.length){
+      cityComboNav.activeIndex = cityComboNav.activeIndex < cityComboNav.list.length-1 ? cityComboNav.activeIndex+1 : cityComboNav.list.length-1;
+    }
+    cityComboRenderDropdown();
+    cityComboScrollActiveIntoView();
+  } else if(e.key==="ArrowUp"){
+    e.preventDefault();
+    if(isOpen && cityComboNav.list.length){
+      cityComboNav.activeIndex = cityComboNav.activeIndex>0 ? cityComboNav.activeIndex-1 : 0;
+      cityComboRenderDropdown();
+      cityComboScrollActiveIntoView();
+    }
+  } else if(e.key==="Enter"){
+    if(isOpen && cityComboNav.activeIndex>=0 && cityComboNav.list[cityComboNav.activeIndex]!==undefined){
+      e.preventDefault();
+      cityComboMouseSelect(cityComboNav.activeIndex);
+    }
+  } else if(e.key==="Escape"){
+    if(isOpen){ e.preventDefault(); cityComboCloseDropdown(); }
+  }
+}
+function f101CityFieldHtml(value, errKey){
+  const err = ui.errors[errKey] ? " err" : "";
+  return '<div class="combo-wrap">' +
+    // autocomplete="off" לא מספיק - כרום מתעלם ממנו במכוון בשדות שהוא מזהה
+    // היוריסטית כ"עיר/כתובת" (למשל לפי id="f101_city" ו/או תווית "עיר או
+    // יישוב") ומציג את רשימת הכתובות השמורות שלו מעל הרשימה שלנו. הערך
+    // הבא הוא מחרוזת חסרת-משמעות לכרום (לא "off") - זו הדרך שכן עובדת
+    // בפועל למנוע את זה (ר' התיקון בשיחה עם המשתמשת, עם צילום מסך).
+    '<input type="text" id="f101_city" class="combo-input'+err+'" autocomplete="chrome-off-city-suggest" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="f101_city_dd" value="'+escapeHtml(value)+'" oninput="cityComboInput(this.value)" onfocus="cityComboFocus()" onblur="cityComboBlur()" onkeydown="cityComboKeyDown(event)">' +
+    '<div class="combo-dropdown" id="f101_city_dd" role="listbox"></div>' +
+  '</div>';
+}
 /* ============================================================
    9-א. פונקציות עזר גנריות לעדכון שדות ולסימני שאלה
    ============================================================ */
@@ -2515,7 +2641,7 @@ function renderForm101SectionB(c){
   '</div>' +
   '<div class="field-hint-static" style="margin-bottom:10px;">'+tr("sec_b_idHint","שם, סוג הזיהוי ומספר הזהות/דרכון נמסרו בעת פתיחת תיק הקליטה ואינם ניתנים לעריכה כאן.")+'</div>' +
   '<div class="form-grid cols-4">' +
-    f101FieldWrap("f101_city","עיר או יישוב",true,'<input type="text" id="f101_city" class="'+e("f101_city")+'" value="'+escapeHtml(emp.city)+'" oninput="updateEmp(\'city\',this.value)">') +
+    f101FieldWrap("f101_city","עיר או יישוב",true,f101CityFieldHtml(emp.city,"f101_city")) +
     f101FieldWrap("f101_street","רחוב",true,'<input type="text" id="f101_street" class="'+e("f101_street")+'" value="'+escapeHtml(emp.street)+'" oninput="updateEmp(\'street\',this.value)">') +
     f101FieldWrap("f101_houseNumber","מספר בית",true,'<input type="text" id="f101_houseNumber" class="'+e("f101_houseNumber")+'" value="'+escapeHtml(emp.houseNumber)+'" oninput="updateEmp(\'houseNumber\',this.value)">') +
     f101FieldWrap("f101_zip","מיקוד",false,'<input type="text" id="f101_zip" value="'+escapeHtml(emp.zip)+'" oninput="updateEmp(\'zip\',this.value)">') +
