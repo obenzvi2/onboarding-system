@@ -30,13 +30,6 @@ const CODE_TABLES = {
     {id:"w8",companyId:"c5",name:"משרדי ייזום - תל אביב"},
     {id:"w9",companyId:"c6",name:"משרדי OROC - תל אביב"}
   ],
-  maritalStatuses:[
-    {id:"single",name:"רווק/ה",shikulitCode:"",blueCode:""},
-    {id:"married",name:"נשוי/אה",shikulitCode:"",blueCode:""},
-    {id:"divorced",name:"גרוש/ה",shikulitCode:"",blueCode:""},
-    {id:"widowed",name:"אלמן/ה",shikulitCode:"",blueCode:""},
-    {id:"separated",name:"פרוד/ה",shikulitCode:"",blueCode:""}
-  ],
   incomeTypes:[
     {id:"monthly",name:"משכורת חודש",tooltip:"משכורת בעד עבודה של לא פחות מ-18 יום בחודש.",shikulitCode:"",blueCode:""},
     {id:"additional",name:"משכורת בעד משרה נוספת",tooltip:"משכורת בעד עבודה של יותר מ-5 שעות ביום, נוסף למשכורת ו/או בנוסף לקצבה החייבת במס ממקום אחר. העובד רשאי לבחור את מקום העבודה בו תחשב משכורתו כ\"משכורת בעד משרה נוספת\".",shikulitCode:"",blueCode:""},
@@ -60,53 +53,57 @@ const CODE_TABLES = {
     // ה-filter לפני ה-map ברינדור הרדיו).
     {id:"none",name:"לא חבר",shikulitCode:"5",blueCode:""}
   ],
-  spouseIncomeOptions:[
-    {id:"none",name:"אין לבן/בת הזוג כל הכנסה"},
-    {id:"has",name:"יש לבן/בת הזוג הכנסה"}
-  ],
-  otherIncomeTypes:[
-    {id:"monthly",name:"משכורת חודש"},
-    {id:"additional",name:"משכורת בעד משרה נוספת"},
-    {id:"partial",name:"משכורת חלקית"},
-    {id:"daily",name:"שכר עבודה"},
-    {id:"pension",name:"קצבה"},
-    {id:"scholarship",name:"מלגה"},
-    {id:"other",name:"הכנסה אחרת"}
-  ],
-  departments:[
-    {id:"dep1",name:"משאבי אנוש"},
-    {id:"dep2",name:"כספים"},
-    {id:"dep3",name:"תפעול ולוגיסטיקה"},
-    {id:"dep4",name:"שיווק ומכירות"}
-  ],
   /* תת-מחלקה תלויה תמיד במחלקה שהיא שייכת אליה (departmentId) - בדיוק
-     כמו התלות של אתר עבודה בחברה. */
+     כמו התלות של אתר עבודה בחברה. departments עצמו נטען אסינכרונית (ר'
+     למטה) - הרשומות כאן מפנות ל-id-ים שיתמלאו בשמות ברגע שהוא נטען. */
   subDepartments:[
     {id:"sdp1",departmentId:"dep3",name:"מחסן"},
     {id:"sdp2",departmentId:"dep3",name:"הפצה"},
     {id:"sdp3",departmentId:"dep2",name:"הנהלת חשבונות"},
     {id:"sdp4",departmentId:"dep2",name:"גבייה"}
   ],
-  ranks:[
-    {id:"rnk1",name:"דירוג עובדי מינהל"},
-    {id:"rnk2",name:"דירוג עובדי תפעול"},
-    {id:"rnk3",name:"דירוג מנהלים"}
-  ],
-  grades:[
-    {id:"grd1",name:"דרגה 1"},
-    {id:"grd2",name:"דרגה 2"},
-    {id:"grd3",name:"דרגה 3"},
-    {id:"grd4",name:"דרגה 4"}
-  ]
+  /* maritalStatuses/spouseIncomeOptions/otherIncomeTypes/departments/ranks/
+     grades לא מוגדרים כאן - הם נטענים אסינכרונית מ-codeTables.json, ר'
+     loadStaticCodeTables למטה. companies/worksites/healthFunds/incomeTypes/
+     subDepartments נשארים כאן: הראשונים ניתנים לעריכה במסכי הניהול
+     ונשמרים ב-localStorage (ר' saveDB/loadDB), והשניים (healthFunds/
+     incomeTypes) חשופים לעריכת קוד יצוא דרך CODED_FIELDS/מסך "טבלאות
+     קוד" - כל אלה מידע בר-כתיבה, לא מידע קבוע לקריאה בלבד, ולכן לא
+     מתאימים לאותו דפוס כמו cities.json/i18n.json. */
+  maritalStatuses:[], spouseIncomeOptions:[], otherIncomeTypes:[],
+  departments:[], ranks:[], grades:[]
 };
 
-/* מיון רשימות המידע הבסיסיות (חברות, אתרי עבודה, בנקים) לפי סדר א"ב */
+/* מיון רשימות המידע הבסיסיות (חברות, אתרי עבודה) לפי סדר א"ב. departments/
+   subDepartments/ranks/grades ממוינים בתוך loadStaticCodeTables/(מיד אחריה
+   עבור subDepartments) - לא כאן, כי departments/ranks/grades עדיין ריקים
+   בשלב הזה (נטענים אסינכרונית). */
 CODE_TABLES.companies.sort((a,b)=>a.name.localeCompare(b.name,"he"));
 CODE_TABLES.worksites.sort((a,b)=>a.name.localeCompare(b.name,"he"));
-CODE_TABLES.departments.sort((a,b)=>a.name.localeCompare(b.name,"he"));
 CODE_TABLES.subDepartments.sort((a,b)=>a.name.localeCompare(b.name,"he"));
-CODE_TABLES.ranks.sort((a,b)=>a.name.localeCompare(b.name,"he"));
-CODE_TABLES.grades.sort((a,b)=>a.name.localeCompare(b.name,"he"));
+/* ============================================================
+   1-ד. רשימות קוד קבועות (לקריאה בלבד, לעולם לא נערכות דרך האפליקציה) -
+   maritalStatuses/spouseIncomeOptions/otherIncomeTypes/departments/ranks/
+   grades. קובץ JSON נפרד שנטען ב-fetch, באותו דפוס בדיוק כמו
+   cities.json/i18n.json (ר' ISRAEL_CITIES/loadCities ב-state.js): לא
+   מוטמע כ-JS literal, כדי שיהיה מידע טהור שאפשר להחליף בעתיד ב-endpoint
+   אמיתי מהשרת בלי לשנות שורת קוד אחת בטופס. עד שהטעינה מסתיימת המערכים
+   נשארים ריקים - תפריטים/רדיו שתלויים בהם פשוט מוצגים ריקים לרגע (בלי
+   שגיאה, ר' דפוסי הגנה קיימים כמו departmentName()), ומתמלאים ברגע
+   שה-render הבא רץ. */
+function loadStaticCodeTables(){
+  fetch("codeTables.json")
+    .then(function(r){ return r.ok ? r.json() : {}; })
+    .then(function(data){
+      Object.assign(CODE_TABLES, data);
+      CODE_TABLES.departments.sort((a,b)=>a.name.localeCompare(b.name,"he"));
+      CODE_TABLES.ranks.sort((a,b)=>a.name.localeCompare(b.name,"he"));
+      CODE_TABLES.grades.sort((a,b)=>a.name.localeCompare(b.name,"he"));
+      if(APP_BOOTED) render();
+    })
+    .catch(function(){ /* אין רשת/הקובץ חסר - הרשימות נשארות ריקות, לא קריטי */ });
+}
+loadStaticCodeTables();
 
 /* ============================================================
    1-א. רישום השדות שהקוד שלהם ניתן לעריכה במסך "טבלאות קוד"
@@ -254,25 +251,18 @@ const BankBranchesService = {
 };
 
 /* ============================================================
-   2. מטא-דאטה לסעיפי פטור/זיכוי ממס (חלק ח')
+   2. מטא-דאטה לסעיפי פטור/זיכוי ממס (חלק ח') - מידע קבוע לקריאה בלבד,
+   נטען אסינכרונית מ-taxCreditMeta.json באותו דפוס בדיוק כמו
+   loadStaticCodeTables/loadCities/loadTranslations. עד לסיום הטעינה
+   המערך ריק - render() של סעיף ח' פשוט לא מציג שורות, ומתמלא ברגע
+   שה-render הבא רץ.
    ============================================================ */
-const TAX_CREDIT_META = [
-  {key:"c1",num:"1",title:"אני תושב/ת ישראל",auto:true},
-  {key:"c2a",num:"2א",title:"אני נכה 100% / עיוור/ת לצמיתות",document:"אישור משרד הביטחון / האוצר / פקיד השומה / תעודת עיוור שהוצאה לאחר 1.1.1994."},
-  {key:"c2b",num:"2ב",title:"אני מקבל/ת תגמול חודשי לפי החוק הרלוונטי",document:"אישור על קבלת תגמול חודשי."},
-  {key:"c3",num:"3",title:"אני תושב/ת קבע ביישוב מזכה",tooltip:"ישוב מזכה<span style=\"font-weight:400;\">: ישוב שחל עליו סעיף 11 לפקודת מס הכנסה או סעיף 11 לחוק אס\"ח, לפי העניין.</span>",hasFields:"settlement",document:"אישור של הרשות על גבי טופס 1312א."},
-  {key:"c4",num:"4",title:"אני עולה חדש/ה",document:"תעודת עולה."},
-  {key:"c5",num:"5",title:"בגין בן/בת זוגי המתגורר/ת עימי ואין לו/לה הכנסות בשנת המס",marriedOnly:true,note:"רק אם העובד/ת או בן/בת הזוג הגיע/ה לגיל פרישה או שהוא/היא נכה או עיוור/ת עפ\"י סעיף 9(5) לפקודה."},
-  {key:"c6",num:"6",title:"אני הורה במשפחה חד הורית החי בנפרד",tooltip:"הורה במשפחה חד הורית הוא אחד מאלה:<span style=\"font-weight:400;\"> רווק, גרוש, אלמן, פרוד, עפ\"י אישור פקיד שומה בלבד.</span>",note:"ימולא רק ע\"י הורה כאמור החי בנפרד ומבקש נקודות זיכוי עבור ילדיו, הנמצאים בחזקתו ובגינם מקבל קצבת ילדים מהמוסד לביטוח לאומי בהתאם לסעיף 7 להלן ואינו מנהל משק בית משותף עם יחיד/ה אחר/ת."},
-  {key:"c7",num:"7",title:"בגין ילדי שבחזקתי המפורטים בחלק ג'",tooltip:"הורה יחיד<span style=\"font-weight:400;\">: הורה במשפחה חד הורית שהיה לו ילד שבשנת המס טרם מלאו לו 19 שנים ושההורה השני של הילד נפטר או שהילד רשום במרשם האוכלוסין בלא פרטי ההורה השני.</span>",note:"ימולא רק ע\"י הורה במשפחה חד הורית שמקבל את קצבת הילדים בגינם, או ע\"י אשה נשואה או ע\"י הורה יחיד.",requiresChild:true},
-  {key:"c8",num:"8",title:"בגין ילדיי",note:"ימולא ע\"י הורה, למעט הורה אשר סימן בפסקה 7 לעיל, אשה לא נשואה שילדיה אינם בחזקתה וכן הורה יחיד.",requiresChild:true,excludesIf:["c7"]},
-  {key:"c9",num:"9",title:"אני הורה יחיד לילדי שבחזקתי",tooltip:"הורה יחיד<span style=\"font-weight:400;\">: הורה במשפחה חד הורית שהיה לו ילד שבשנת המס טרם מלאו לו 19 שנים ושההורה השני של הילד נפטר או שהילד רשום במרשם האוכלוסין בלא פרטי ההורה השני.</span>"},
-  {key:"c10",num:"10",title:"בגין ילדי שאינם בחזקתי ואני משתתף/ת בכלכלתם",note:"ימולא ע\"י הורה החי בנפרד, שאינו זכאי לנקודות זיכוי בגין ילדיו, אשר המציא פס\"ד המחייב אותו בתשלום מזונות.",document:"צילום פסק דין המחייב בתשלום מזונות."},
-  {key:"c11",num:"11",title:"אני הורה לילדים עם מוגבלות",hasFields:"disabledCount",document:"אישור גמלת ילד נכה מהמוסד לביטוח לאומי לשנה הנוכחית."},
-  {key:"c12",num:"12",title:"בגין מזונות לבן/בת זוגי לשעבר",note:"ימולא ע\"י מי שנישא בשנית.",document:"צילום פסק דין המחייב בתשלום מזונות."},
-  {key:"c13",num:"13",title:"מלאו לי או לבן/בת זוגי 16 שנים וטרם מלאו לי או לבן/בת זוגי 18 שנים בשנת המס."},
-  {key:"c14",num:"14",title:"אני חייל/ת משוחרר/ת / שירתתי בשירות לאומי",hasFields:"serviceDates",document:"תעודת שחרור / סיום שירות."},
-  {key:"c15",num:"15",title:"בגין סיום לימודים לתואר אקדמי, סיום התמחות או סיום לימודי מקצוע",document:"טופס 119 חתום."},
-  {key:"c16",num:"16",title:"שירתתי כלוחם/לוחמת מילואים בשנת המס הקודמת",hasFields:"reserveDays",document:"אישור מצה\"ל על זכאות בעד שירות מילואים כלוחם."}
-];
+let TAX_CREDIT_META = [];
+function loadTaxCreditMeta(){
+  fetch("taxCreditMeta.json")
+    .then(function(r){ return r.ok ? r.json() : []; })
+    .then(function(data){ TAX_CREDIT_META = data; if(APP_BOOTED) render(); })
+    .catch(function(){ /* אין רשת/הקובץ חסר - סעיף ח' נשאר ריק, לא קריטי */ });
+}
+loadTaxCreditMeta();
 
