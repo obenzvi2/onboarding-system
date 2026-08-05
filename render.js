@@ -783,6 +783,7 @@ function updateNewCaseFormSelection(key,checked){
    שספרת הביקורת לא תקינה. מבטלת קודם כל טיימר Debounce ממתין (ר'
    scheduleNewCaseIdChecksumCheck) - הבדיקה המיידית כאן גוברת עליו. */
 function blurNewCaseIdNumber(value){
+  if(isRerendering) return; // blur מלאכותי שנגרם מהרינדור עצמו (ר' isRerendering) - לא פעולת יציאה אמיתית
   if(newCaseIdChecksumTimer){ clearTimeout(newCaseIdChecksumTimer); newCaseIdChecksumTimer=null; }
   const d = ui.newCaseDraft;
   d.idNumber = (value||"").trim();
@@ -795,6 +796,7 @@ function blurNewCaseIdNumber(value){
    blurNewCaseIdNumber למעלה, אותו רעיון עבור validIsraeliMobilePhone
    במקום validIsraeliId. */
 function blurNewCaseVerifiedPhone(value){
+  if(isRerendering) return; // blur מלאכותי שנגרם מהרינדור עצמו (ר' isRerendering) - לא פעולת יציאה אמיתית
   const d = ui.newCaseDraft;
   d.verifiedPhone = (value||"").trim();
   ui.newCaseErrors = ui.newCaseErrors || {};
@@ -1714,6 +1716,7 @@ function updateCaseHomeEditField(field,value){
 /* בדיקת תקינות מיידית ביציאה מהשדה (onblur) לטלפון האימות - אותו רעיון
    כמו blurNewCaseVerifiedPhone במסך פתיחת התיק. */
 function blurCaseHomeEditVerifiedPhone(value){
+  if(isRerendering) return; // blur מלאכותי שנגרם מהרינדור עצמו (ר' isRerendering) - לא פעולת יציאה אמיתית
   const d = ui.caseHomeEditDraft;
   if(!d) return;
   d.verifiedPhone = (value||"").trim();
