@@ -33,7 +33,8 @@ let ui = {
   worksiteDeleteId:null, // מזהה אתר עבודה שבתהליך מחיקה (הגדרות מערכת), null = סגור
   hrListSelection:[], // מזהי תיקי קליטה מסומנים ב-checkbox (ניהול עובדים)
   hrBulkDeleteConfirmOpen:false, // האם דיאלוג אישור מחיקת תיקים מסומנים פתוח
-  caseHomeEditDraft:null, // טיוטת חלון עריכת פרטי העובד/ת ב"כרטיס עובד" (מספר עובד/אתר עבודה/מחלקה/תת-מחלקה/דירוג/דרגה בלבד), null = סגור
+  caseHomeEditDraft:null, // טיוטת חלון עריכת פרטי העובד/ת ב"כרטיס עובד" (מספר עובד/אתר עבודה/מחלקה/תת-מחלקה/דירוג/דרגה/טלפון אימות), null = סגור
+  caseHomeEditErrors:{}, // שגיאות טופס בחלון עריכת פרטי העובד/ת (כרגע רק verifiedPhone)
   codeSystem:"shikulit", // מסך "טבלאות קוד": מערכת היעד המוצגת כרגע - "shikulit" | "blue"
   activeChecklistKey:null, // מפתח הטופס הפעיל כרגע בטאב מילוי הטפסים (FORM_CHECKLIST_DEFS)
   formLanguage:"he", // שפת התצוגה של טופס 101 (לא משפיע על הנתונים עצמם או על ההדפסה) - "he" | "both" | "both_ru"
@@ -1696,8 +1697,10 @@ function openCaseHomeEdit(){
     departmentId: c.departmentId||"",
     subDepartmentId: c.subDepartmentId||"",
     rankId: c.rankId||"",
-    gradeId: c.gradeId||""
+    gradeId: c.gradeId||"",
+    verifiedPhone: c.employee.verifiedPhone||""
   };
+  ui.caseHomeEditErrors = {};
   render();
 }
 function updateCaseHomeEditField(field,value){
@@ -1705,15 +1708,30 @@ function updateCaseHomeEditField(field,value){
   if(!d) return;
   d[field] = value;
   if(field==="departmentId") d.subDepartmentId = "";
+  if(field==="verifiedPhone") delete ui.caseHomeEditErrors.verifiedPhone;
+  render();
+}
+/* בדיקת תקינות מיידית ביציאה מהשדה (onblur) לטלפון האימות - אותו רעיון
+   כמו blurNewCaseVerifiedPhone במסך פתיחת התיק. */
+function blurCaseHomeEditVerifiedPhone(value){
+  const d = ui.caseHomeEditDraft;
+  if(!d) return;
+  d.verifiedPhone = (value||"").trim();
+  if(d.verifiedPhone && !validIsraeliMobilePhone(d.verifiedPhone)) ui.caseHomeEditErrors.verifiedPhone="המספר אינו תקין.";
+  else delete ui.caseHomeEditErrors.verifiedPhone;
   render();
 }
 function cancelCaseHomeEdit(){
   ui.caseHomeEditDraft = null;
+  ui.caseHomeEditErrors = {};
   render();
 }
 function saveCaseHomeEdit(){
   const d = ui.caseHomeEditDraft;
   if(!d) return;
+  const phone = (d.verifiedPhone||"").trim();
+  if(!phone){ ui.caseHomeEditErrors.verifiedPhone="שדה חובה."; render(); return; }
+  if(!validIsraeliMobilePhone(phone)){ ui.caseHomeEditErrors.verifiedPhone="המספר אינו תקין."; render(); return; }
   const c = currentCase();
   c.employee.employeeNumber = d.employeeNumber.trim();
   c.worksiteId = d.worksiteId;
@@ -1721,7 +1739,9 @@ function saveCaseHomeEdit(){
   c.subDepartmentId = d.subDepartmentId;
   c.rankId = d.rankId;
   c.gradeId = d.gradeId;
+  c.employee.verifiedPhone = phone;
   ui.caseHomeEditDraft = null;
+  ui.caseHomeEditErrors = {};
   showToast("הפרטים עודכנו בהצלחה.");
   render();
 }
@@ -1729,6 +1749,7 @@ function renderCaseHomeEditModal(){
   const d = ui.caseHomeEditDraft;
   if(!d) return "";
   const c = currentCase();
+  const errs = ui.caseHomeEditErrors||{};
   const worksitesForCompany = CODE_TABLES.worksites.filter(w=>w.companyId===c.companyId);
   const subDepartmentsForDepartment = CODE_TABLES.subDepartments.filter(sd=>sd.departmentId===d.departmentId);
   return '<div class="modal-overlay" onclick="if(event.target===this) cancelCaseHomeEdit()">' +
@@ -1739,6 +1760,7 @@ function renderCaseHomeEditModal(){
       '</div>' +
       '<div class="form-grid cols-2" style="margin-top:16px;">' +
         '<div class="field"><label>מספר עובד</label><input type="text" id="caseHomeEdit_employeeNumber" value="'+escapeHtml(d.employeeNumber)+'" oninput="updateCaseHomeEditField(\'employeeNumber\',this.value)"></div>' +
+        '<div class="field"><label>טלפון נייד (ישלח קישור לטפסים)</label><input type="tel" id="caseHomeEdit_verifiedPhone" value="'+escapeHtml(d.verifiedPhone)+'" oninput="updateCaseHomeEditField(\'verifiedPhone\',this.value)" onblur="blurCaseHomeEditVerifiedPhone(this.value)">'+(errs.verifiedPhone?'<div class="field-error">'+escapeHtml(errs.verifiedPhone)+'</div>':'')+'</div>' +
         '<div class="field"><label>אתר עבודה</label><select id="caseHomeEdit_worksiteId" onchange="updateCaseHomeEditField(\'worksiteId\',this.value)"><option value="">בחר/י אתר עבודה...</option>'+worksitesForCompany.map(x=>'<option value="'+x.id+'" '+(d.worksiteId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select></div>' +
         '<div class="field"><label>מחלקה</label><select id="caseHomeEdit_departmentId" onchange="updateCaseHomeEditField(\'departmentId\',this.value)"><option value="">בחר/י מחלקה...</option>'+CODE_TABLES.departments.map(x=>'<option value="'+x.id+'" '+(d.departmentId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select></div>' +
         '<div class="field"><label>תת-מחלקה</label><select id="caseHomeEdit_subDepartmentId" '+(!d.departmentId?"disabled":"")+' onchange="updateCaseHomeEditField(\'subDepartmentId\',this.value)"><option value="">'+(d.departmentId?"בחר/י תת-מחלקה...":"יש לבחור מחלקה תחילה")+'</option>'+subDepartmentsForDepartment.map(x=>'<option value="'+x.id+'" '+(d.subDepartmentId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select></div>' +
@@ -1772,6 +1794,7 @@ function renderCaseHome(){
       '<div class="k">שם עובד/ת</div><div>'+escapeHtml(name)+'</div>' +
       '<div class="k">ת.ז/דרכון</div><div>'+escapeHtml(emp.idType==="id" ? (emp.idNumber||"—") : (emp.passportNumber||"—"))+'</div>' +
       '<div class="k">מספר עובד</div><div>'+escapeHtml(emp.employeeNumber||"—")+'</div>' +
+      '<div class="k">טלפון נייד</div><div>'+escapeHtml(emp.verifiedPhone||"—")+'</div>' +
       '<div class="k">תאריך תחילת עבודה</div><div>'+formatDateHe(c.startDate)+'</div>' +
       '<div class="k">חברה מעסיקה</div><div>'+escapeHtml(companyName(c.companyId))+'</div>' +
       '<div class="k">אתר עבודה</div><div>'+escapeHtml(worksiteName(c.worksiteId))+'</div>' +
