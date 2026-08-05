@@ -896,7 +896,7 @@ function renderNewCase(){
       // שבתוך טופס 101. חובה, ומאומת מיידית ביציאה מהשדה (onblur) כדי
       // שטעות הקלדה תתגלה לפני שהקישור נשלח לעובד/ת ולא אחרי ששולחים
       // קוד לטלפון שגוי.
-      fld("verifiedPhone","טלפון נייד לאימות (יישלח אליו קוד SMS)",'<input type="tel" id="newcase_verifiedPhone" value="'+escapeHtml(d.verifiedPhone||"")+'" oninput="updateNewCaseDraft(\'verifiedPhone\',this.value)" onblur="blurNewCaseVerifiedPhone(this.value)">') +
+      fld("verifiedPhone","טלפון נייד (ישלח קישור לטפסים)",'<input type="tel" id="newcase_verifiedPhone" value="'+escapeHtml(d.verifiedPhone||"")+'" oninput="updateNewCaseDraft(\'verifiedPhone\',this.value)" onblur="blurNewCaseVerifiedPhone(this.value)">') +
       // verifiedPhone (למעלה) ממלא כעת את הזוג של "מספר עובד" בשורה שלו,
       // כך ששורות מחלקה/תת-מחלקה ודירוג/דרגה ממשיכות להיות זוגות תקינות
       // בגריד cols-2 בלי צורך בתא ריק נוסף (שהיה כאן לפני הוספת השדה הזה).
