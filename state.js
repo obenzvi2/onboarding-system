@@ -14,6 +14,12 @@ function emptyEmployee(){
   return {
     firstName:"",lastName:"",employeeNumber:"",
     idType:"id", idNumber:"", passportNumber:"",
+    /* טלפון לאימות זהות (קוד SMS) בעת פתיחת הקישור לעובד/ת - מוזן ע"י
+       מש"א בעת פתיחת התיק, לפני שהקישור נשלח (ר' renderNewCase). שונה
+       במכוון מ-mobilePhone למטה, שהעובד/ת ממלא/ה בעצמו/ה בתוך טופס 101
+       לצרכי יצירת קשר/תלוש - אותו שדה לא יכול לשמש לאימות זהות בכניסה
+       כי הוא נגיש רק *אחרי* שכבר קיבלו גישה לטופס. */
+    verifiedPhone:"",
     birthDate:"", gender:"", maritalStatus:"",
     isIsraeliResident:"", aliyaDate:"",
     kibbutzMember:"",
@@ -138,6 +144,10 @@ function saveDB(){
   try{
     localStorage.setItem(DB_STORAGE_KEY, JSON.stringify({cases:DB.cases,batches:DB.batches,currentUser:DB.currentUser,companies:CODE_TABLES.companies,worksites:CODE_TABLES.worksites,codedFields:collectCodedFieldsSnapshot()}));
   }catch(e){ /* אם localStorage חסום (למשל דפדפן בפרטיות מלאה) - ממשיכים בלי שמירה */ }
+  // בטאב הנפרד של העובד/ת (אחרי אימות SMS), נדרש גם ערוץ שמירה נוסף
+  // לשרת - ר' scheduleEmployeeCaseSync ב-render.js - כי ה-localStorage
+  // כאן מקומי לדפדפן הזה בלבד ולא מגיע חזרה למש"א בשום דרך אחרת.
+  scheduleEmployeeCaseSync();
 }
 function loadDB(){
   try{

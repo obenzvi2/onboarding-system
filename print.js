@@ -808,20 +808,19 @@ document.addEventListener("keydown", function(e){
 
 document.addEventListener("DOMContentLoaded", function(){
   // אם הכתובת נפתחה עם employeeCase=<מזהה תיק> (כך נפתח הטאב הנפרד
-  // למילוי עצמי - ראו openEmployeeFillTab) - עולים ישירות למסך מילוי
-  // העובד/ת עבור אותו תיק בלבד, ללא כל גישה למסכי משאבי אנוש.
+  // למילוי עצמי - ראו openEmployeeFillTab) - עולים למסך מילוי העובד/ת,
+  // מאחורי שער אימות קוד SMS (ר' employeeAuthBoot ב-render.js). בניגוד
+  // למה שהיה כאן קודם, אין יותר בדיקת getCase() מקומית - התיק לא נטען
+  // מ-localStorage בכלל בצד העובד/ת, אלא מהשרת ורק אחרי אימות מוצלח (ר'
+  // התוכנית: הקישור הישן, מבוסס localStorage בלבד, לא עבד בין מכשירים
+  // שונים, וזו בדיוק הבעיה שהאימות הזה בא לפתור יחד עם נגישות חוצת-מכשירים).
   const params = new URLSearchParams(location.search);
   const empCaseId = params.get("employeeCase");
-  if(empCaseId && getCase(empCaseId)){
+  if(empCaseId){
     ui.mode = "employee";
     ui.currentCaseId = empCaseId;
     ui.screen = params.get("screen") || "checklist";
-    // ברירת מחדל לשפת התצוגה של טופס 101/טופס הבנק, לפי מה שנבחר בעת
-    // פתיחת התיק (ר' CASE_LANG_TO_UI_LANG/openCase ב-render.js) - הטאב
-    // הנפרד הזה הוא "פתיחה" חד-פעמית של התיק עבור העובד/ת, כך שזה בדיוק
-    // המקום הנכון לקבוע את ברירת המחדל (העובד/ת עדיין יכול/ה לשנות בפועל
-    // דרך מתג השפה).
-    ui.formLanguage = CASE_LANG_TO_UI_LANG[getCase(empCaseId).formLanguage] || "he";
+    employeeAuthBoot(empCaseId);
   }
   // מצב כיול לתצוגת ההדפסה הרשמית של טופס 101 (ר' form101FieldMap.js) -
   // מיועד לפיתוח בלבד, מופעל אך ורק דרך פרמטר URL מפורש.

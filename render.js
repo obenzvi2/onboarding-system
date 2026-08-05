@@ -37,7 +37,12 @@ let ui = {
   codeSystem:"shikulit", // מסך "טבלאות קוד": מערכת היעד המוצגת כרגע - "shikulit" | "blue"
   activeChecklistKey:null, // מפתח הטופס הפעיל כרגע בטאב מילוי הטפסים (FORM_CHECKLIST_DEFS)
   formLanguage:"he", // שפת התצוגה של טופס 101 (לא משפיע על הנתונים עצמם או על ההדפסה) - "he" | "both" | "both_ru"
-  form101DisclaimerAck:false // האם אושר ה-disclaimer של תרגום טופס 101 (נדרש בכל שפה שאינה עברית)
+  form101DisclaimerAck:false, // האם אושר ה-disclaimer של תרגום טופס 101 (נדרש בכל שפה שאינה עברית)
+  /* מצב אימות ה-SMS בטאב הנפרד של העובד/ת (ר' employeeAuthBoot) - null
+     כשלא במצב "employee" בכלל. כש-status!=="authenticated" מוצג שער
+     האימות (renderEmployeeOtpGate) במקום תוכן הצ'קליסט/הטפסים, גם אם
+     ui.screen כבר מצביע על מסך תוכן. */
+  employeeAuth:null
 };
 /* מיפוי בין מצב דו-לשוני (ui.formLanguage) לבין קוד השפה הזרה שהוא מציג
    לצד העברית (ר' FORM101_I18N ב-i18n.js) - "both" היא הגרסה הוותיקה
@@ -297,6 +302,12 @@ function renderNow(){
   afterRenderHook();
 }
 function renderEmployeeShell(){
+  // כל עוד לא הושלם אימות ה-SMS, מציגים רק את שער האימות - בלי כותרת
+  // עליונה (שם חברה/אתר עבודה), כי נתוני התיק עצמם לא נטענו עדיין
+  // מהשרת לפני האימות (ר' employeeAuthBoot).
+  if(ui.employeeAuth && ui.employeeAuth.status!=="authenticated"){
+    return '<main class="narrow">'+renderEmployeeOtpGate()+'</main>';
+  }
   const c = currentCase();
   let body = "";
   if(ui.screen==="bank-form") body = renderBankForm(false);
@@ -312,6 +323,155 @@ function renderEmployeeShell(){
     '</div>' +
   '</div>' +
   '<main class="narrow">'+body+'</main>';
+}
+/* ============================================================
+   8ב. אימות SMS לטאב הנפרד של העובד/ת - ר' התוכנית בקובץ:
+   graceful-skipping-unicorn.md. עד לאימות מוצלח, נתוני התיק לא זמינים
+   בכלל בצד הלקוח (לא נטענים ל-DB.cases) - כך שאין מה לדלוף גם אם מישהו
+   מנחש/מעביר הלאה את כתובת הקישור בלי הטלפון שקיבל את הקוד.
+   ============================================================ */
+function employeeSessionStorageKey(caseId){ return "emp_session_"+caseId; }
+function getEmployeeSessionToken(caseId){
+  try{ return sessionStorage.getItem(employeeSessionStorageKey(caseId)); }catch(e){ return null; }
+}
+function setEmployeeSessionToken(caseId, token){
+  try{ sessionStorage.setItem(employeeSessionStorageKey(caseId), token); }catch(e){ /* פרטיות מלאה/חסום - ממשיכים בלי שמירה */ }
+}
+function clearEmployeeSessionToken(caseId){
+  try{ sessionStorage.removeItem(employeeSessionStorageKey(caseId)); }catch(e){ /* ר' setEmployeeSessionToken */ }
+}
+/* שומרת (PUT) את מצב התיק הנוכחי לשרת - נקראת מ-saveDB() ב-state.js בכל
+   רינדור, אבל פועלת בפועל רק כשמאומתים במצב עובד/ת (ר' תנאי למטה).
+   ה-localStorage של הדפדפן הזה עדיין נשמר כרגיל ע"י saveDB עצמה - זהו
+   ערוץ *נוסף*, לא תחליף, כדי שמש"א תוכל לראות בהמשך מה שהעובד/ת מילא/ה
+   (ר' loadCaseFromServerForHr/כפתור "רענון נתונים מהעובד/ת"). מבוצע
+   ב-Debounce (כמו בדיקות ת.ז/טלפון קיימות) כדי לא לשלוח בקשת רשת על כל
+   הקשה בודדת בטופס. */
+let employeeCaseSyncTimer = null;
+function scheduleEmployeeCaseSync(){
+  if(!(ui.mode==="employee" && ui.employeeAuth && ui.employeeAuth.status==="authenticated")) return;
+  const caseId = ui.currentCaseId;
+  const token = getEmployeeSessionToken(caseId);
+  if(!caseId || !token) return;
+  if(employeeCaseSyncTimer) clearTimeout(employeeCaseSyncTimer);
+  employeeCaseSyncTimer = setTimeout(function(){
+    employeeCaseSyncTimer = null;
+    const c = getCase(caseId);
+    if(!c) return;
+    fetch("/api/cases/"+encodeURIComponent(caseId), {
+      method:"PUT",
+      headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+token },
+      body: JSON.stringify(c)
+    }).catch(function(){ /* השמירה המקומית (localStorage) כבר הצליחה; ניתוק זמני מהשרת ינסה שוב בשמירה הבאה */ });
+  }, ID_CHECKSUM_DEBOUNCE_MS);
+}
+// מכניסה/מעדכנת תיק שהתקבל מהשרת בתוך DB.cases המקומי - מאותו רגע כל
+// שאר הקוד הקיים (getCase/currentCase/renderXxx) עובד בדיוק כמו על תיק
+// "רגיל", בלי לדעת שמקור הנתונים הוא השרת ולא localStorage.
+function upsertLocalCase(caseData){
+  const idx = DB.cases.findIndex(function(x){ return x.id===caseData.id; });
+  if(idx>=0) DB.cases[idx] = caseData; else DB.cases.push(caseData);
+}
+function loadEmployeeCaseFromServer(caseId, token){
+  return fetch("/api/cases/"+encodeURIComponent(caseId), { headers:{ "Authorization":"Bearer "+token } })
+    .then(function(r){ if(!r.ok) throw new Error("unauthorized"); return r.json(); })
+    .then(function(data){
+      upsertLocalCase(data);
+      ui.formLanguage = CASE_LANG_TO_UI_LANG[data.formLanguage] || "he";
+      return true;
+    })
+    .catch(function(){ return false; });
+}
+function employeeAuthBoot(caseId){
+  ui.employeeAuth = { status:"checking", maskedPhone:"", code:"", error:"" };
+  const token = getEmployeeSessionToken(caseId);
+  if(!token){ startEmployeeOtpSend(caseId); return; }
+  loadEmployeeCaseFromServer(caseId, token).then(function(ok){
+    if(ok){ ui.employeeAuth.status = "authenticated"; render(); }
+    else { clearEmployeeSessionToken(caseId); startEmployeeOtpSend(caseId); }
+  });
+}
+function startEmployeeOtpSend(caseId){
+  ui.employeeAuth.status = "sending";
+  ui.employeeAuth.error = "";
+  render();
+  fetch("/api/otp/send", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({caseId:caseId}) })
+    .then(function(r){ return r.json().then(function(data){ return {ok:r.ok, data:data}; }); })
+    .then(function(res){
+      if(res.ok){
+        ui.employeeAuth.status = "sent";
+        ui.employeeAuth.maskedPhone = res.data.maskedPhone || "";
+      } else {
+        ui.employeeAuth.status = "sendError";
+        ui.employeeAuth.error = res.data.error || "לא הצלחנו לשלוח קוד אימות. ייתכן שהקישור אינו תקין.";
+      }
+      render();
+    })
+    .catch(function(){
+      ui.employeeAuth.status = "sendError";
+      ui.employeeAuth.error = "שגיאת תקשורת. יש לנסות שוב.";
+      render();
+    });
+}
+function updateEmployeeOtpCode(value){
+  ui.employeeAuth.code = (value||"").replace(/\D/g,"").slice(0,6);
+  render();
+}
+function submitEmployeeOtpCode(){
+  const caseId = ui.currentCaseId;
+  const code = (ui.employeeAuth.code||"").trim();
+  if(!code){ ui.employeeAuth.error = "יש להקליד את הקוד שהתקבל."; render(); return; }
+  ui.employeeAuth.status = "verifying";
+  ui.employeeAuth.error = "";
+  render();
+  fetch("/api/otp/verify", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({caseId:caseId, code:code}) })
+    .then(function(r){ return r.json().then(function(data){ return {ok:r.ok, data:data}; }); })
+    .then(function(res){
+      if(res.ok && res.data.token){
+        setEmployeeSessionToken(caseId, res.data.token);
+        return loadEmployeeCaseFromServer(caseId, res.data.token).then(function(ok){
+          if(ok){ ui.employeeAuth.status = "authenticated"; }
+          else {
+            ui.employeeAuth.status = "sendError";
+            ui.employeeAuth.error = "האימות הצליח אך טעינת נתוני התיק נכשלה. יש לרענן את הדף.";
+          }
+          render();
+        });
+      }
+      ui.employeeAuth.status = "sent";
+      ui.employeeAuth.error = (res.data && res.data.error) || "הקוד שגוי.";
+      render();
+    })
+    .catch(function(){
+      ui.employeeAuth.status = "sent";
+      ui.employeeAuth.error = "שגיאת תקשורת. יש לנסות שוב.";
+      render();
+    });
+}
+function renderEmployeeOtpGate(){
+  const st = ui.employeeAuth || {};
+  if(st.status==="checking" || st.status==="sending"){
+    return '<div class="panel" style="max-width:420px;margin:60px auto;text-align:center;">טוען...</div>';
+  }
+  if(st.status==="sendError"){
+    return '<div class="panel" style="max-width:420px;margin:60px auto;text-align:center;">' +
+      '<div style="margin-bottom:12px;">'+escapeHtml(st.error||"אירעה שגיאה.")+'</div>' +
+      '<button class="btn btn-primary" onclick="startEmployeeOtpSend(ui.currentCaseId)">נסה/י שוב</button>' +
+    '</div>';
+  }
+  const err = st.error ? '<div class="field-error">'+escapeHtml(st.error)+'</div>' : "";
+  return '<div class="panel" style="max-width:420px;margin:60px auto;">' +
+    '<h2 class="section-title" style="margin-top:0;">אימות זהות</h2>' +
+    '<div class="page-desc">שלחנו קוד אימות בן 6 ספרות לטלפון המסתיים ב-'+escapeHtml(st.maskedPhone||"")+'.</div>' +
+    '<div class="field"><label>קוד אימות</label>' +
+      '<input type="text" inputmode="numeric" maxlength="6" id="employeeOtpCode" autofocus value="'+escapeHtml(st.code||"")+'" oninput="updateEmployeeOtpCode(this.value)" onkeydown="if(event.key===\'Enter\') submitEmployeeOtpCode()">' +
+    err +
+    '</div>' +
+    '<div class="btn-row">' +
+      '<button class="btn btn-primary" '+(st.status==="verifying"?"disabled":"")+' onclick="submitEmployeeOtpCode()">אישור</button>' +
+      '<button class="btn btn-secondary" style="margin-right:16px;" onclick="startEmployeeOtpSend(ui.currentCaseId)">שלח קוד שוב</button>' +
+    '</div>' +
+  '</div>';
 }
 function afterRenderHook(){
   // הפעלת טולטיפים פתוחים מחדש אם צריך, וכן פוקוס בשדה שגיאה ראשון
@@ -493,25 +653,70 @@ function employeeFillUrl(caseId, screen){
   const base = location.href.split("?")[0].split("#")[0];
   return base + "?employeeCase=" + encodeURIComponent(caseId) + "&screen=" + encodeURIComponent(screen||"checklist");
 }
+/* דוחפת עותק נוכחי של התיק ל-/api/cases/[id]/share - שלב הכרחי לפני
+   שהקישור לעובד/ת נוצר, כי מרגע זה התיק נגיש גם ממכשירים אחרים דרך
+   השרת (ר' התוכנית: הקישור הישן, מבוסס localStorage בלבד, לא עבד בין
+   מכשירים שונים בכלל). מחזירה Promise שמסתיים ב-true/false לפי הצלחה,
+   כדי ששני מקומות הקריאה (copyEmployeeLink/openEmployeeFillTab) יוכלו
+   להחליט אם להמשיך. */
+function shareCaseWithEmployee(caseId){
+  const c = getCase(caseId);
+  if(!c || !c.employee || !c.employee.verifiedPhone){
+    showToast("יש להזין טלפון נייד לאימות לפני שליחת הקישור לעובד/ת.");
+    return Promise.resolve(false);
+  }
+  return fetch("/api/cases/"+encodeURIComponent(caseId)+"/share", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(c)
+  }).then(function(r){
+    if(!r.ok) throw new Error("share failed");
+    c.sharedWithEmployee = true;
+    return true;
+  }).catch(function(){
+    showToast("שגיאה בשליחת נתוני התיק לשרת. יש לנסות שוב.");
+    return false;
+  });
+}
 // מעתיק את קישור הטאב הנפרד ללוח (בלי לפתוח אותו) - לשימוש כשרוצים לשלוח
 // את הקישור לעובד/ת עצמו/ה (למשל בווטסאפ/מייל), בניגוד לכפתור "לעמוד מילוי
 // טפסים" שמיועד לפתיחה עצמית של מש"א.
+/* "רענון נתונים מהעובד/ת" - שולפת את העותק העדכני מהשרת (מה שהעובד/ת
+   מילא/ה במכשיר שלו/ה, ר' scheduleEmployeeCaseSync) ומחליפה בו את התיק
+   המקומי. במכוון לא אוטומטי/שקט - מש"א צריכה ללחוץ במפורש (ר' התוכנית),
+   כדי לא לדרוס עריכות מקומיות שלה בלי אזהרה. */
+function refreshCaseFromEmployee(caseId){
+  fetch("/api/cases/"+encodeURIComponent(caseId)+"/share")
+    .then(function(r){ if(!r.ok) throw new Error("refresh failed"); return r.json(); })
+    .then(function(data){
+      upsertLocalCase(data);
+      showToast("הנתונים עודכנו מהעותק שמילא/ה העובד/ת.");
+      render();
+    })
+    .catch(function(){ showToast("שגיאה בשליפת הנתונים מהשרת."); });
+}
 function copyEmployeeLink(caseId){
-  const url = employeeFillUrl(caseId,"checklist");
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(url).then(
-      ()=>showToast("הקישור לעובד/ת הועתק."),
-      ()=>showToast("שגיאה בהעתקת הקישור.")
-    );
-  } else {
-    showToast("שגיאה בהעתקת הקישור.");
-  }
+  shareCaseWithEmployee(caseId).then(function(ok){
+    if(!ok) return;
+    const url = employeeFillUrl(caseId,"checklist");
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(
+        ()=>showToast("הקישור לעובד/ת הועתק."),
+        ()=>showToast("שגיאה בהעתקת הקישור.")
+      );
+    } else {
+      showToast("שגיאה בהעתקת הקישור.");
+    }
+  });
 }
 function openEmployeeFillTab(caseId, screen){
   saveDB();
-  const url = employeeFillUrl(caseId, screen);
-  const win = window.open(url, "_blank");
-  if(!win){ showToast("חוסם חלונות קופצים מנע פתיחת טאב נפרד. יש לאשר חלונות קופצים לעמוד זה ולנסות שוב."); }
+  shareCaseWithEmployee(caseId).then(function(ok){
+    if(!ok) return;
+    const url = employeeFillUrl(caseId, screen);
+    const win = window.open(url, "_blank");
+    if(!win){ showToast("חוסם חלונות קופצים מנע פתיחת טאב נפרד. יש לאשר חלונות קופצים לעמוד זה ולנסות שוב."); }
+  });
 }
 function printForm(caseId,type){
   ui.currentCaseId = caseId;
@@ -526,7 +731,7 @@ function printForm(caseId,type){
    ============================================================ */
 function goNewCase(){
   ui.newCaseDraft = {taxYear:2026, companyId:"", worksiteId:"", startDate:"", formLanguage:"he", formSelection: defaultFormSelection(),
-    firstName:"", lastName:"", idType:"id", idNumber:"", passportNumber:"", employeeNumber:"",
+    firstName:"", lastName:"", idType:"id", idNumber:"", passportNumber:"", employeeNumber:"", verifiedPhone:"",
     departmentId:"", subDepartmentId:"", rankId:"", gradeId:""};
   ui.newCaseErrors = {};
   setScreen("new-case");
@@ -585,6 +790,17 @@ function blurNewCaseIdNumber(value){
   else delete ui.newCaseErrors.idNumber;
   render();
 }
+/* בדיקת תקינות מיידית ביציאה מהשדה (onblur) לטלפון האימות - בדיוק כמו
+   blurNewCaseIdNumber למעלה, אותו רעיון עבור validIsraeliMobilePhone
+   במקום validIsraeliId. */
+function blurNewCaseVerifiedPhone(value){
+  const d = ui.newCaseDraft;
+  d.verifiedPhone = (value||"").trim();
+  ui.newCaseErrors = ui.newCaseErrors || {};
+  if(d.verifiedPhone && !validIsraeliMobilePhone(d.verifiedPhone)) ui.newCaseErrors.verifiedPhone="המספר אינו תקין.";
+  else delete ui.newCaseErrors.verifiedPhone;
+  render();
+}
 function validateNewCase(){
   const d = ui.newCaseDraft, errs={};
   if(!d.taxYear) errs.taxYear="שדה חובה.";
@@ -601,6 +817,10 @@ function validateNewCase(){
     if(!d.passportNumber) errs.idNumber="שדה חובה.";
     else if(!/^[A-Za-z0-9]{3,20}$/.test(d.passportNumber)) errs.idNumber="יש להזין 3 עד 20 אותיות ו/או ספרות בלבד.";
   }
+  // טלפון לאימות זהות (קוד SMS) - חובה, שונה מ-mobilePhone האופציונלי
+  // שבתוך טופס 101 (ר' הערה ב-emptyEmployee ב-state.js).
+  if(!d.verifiedPhone||!d.verifiedPhone.trim()) errs.verifiedPhone="שדה חובה.";
+  else if(!validIsraeliMobilePhone(d.verifiedPhone.trim())) errs.verifiedPhone="המספר אינו תקין.";
   ui.newCaseErrors = errs;
   return Object.keys(errs).length===0;
 }
@@ -624,6 +844,7 @@ function submitNewCase(){
   // לשיקלולית מיד עם פתיחת התיק, ולא רק בעת בדיקת ספרת הביקורת עצמה.
   c.employee.idNumber = d.idType==="id" ? normalizeIsraeliId(d.idNumber) : "";
   c.employee.passportNumber = d.idType==="passport" ? (d.passportNumber||"").trim() : "";
+  c.employee.verifiedPhone = (d.verifiedPhone||"").trim();
   // שדה חופשי לא-חובה, ממולא ע"י מנהל/ת משאבי אנוש בעת פתיחת התיק - נועד
   // ליצוא לשיקלולית/מערכת כחולה (ר' תכנון מיפוי היצוא), לא נבדק/מאומת.
   c.employee.employeeNumber = (d.employeeNumber||"").trim();
@@ -639,7 +860,7 @@ function submitNewCase(){
 }
 function renderNewCase(){
   const d = ui.newCaseDraft || (ui.newCaseDraft={taxYear:2026,companyId:"",worksiteId:"",startDate:"",formLanguage:"he",formSelection:defaultFormSelection(),
-    firstName:"",lastName:"",idType:"id",idNumber:"",passportNumber:"",employeeNumber:"",
+    firstName:"",lastName:"",idType:"id",idNumber:"",passportNumber:"",employeeNumber:"",verifiedPhone:"",
     departmentId:"",subDepartmentId:"",rankId:"",gradeId:""});
   const errs = ui.newCaseErrors || {};
   const worksitesForCompany = CODE_TABLES.worksites.filter(w=>w.companyId===d.companyId);
@@ -670,11 +891,15 @@ function renderNewCase(){
         fld("idNumber","מספר תעודת זהות (9 ספרות)",'<input type="text" id="newcase_idNumber" maxlength="9" value="'+escapeHtml(d.idNumber||"")+'" oninput="updateNewCaseDraft(\'idNumber\',this.value.trim())" onblur="blurNewCaseIdNumber(this.value)">')
       ) +
       fld("employeeNumber","מספר עובד",'<input type="text" id="newcase_employeeNumber" value="'+escapeHtml(d.employeeNumber||"")+'" oninput="updateNewCaseDraft(\'employeeNumber\',this.value)">',null,true) +
-      // תא ריק שממלא את הזוג של "מספר עובד" בשורה שלו - כדי שמחלקה/תת-מחלקה
-      // וגם דירוג/דרגה ימשיכו להיות זוגות באותה שורה בגריד cols-2 (בלי זה,
-      // מחלקה היה "נגרר" לתפוס את התא הפנוי ליד מספר עובד ומזיז את כל הזוגות
-      // אחריו בשורה אחת, ר' תיקון קודם עם span-2 שהיה רחב מדי).
-      '<div class="field"></div>' +
+      // טלפון לאימות זהות (קוד SMS) בעת פתיחת הקישור לעובד/ת - ר' הערה
+      // ב-emptyEmployee (state.js) להסבר מלא למה זה שדה נפרד מ-mobilePhone
+      // שבתוך טופס 101. חובה, ומאומת מיידית ביציאה מהשדה (onblur) כדי
+      // שטעות הקלדה תתגלה לפני שהקישור נשלח לעובד/ת ולא אחרי ששולחים
+      // קוד לטלפון שגוי.
+      fld("verifiedPhone","טלפון נייד לאימות (יישלח אליו קוד SMS)",'<input type="tel" id="newcase_verifiedPhone" value="'+escapeHtml(d.verifiedPhone||"")+'" oninput="updateNewCaseDraft(\'verifiedPhone\',this.value)" onblur="blurNewCaseVerifiedPhone(this.value)">') +
+      // verifiedPhone (למעלה) ממלא כעת את הזוג של "מספר עובד" בשורה שלו,
+      // כך ששורות מחלקה/תת-מחלקה ודירוג/דרגה ממשיכות להיות זוגות תקינות
+      // בגריד cols-2 בלי צורך בתא ריק נוסף (שהיה כאן לפני הוספת השדה הזה).
       fld("departmentId","מחלקה",'<select onchange="updateNewCaseDraft(\'departmentId\',this.value)"><option value="">בחר/י מחלקה...</option>'+CODE_TABLES.departments.map(x=>'<option value="'+x.id+'" '+(d.departmentId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select>',null,true) +
       fld("subDepartmentId","תת-מחלקה",'<select '+(!d.departmentId?"disabled":"")+' onchange="updateNewCaseDraft(\'subDepartmentId\',this.value)"><option value="">'+(d.departmentId?"בחר/י תת-מחלקה...":"יש לבחור מחלקה תחילה")+'</option>'+subDepartmentsForDepartment.map(x=>'<option value="'+x.id+'" '+(d.subDepartmentId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select>',null,true) +
       fld("rankId","דירוג",'<select onchange="updateNewCaseDraft(\'rankId\',this.value)"><option value="">בחר/י דירוג...</option>'+CODE_TABLES.ranks.map(x=>'<option value="'+x.id+'" '+(d.rankId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select>',null,true) +
@@ -1577,6 +1802,11 @@ function renderCaseHome(){
         '<input readonly dir="ltr" value="'+escapeHtml(employeeFillUrl(c.id,"checklist"))+'" style="width:100%;border:none;background:transparent;font-size:13px;color:var(--header-text);text-align:left;outline:none;">' +
       '</div>' +
     '</div>' +
+    // מוצג רק אחרי שהתיק שותף לפחות פעם אחת (ר' shareCaseWithEmployee) -
+    // לפני כן אין לשרת שום עותק לשלוף.
+    (c.sharedWithEmployee ?
+      '<div style="margin-top:10px;"><button class="btn btn-sm btn-secondary" onclick="refreshCaseFromEmployee(\''+c.id+'\')">רענון נתונים מהעובד/ת</button></div>'
+      : "") +
   '</div>' +
   renderCaseHomeEditModal();
 }
