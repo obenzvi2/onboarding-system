@@ -760,10 +760,30 @@ function scheduleNewCaseIdChecksumCheck(){
     render();
   }, ID_CHECKSUM_DEBOUNCE_MS);
 }
+let newCaseVerifiedPhoneTimer = null;
+/* אותו רעיון בדיוק כמו scheduleNewCaseIdChecksumCheck, עבור בדיקת
+   הקידומת המלאה (validIsraeliMobilePhone) של טלפון האימות - רצה 500
+   מ"ש אחרי ההקלדה האחרונה, ורק אם אין כרגע שגיאת "ספרות בלבד" חיה (ר'
+   updateNewCaseDraft) שכבר מכסה את המקרה. */
+function scheduleNewCaseVerifiedPhoneCheck(){
+  if(newCaseVerifiedPhoneTimer) clearTimeout(newCaseVerifiedPhoneTimer);
+  const d = ui.newCaseDraft;
+  newCaseVerifiedPhoneTimer = setTimeout(function(){
+    newCaseVerifiedPhoneTimer = null;
+    if(ui.screen!=="new-case" || ui.newCaseDraft!==d) return;
+    ui.newCaseErrors = ui.newCaseErrors || {};
+    if(d.verifiedPhone && !validIsraeliMobilePhone(d.verifiedPhone)) ui.newCaseErrors.verifiedPhone="המספר אינו תקין.";
+    else delete ui.newCaseErrors.verifiedPhone;
+    render();
+  }, ID_CHECKSUM_DEBOUNCE_MS);
+}
 /* רץ תוך כדי הקלדה (oninput) על כל שדות הטיוטה. לשדה idNumber (ת.ז)
    יש חריג כמו בטופס 101: מוחקת מיד שגיאת checksum קודמת שהוצגה
    (מ-blur/מ-debounce קודם) ומתזמנת בדיקה מחודשת ב-Debounce - ר'
-   scheduleNewCaseIdChecksumCheck. */
+   scheduleNewCaseIdChecksumCheck. לשדה verifiedPhone יש שכבה נוספת -
+   בדיוק כמו liveFormatError/updateEmp בטופס 101 עבור mobilePhone/phone2:
+   תו לא-ספרה (כמו מקף) חוסם מיד עם הודעה קבועה, בלי לחכות ל-Debounce -
+   ורק אם אין תו לא-חוקי כזה מתזמנים את בדיקת הקידומת המלאה. */
 function updateNewCaseDraft(field,value){
   ui.newCaseDraft[field]=value;
   if(field==="companyId") ui.newCaseDraft.worksiteId="";
@@ -771,6 +791,16 @@ function updateNewCaseDraft(field,value){
   if(field==="idNumber"){
     if(ui.newCaseErrors) delete ui.newCaseErrors.idNumber;
     scheduleNewCaseIdChecksumCheck();
+  }
+  if(field==="verifiedPhone"){
+    ui.newCaseErrors = ui.newCaseErrors || {};
+    if(value && !/^\d*$/.test(value)){
+      ui.newCaseErrors.verifiedPhone = "נא להשתמש בספרות בלבד.";
+      if(newCaseVerifiedPhoneTimer){ clearTimeout(newCaseVerifiedPhoneTimer); newCaseVerifiedPhoneTimer=null; }
+    } else {
+      delete ui.newCaseErrors.verifiedPhone;
+      scheduleNewCaseVerifiedPhoneCheck();
+    }
   }
   render();
 }
@@ -797,6 +827,7 @@ function blurNewCaseIdNumber(value){
    במקום validIsraeliId. */
 function blurNewCaseVerifiedPhone(value){
   if(isRerendering) return; // blur מלאכותי שנגרם מהרינדור עצמו (ר' isRerendering) - לא פעולת יציאה אמיתית
+  if(newCaseVerifiedPhoneTimer){ clearTimeout(newCaseVerifiedPhoneTimer); newCaseVerifiedPhoneTimer=null; }
   const d = ui.newCaseDraft;
   d.verifiedPhone = (value||"").trim();
   ui.newCaseErrors = ui.newCaseErrors || {};
@@ -899,7 +930,7 @@ function renderNewCase(){
       // שבתוך טופס 101. חובה, ומאומת מיידית ביציאה מהשדה (onblur) כדי
       // שטעות הקלדה תתגלה לפני שהקישור נשלח לעובד/ת ולא אחרי ששולחים
       // קוד לטלפון שגוי.
-      fld("verifiedPhone","טלפון נייד (ישלח קישור לטפסים)",'<input type="tel" id="newcase_verifiedPhone" value="'+escapeHtml(d.verifiedPhone||"")+'" oninput="updateNewCaseDraft(\'verifiedPhone\',this.value)" onblur="blurNewCaseVerifiedPhone(this.value)">') +
+      fld("verifiedPhone","טלפון נייד (ישלח קישור לטפסים)",'<input type="tel" id="newcase_verifiedPhone" maxlength="10" value="'+escapeHtml(d.verifiedPhone||"")+'" oninput="updateNewCaseDraft(\'verifiedPhone\',this.value)" onblur="blurNewCaseVerifiedPhone(this.value)">') +
       // verifiedPhone (למעלה) ממלא כעת את הזוג של "מספר עובד" בשורה שלו,
       // כך ששורות מחלקה/תת-מחלקה ודירוג/דרגה ממשיכות להיות זוגות תקינות
       // בגריד cols-2 בלי צורך בתא ריק נוסף (שהיה כאן לפני הוספת השדה הזה).
@@ -1705,18 +1736,45 @@ function openCaseHomeEdit(){
   ui.caseHomeEditErrors = {};
   render();
 }
+let caseHomeEditVerifiedPhoneTimer = null;
+/* אותו רעיון בדיוק כמו scheduleNewCaseVerifiedPhoneCheck במסך פתיחת
+   התיק - בדיקת הקידומת המלאה ב-Debounce, נפרדת מבדיקת "ספרות בלבד"
+   המיידית ב-updateCaseHomeEditField. */
+function scheduleCaseHomeEditVerifiedPhoneCheck(){
+  if(caseHomeEditVerifiedPhoneTimer) clearTimeout(caseHomeEditVerifiedPhoneTimer);
+  const d = ui.caseHomeEditDraft;
+  caseHomeEditVerifiedPhoneTimer = setTimeout(function(){
+    caseHomeEditVerifiedPhoneTimer = null;
+    if(ui.caseHomeEditDraft!==d) return;
+    if(d.verifiedPhone && !validIsraeliMobilePhone(d.verifiedPhone)) ui.caseHomeEditErrors.verifiedPhone="המספר אינו תקין.";
+    else delete ui.caseHomeEditErrors.verifiedPhone;
+    render();
+  }, ID_CHECKSUM_DEBOUNCE_MS);
+}
+/* רץ תוך כדי הקלדה (oninput) - לשדה verifiedPhone יש את אותה שכבה
+   כפולה כמו ב-updateNewCaseDraft: תו לא-ספרה חוסם מיד, אחרת מתזמנים
+   בדיקת קידומת מלאה ב-Debounce. */
 function updateCaseHomeEditField(field,value){
   const d = ui.caseHomeEditDraft;
   if(!d) return;
   d[field] = value;
   if(field==="departmentId") d.subDepartmentId = "";
-  if(field==="verifiedPhone") delete ui.caseHomeEditErrors.verifiedPhone;
+  if(field==="verifiedPhone"){
+    if(value && !/^\d*$/.test(value)){
+      ui.caseHomeEditErrors.verifiedPhone = "נא להשתמש בספרות בלבד.";
+      if(caseHomeEditVerifiedPhoneTimer){ clearTimeout(caseHomeEditVerifiedPhoneTimer); caseHomeEditVerifiedPhoneTimer=null; }
+    } else {
+      delete ui.caseHomeEditErrors.verifiedPhone;
+      scheduleCaseHomeEditVerifiedPhoneCheck();
+    }
+  }
   render();
 }
 /* בדיקת תקינות מיידית ביציאה מהשדה (onblur) לטלפון האימות - אותו רעיון
    כמו blurNewCaseVerifiedPhone במסך פתיחת התיק. */
 function blurCaseHomeEditVerifiedPhone(value){
   if(isRerendering) return; // blur מלאכותי שנגרם מהרינדור עצמו (ר' isRerendering) - לא פעולת יציאה אמיתית
+  if(caseHomeEditVerifiedPhoneTimer){ clearTimeout(caseHomeEditVerifiedPhoneTimer); caseHomeEditVerifiedPhoneTimer=null; }
   const d = ui.caseHomeEditDraft;
   if(!d) return;
   d.verifiedPhone = (value||"").trim();
@@ -1763,7 +1821,7 @@ function renderCaseHomeEditModal(){
       '</div>' +
       '<div class="form-grid cols-2" style="margin-top:16px;">' +
         '<div class="field"><label>מספר עובד</label><input type="text" id="caseHomeEdit_employeeNumber" value="'+escapeHtml(d.employeeNumber)+'" oninput="updateCaseHomeEditField(\'employeeNumber\',this.value)"></div>' +
-        '<div class="field"><label>טלפון נייד (ישלח קישור לטפסים)</label><input type="tel" id="caseHomeEdit_verifiedPhone" value="'+escapeHtml(d.verifiedPhone)+'" oninput="updateCaseHomeEditField(\'verifiedPhone\',this.value)" onblur="blurCaseHomeEditVerifiedPhone(this.value)">'+(errs.verifiedPhone?'<div class="field-error">'+escapeHtml(errs.verifiedPhone)+'</div>':'')+'</div>' +
+        '<div class="field"><label>טלפון נייד (ישלח קישור לטפסים)</label><input type="tel" id="caseHomeEdit_verifiedPhone" maxlength="10" value="'+escapeHtml(d.verifiedPhone)+'" oninput="updateCaseHomeEditField(\'verifiedPhone\',this.value)" onblur="blurCaseHomeEditVerifiedPhone(this.value)">'+(errs.verifiedPhone?'<div class="field-error">'+escapeHtml(errs.verifiedPhone)+'</div>':'')+'</div>' +
         '<div class="field"><label>אתר עבודה</label><select id="caseHomeEdit_worksiteId" onchange="updateCaseHomeEditField(\'worksiteId\',this.value)"><option value="">בחר/י אתר עבודה...</option>'+worksitesForCompany.map(x=>'<option value="'+x.id+'" '+(d.worksiteId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select></div>' +
         '<div class="field"><label>מחלקה</label><select id="caseHomeEdit_departmentId" onchange="updateCaseHomeEditField(\'departmentId\',this.value)"><option value="">בחר/י מחלקה...</option>'+CODE_TABLES.departments.map(x=>'<option value="'+x.id+'" '+(d.departmentId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select></div>' +
         '<div class="field"><label>תת-מחלקה</label><select id="caseHomeEdit_subDepartmentId" '+(!d.departmentId?"disabled":"")+' onchange="updateCaseHomeEditField(\'subDepartmentId\',this.value)"><option value="">'+(d.departmentId?"בחר/י תת-מחלקה...":"יש לבחור מחלקה תחילה")+'</option>'+subDepartmentsForDepartment.map(x=>'<option value="'+x.id+'" '+(d.subDepartmentId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select></div>' +
