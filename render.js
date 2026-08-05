@@ -43,7 +43,8 @@ let ui = {
      כשלא במצב "employee" בכלל. כש-status!=="authenticated" מוצג שער
      האימות (renderEmployeeOtpGate) במקום תוכן הצ'קליסט/הטפסים, גם אם
      ui.screen כבר מצביע על מסך תוכן. */
-  employeeAuth:null
+  employeeAuth:null,
+  copiedLinkCaseId:null // מזהה התיק שהקישור שלו הועתק לאחרונה (חיווי "✓ הועתק" זמני על הכפתור, ר' flashCopiedButton), null = אין חיווי פעיל
 };
 /* מיפוי בין מצב דו-לשוני (ui.formLanguage) לבין קוד השפה הזרה שהוא מציג
    לצד העברית (ר' FORM101_I18N ב-i18n.js) - "both" היא הגרסה הוותיקה
@@ -696,17 +697,23 @@ function refreshCaseFromEmployee(caseId){
     })
     .catch(function(){ showToast("שגיאה בשליפת הנתונים מהשרת."); });
 }
-/* מקבלת גם את אלמנט הכפתור עצמו (btn), כדי להציג עליו חיווי "✓ הועתק"
-   זמני במקום המדויק שהעין כבר נמצאת בו - ר' flashCopiedButton. הטוסט
-   הכללי (showToast) עלול להופיע באיחור ניכר (יש קריאת רשת ל-
-   shareCaseWithEmployee לפני ההעתקה עצמה) וקל לפספס אותו, לבקשת המשתמשת. */
-function copyEmployeeLink(caseId, btn){
+/* לבקשת המשתמשת: חיווי "✓ הועתק" זמני על הכפתור עצמו, במקום המדויק
+   שהעין כבר נמצאת בו - הטוסט הכללי (showToast) עלול להופיע באיחור ניכר
+   (יש קריאת רשת ל-shareCaseWithEmployee לפני ההעתקה עצמה) וקל לפספס
+   אותו. נבדק בפועל: מניפולציה ישירה על אלמנט ה-DOM (btn.textContent)
+   לא הייתה אמינה - הכפתור לא הראה שינוי נראה לעין אצל המשתמשת אף
+   שהטוסט הצליח, כנראה בגלל render() כלשהו שממיר את הכפתור לאלמנט חדש
+   בינתיים. הפתרון: ui.copiedLinkCaseId מחזיק את מזהה התיק שהועתק
+   לאחרונה, וה-template של הכפתור עצמו (למטה, ב-renderCaseHome) קורא
+   מהמשתנה הזה בכל render() - כך שהתצוגה תמיד מסונכרנת עם מה שבאמת
+   קורה, בלי תלות בזהות אלמנט DOM ספציפי. */
+function copyEmployeeLink(caseId){
   shareCaseWithEmployee(caseId).then(function(ok){
     if(!ok) return;
     const url = employeeFillUrl(caseId,"checklist");
     if(navigator.clipboard && navigator.clipboard.writeText){
       navigator.clipboard.writeText(url).then(
-        ()=>{ showToast("הקישור לעובד/ת הועתק."); flashCopiedButton(btn); },
+        ()=>{ showToast("הקישור לעובד/ת הועתק."); flashCopiedButton(caseId); },
         ()=>showToast("שגיאה בהעתקת הקישור.")
       );
     } else {
@@ -714,20 +721,13 @@ function copyEmployeeLink(caseId, btn){
     }
   });
 }
-/* מחליפה זמנית את הטקסט של כפתור "העתק" ל-"✓ הועתק" (1.5 שניות), במקום
-   המדויק שהמשתמשת כבר מסתכלת בו ברגע הלחיצה - בניגוד לטוסט הכללי,
-   שיכול להופיע באיחור/במקום אחר במסך ולהתפספס. לא תלוי ב-render()/ui -
-   שינוי DOM ישיר וזמני בלבד, כך שאם בינתיים מתרחש רינדור מלא ממקור אחר
-   הכפתור פשוט חוזר לטקסט המקורי שלו כרגיל (ההגדרה הסטטית ב-template),
-   בלי צורך לנקות משהו. */
-function flashCopiedButton(btn){
-  if(!btn) return;
-  const original = btn.textContent;
-  btn.textContent = "✓ הועתק";
-  btn.disabled = true;
+function flashCopiedButton(caseId){
+  ui.copiedLinkCaseId = caseId;
+  render();
   setTimeout(function(){
-    btn.textContent = original;
-    btn.disabled = false;
+    // רק אם עדיין זה אותו תיק - אם בינתיים הועתק תיק אחר (או שהיא
+    // כבר עברה למסך אחר וחזרה והעתיקה שוב), לא לנקות את החיווי החדש.
+    if(ui.copiedLinkCaseId===caseId){ ui.copiedLinkCaseId=null; render(); }
   }, 1500);
 }
 function openEmployeeFillTab(caseId, screen){
@@ -1907,7 +1907,7 @@ function renderCaseHome(){
       // צבע ירוק קבוע ב-inline style (לא class btn-primary/btn-add-green) כי
       // שניהם הופכים כתומים במסכי HR (ר' .hr-theme ב-styles.css) - כאן רוצים
       // ירוק תמיד, בלי קשר לערכת הצבע של המסך.
-      '<button class="btn btn-sm" style="background:#2FA745;color:#fff;" onclick="copyEmployeeLink(\''+c.id+'\',this)">העתק</button>' +
+      '<button class="btn btn-sm" style="background:#2FA745;color:#fff;" '+(ui.copiedLinkCaseId===c.id?"disabled":"")+' onclick="copyEmployeeLink(\''+c.id+'\')">'+(ui.copiedLinkCaseId===c.id?"✓ הועתק":"העתק")+'</button>' +
       // רוחב זהה (בקירוב) לרוחב הטקסט של משפט ההנחיה מעליו ("העתיקו את
       // הקישור...") - נמדד בפועל בדפדפן, לא ניחוש - כדי שהתיבה תיראה
       // מיושרת איתו במקום קצרה/ארוכה ממנו בבירור.
