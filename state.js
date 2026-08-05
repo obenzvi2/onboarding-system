@@ -12,7 +12,7 @@ function emptyChild(){
 
 function emptyEmployee(){
   return {
-    firstName:"",lastName:"",employeeNumber:"",
+    firstName:"",lastName:"",employeeNumber:"",takan:"",
     idType:"id", idNumber:"", passportNumber:"",
     /* טלפון לאימות זהות (קוד SMS) בעת פתיחת הקישור לעובד/ת - מוזן ע"י
        מש"א בעת פתיחת התיק, לפני שהקישור נשלח (ר' renderNewCase). שונה

@@ -732,7 +732,7 @@ function printForm(caseId,type){
    ============================================================ */
 function goNewCase(){
   ui.newCaseDraft = {taxYear:2026, companyId:"", worksiteId:"", startDate:"", formLanguage:"he", formSelection: defaultFormSelection(),
-    firstName:"", lastName:"", idType:"id", idNumber:"", passportNumber:"", employeeNumber:"", verifiedPhone:"",
+    firstName:"", lastName:"", idType:"id", idNumber:"", passportNumber:"", employeeNumber:"", takan:"", verifiedPhone:"",
     departmentId:"", subDepartmentId:"", rankId:"", gradeId:""};
   ui.newCaseErrors = {};
   setScreen("new-case");
@@ -882,6 +882,7 @@ function submitNewCase(){
   // שדה חופשי לא-חובה, ממולא ע"י מנהל/ת משאבי אנוש בעת פתיחת התיק - נועד
   // ליצוא לשיקלולית/מערכת כחולה (ר' תכנון מיפוי היצוא), לא נבדק/מאומת.
   c.employee.employeeNumber = (d.employeeNumber||"").trim();
+  c.employee.takan = (d.takan||"").trim();
   c.departmentId = d.departmentId||""; c.subDepartmentId = d.subDepartmentId||"";
   c.rankId = d.rankId||""; c.gradeId = d.gradeId||"";
   c.documents = buildDocuments(c);
@@ -894,7 +895,7 @@ function submitNewCase(){
 }
 function renderNewCase(){
   const d = ui.newCaseDraft || (ui.newCaseDraft={taxYear:2026,companyId:"",worksiteId:"",startDate:"",formLanguage:"he",formSelection:defaultFormSelection(),
-    firstName:"",lastName:"",idType:"id",idNumber:"",passportNumber:"",employeeNumber:"",verifiedPhone:"",
+    firstName:"",lastName:"",idType:"id",idNumber:"",passportNumber:"",employeeNumber:"",takan:"",verifiedPhone:"",
     departmentId:"",subDepartmentId:"",rankId:"",gradeId:""});
   const errs = ui.newCaseErrors || {};
   const worksitesForCompany = CODE_TABLES.worksites.filter(w=>w.companyId===d.companyId);
@@ -924,16 +925,18 @@ function renderNewCase(){
         :
         fld("idNumber","מספר תעודת זהות (9 ספרות)",'<input type="text" id="newcase_idNumber" maxlength="9" value="'+escapeHtml(d.idNumber||"")+'" oninput="updateNewCaseDraft(\'idNumber\',this.value.trim())" onblur="blurNewCaseIdNumber(this.value)">')
       ) +
-      fld("employeeNumber","מספר עובד",'<input type="text" id="newcase_employeeNumber" value="'+escapeHtml(d.employeeNumber||"")+'" oninput="updateNewCaseDraft(\'employeeNumber\',this.value)">',null,true) +
       // טלפון לאימות זהות (קוד SMS) בעת פתיחת הקישור לעובד/ת - ר' הערה
       // ב-emptyEmployee (state.js) להסבר מלא למה זה שדה נפרד מ-mobilePhone
       // שבתוך טופס 101. חובה, ומאומת מיידית ביציאה מהשדה (onblur) כדי
       // שטעות הקלדה תתגלה לפני שהקישור נשלח לעובד/ת ולא אחרי ששולחים
-      // קוד לטלפון שגוי.
+      // קוד לטלפון שגוי. בשורה נפרדת משלו (לבקשת המשתמשת) - ר' התא הריק
+      // מיד אחריו שמונע ממנו להימתח לרוחב מלא בגריד cols-2.
       fld("verifiedPhone","טלפון נייד (ישלח קישור לטפסים)",'<input type="tel" id="newcase_verifiedPhone" maxlength="10" value="'+escapeHtml(d.verifiedPhone||"")+'" oninput="updateNewCaseDraft(\'verifiedPhone\',this.value)" onblur="blurNewCaseVerifiedPhone(this.value)">') +
-      // verifiedPhone (למעלה) ממלא כעת את הזוג של "מספר עובד" בשורה שלו,
-      // כך ששורות מחלקה/תת-מחלקה ודירוג/דרגה ממשיכות להיות זוגות תקינות
-      // בגריד cols-2 בלי צורך בתא ריק נוסף (שהיה כאן לפני הוספת השדה הזה).
+      '<div class="field"></div>' +
+      // "תקן" - שדה חופשי לא-חובה (לבקשת המשתמשת, לקראת קביעת מספר עובד
+      // לפי תקן בהמשך) - באותה שורה עם "מספר עובד".
+      fld("takan","תקן",'<input type="text" id="newcase_takan" value="'+escapeHtml(d.takan||"")+'" oninput="updateNewCaseDraft(\'takan\',this.value)">',null,true) +
+      fld("employeeNumber","מספר עובד",'<input type="text" id="newcase_employeeNumber" value="'+escapeHtml(d.employeeNumber||"")+'" oninput="updateNewCaseDraft(\'employeeNumber\',this.value)">',null,true) +
       fld("departmentId","מחלקה",'<select onchange="updateNewCaseDraft(\'departmentId\',this.value)"><option value="">בחר/י מחלקה...</option>'+CODE_TABLES.departments.map(x=>'<option value="'+x.id+'" '+(d.departmentId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select>',null,true) +
       fld("subDepartmentId","תת-מחלקה",'<select '+(!d.departmentId?"disabled":"")+' onchange="updateNewCaseDraft(\'subDepartmentId\',this.value)"><option value="">'+(d.departmentId?"בחר/י תת-מחלקה...":"יש לבחור מחלקה תחילה")+'</option>'+subDepartmentsForDepartment.map(x=>'<option value="'+x.id+'" '+(d.subDepartmentId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select>',null,true) +
       fld("rankId","דירוג",'<select onchange="updateNewCaseDraft(\'rankId\',this.value)"><option value="">בחר/י דירוג...</option>'+CODE_TABLES.ranks.map(x=>'<option value="'+x.id+'" '+(d.rankId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select>',null,true) +
@@ -1726,6 +1729,7 @@ function openCaseHomeEdit(){
   const c = currentCase();
   ui.caseHomeEditDraft = {
     employeeNumber: c.employee.employeeNumber||"",
+    takan: c.employee.takan||"",
     worksiteId: c.worksiteId||"",
     departmentId: c.departmentId||"",
     subDepartmentId: c.subDepartmentId||"",
@@ -1795,6 +1799,7 @@ function saveCaseHomeEdit(){
   if(!validIsraeliMobilePhone(phone)){ ui.caseHomeEditErrors.verifiedPhone="המספר אינו תקין."; render(); return; }
   const c = currentCase();
   c.employee.employeeNumber = d.employeeNumber.trim();
+  c.employee.takan = d.takan.trim();
   c.worksiteId = d.worksiteId;
   c.departmentId = d.departmentId;
   c.subDepartmentId = d.subDepartmentId;
@@ -1820,8 +1825,10 @@ function renderCaseHomeEditModal(){
         '<button onclick="cancelCaseHomeEdit()" title="סגור" style="border:none;background:none;font-size:22px;line-height:1;cursor:pointer;color:var(--header-text);">&times;</button>' +
       '</div>' +
       '<div class="form-grid cols-2" style="margin-top:16px;">' +
-        '<div class="field"><label>מספר עובד</label><input type="text" id="caseHomeEdit_employeeNumber" value="'+escapeHtml(d.employeeNumber)+'" oninput="updateCaseHomeEditField(\'employeeNumber\',this.value)"></div>' +
         '<div class="field"><label>טלפון נייד (ישלח קישור לטפסים)</label><input type="tel" id="caseHomeEdit_verifiedPhone" maxlength="10" value="'+escapeHtml(d.verifiedPhone)+'" oninput="updateCaseHomeEditField(\'verifiedPhone\',this.value)" onblur="blurCaseHomeEditVerifiedPhone(this.value)">'+(errs.verifiedPhone?'<div class="field-error">'+escapeHtml(errs.verifiedPhone)+'</div>':'')+'</div>' +
+        '<div class="field"></div>' +
+        '<div class="field"><label>תקן</label><input type="text" id="caseHomeEdit_takan" value="'+escapeHtml(d.takan)+'" oninput="updateCaseHomeEditField(\'takan\',this.value)"></div>' +
+        '<div class="field"><label>מספר עובד</label><input type="text" id="caseHomeEdit_employeeNumber" value="'+escapeHtml(d.employeeNumber)+'" oninput="updateCaseHomeEditField(\'employeeNumber\',this.value)"></div>' +
         '<div class="field"><label>אתר עבודה</label><select id="caseHomeEdit_worksiteId" onchange="updateCaseHomeEditField(\'worksiteId\',this.value)"><option value="">בחר/י אתר עבודה...</option>'+worksitesForCompany.map(x=>'<option value="'+x.id+'" '+(d.worksiteId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select></div>' +
         '<div class="field"><label>מחלקה</label><select id="caseHomeEdit_departmentId" onchange="updateCaseHomeEditField(\'departmentId\',this.value)"><option value="">בחר/י מחלקה...</option>'+CODE_TABLES.departments.map(x=>'<option value="'+x.id+'" '+(d.departmentId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select></div>' +
         '<div class="field"><label>תת-מחלקה</label><select id="caseHomeEdit_subDepartmentId" '+(!d.departmentId?"disabled":"")+' onchange="updateCaseHomeEditField(\'subDepartmentId\',this.value)"><option value="">'+(d.departmentId?"בחר/י תת-מחלקה...":"יש לבחור מחלקה תחילה")+'</option>'+subDepartmentsForDepartment.map(x=>'<option value="'+x.id+'" '+(d.subDepartmentId===x.id?"selected":"")+'>'+escapeHtml(x.name)+'</option>').join("")+'</select></div>' +
@@ -1854,6 +1861,7 @@ function renderCaseHome(){
       '<div class="k">שנת מס</div><div>'+c.taxYear+'</div>' +
       '<div class="k">שם עובד/ת</div><div>'+escapeHtml(name)+'</div>' +
       '<div class="k">ת.ז/דרכון</div><div>'+escapeHtml(emp.idType==="id" ? (emp.idNumber||"—") : (emp.passportNumber||"—"))+'</div>' +
+      '<div class="k">תקן</div><div>'+escapeHtml(emp.takan||"—")+'</div>' +
       '<div class="k">מספר עובד</div><div>'+escapeHtml(emp.employeeNumber||"—")+'</div>' +
       '<div class="k">טלפון נייד</div><div>'+escapeHtml(emp.verifiedPhone||"—")+'</div>' +
       '<div class="k">תאריך תחילת עבודה</div><div>'+formatDateHe(c.startDate)+'</div>' +
