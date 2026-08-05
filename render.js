@@ -696,19 +696,39 @@ function refreshCaseFromEmployee(caseId){
     })
     .catch(function(){ showToast("שגיאה בשליפת הנתונים מהשרת."); });
 }
-function copyEmployeeLink(caseId){
+/* מקבלת גם את אלמנט הכפתור עצמו (btn), כדי להציג עליו חיווי "✓ הועתק"
+   זמני במקום המדויק שהעין כבר נמצאת בו - ר' flashCopiedButton. הטוסט
+   הכללי (showToast) עלול להופיע באיחור ניכר (יש קריאת רשת ל-
+   shareCaseWithEmployee לפני ההעתקה עצמה) וקל לפספס אותו, לבקשת המשתמשת. */
+function copyEmployeeLink(caseId, btn){
   shareCaseWithEmployee(caseId).then(function(ok){
     if(!ok) return;
     const url = employeeFillUrl(caseId,"checklist");
     if(navigator.clipboard && navigator.clipboard.writeText){
       navigator.clipboard.writeText(url).then(
-        ()=>showToast("הקישור לעובד/ת הועתק."),
+        ()=>{ showToast("הקישור לעובד/ת הועתק."); flashCopiedButton(btn); },
         ()=>showToast("שגיאה בהעתקת הקישור.")
       );
     } else {
       showToast("שגיאה בהעתקת הקישור.");
     }
   });
+}
+/* מחליפה זמנית את הטקסט של כפתור "העתק" ל-"✓ הועתק" (1.5 שניות), במקום
+   המדויק שהמשתמשת כבר מסתכלת בו ברגע הלחיצה - בניגוד לטוסט הכללי,
+   שיכול להופיע באיחור/במקום אחר במסך ולהתפספס. לא תלוי ב-render()/ui -
+   שינוי DOM ישיר וזמני בלבד, כך שאם בינתיים מתרחש רינדור מלא ממקור אחר
+   הכפתור פשוט חוזר לטקסט המקורי שלו כרגיל (ההגדרה הסטטית ב-template),
+   בלי צורך לנקות משהו. */
+function flashCopiedButton(btn){
+  if(!btn) return;
+  const original = btn.textContent;
+  btn.textContent = "✓ הועתק";
+  btn.disabled = true;
+  setTimeout(function(){
+    btn.textContent = original;
+    btn.disabled = false;
+  }, 1500);
 }
 function openEmployeeFillTab(caseId, screen){
   saveDB();
@@ -1887,7 +1907,7 @@ function renderCaseHome(){
       // צבע ירוק קבוע ב-inline style (לא class btn-primary/btn-add-green) כי
       // שניהם הופכים כתומים במסכי HR (ר' .hr-theme ב-styles.css) - כאן רוצים
       // ירוק תמיד, בלי קשר לערכת הצבע של המסך.
-      '<button class="btn btn-sm" style="background:#2FA745;color:#fff;" onclick="copyEmployeeLink(\''+c.id+'\')">העתק</button>' +
+      '<button class="btn btn-sm" style="background:#2FA745;color:#fff;" onclick="copyEmployeeLink(\''+c.id+'\',this)">העתק</button>' +
       // רוחב זהה (בקירוב) לרוחב הטקסט של משפט ההנחיה מעליו ("העתיקו את
       // הקישור...") - נמדד בפועל בדפדפן, לא ניחוש - כדי שהתיבה תיראה
       // מיושרת איתו במקום קצרה/ארוכה ממנו בבירור.
