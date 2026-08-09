@@ -3140,7 +3140,6 @@ function renderForm101SectionB(c){
     f101FieldWrap("f101_birthDate","תאריך לידה",true,'<input type="date" id="f101_birthDate" class="'+e("f101_birthDate")+'" value="'+emp.birthDate+'" max="'+todayIso()+'" onblur="finalizeEmpField(\'birthDate\',this.value)">') +
     f101FieldWrap("f101_aliyaDate","תאריך עלייה",false,'<input type="date" id="f101_aliyaDate" value="'+emp.aliyaDate+'" onblur="updateEmp(\'aliyaDate\',this.value)">') +
   '</div>' +
-  '<div class="field-hint-static" style="margin-bottom:10px;">'+tr("sec_b_idHint","שם, סוג הזיהוי ומספר הזהות/דרכון נמסרו בעת פתיחת תיק הקליטה ואינם ניתנים לעריכה כאן.")+'</div>' +
   // שורת העלאת צילום ת.ז/דרכון - מחוץ ל-form-grid הצפוף, לכן לא מתחרה
   // על מקום עם שאר השדות (ר' התוכנית, בקשת המשתמשת לגבי מקום מוגבל).
   documentAttachRowHtml(c, idDocKey) +
