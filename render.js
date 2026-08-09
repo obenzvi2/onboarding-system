@@ -1528,6 +1528,64 @@ function uploadDocumentFile(caseId, docKey, fileName, contentType, dataBase64){
     });
 }
 
+// סיומת קובץ לפי contentType - לשימוש בשם הקובץ בתוך ה-ZIP (docKey/label
+// לבדם לא כוללים סיומת). ברירת מחדל "bin" למקרה נדיר של סוג לא מוכר.
+const DOC_CONTENT_TYPE_EXT = { "image/jpeg":"jpg", "image/png":"png", "image/webp":"webp", "image/heic":"heic", "image/heif":"heif", "application/pdf":"pdf" };
+/* מנקה תווים שלא חוקיים בשם קובץ/תיקייה (עבור מערכות קבצים של Windows/Mac
+   כאחד) - משמש לבניית מבנה התיקיות בתוך ה-ZIP. */
+function safeZipName(s){
+  return String(s||"").replace(/[\\/:*?"<>|]+/g,"_").trim() || "ללא_שם";
+}
+/* מורידה כקובץ ZIP אחד את כל המסמכים שהועלו (status==="uploaded") עבור
+   רשימת תיקים נתונה - עובד/ת אחד/ת (מסך "מסמכים") או כמה יחד (מסך "יצוא
+   טפסים"/"ארכיון עובדים", ר' exportSelectionPanelHtml). לבקשת המשתמשת:
+   היום שולחים מסמכים לשיקלולית/למערכת הכחולה ידנית במייל - זה רק מרכז
+   ומוריד את הקבצים כדי שיהיה נוח לצרף למייל, בלי אינטגרציה עם המערכות
+   עצמן. שימו לב: מציגה רק קבצים שכבר סונכרנו לעותק המקומי של מש"א (ר'
+   "רענון נתונים מהעובד/ת" בכרטיס העובד/ת) - בדיוק כמו במסך "מסמכים" הבודד. */
+function downloadDocumentsZip(caseIds){
+  const cases = caseIds.map(getCase).filter(Boolean);
+  if(!cases.length){ showToast("לא נבחרו עובדים."); return; }
+  const zip = new JSZip();
+  let fileCount = 0;
+  const emptyNames = [];
+  cases.forEach(function(c){
+    const emp = c.employee;
+    const uploaded = (c.documents||[]).filter(d=>d.status==="uploaded");
+    const folderName = safeZipName((emp.lastName||"")+" "+(emp.firstName||""))+" - "+safeZipName(emp.idType==="id"?emp.idNumber:emp.passportNumber);
+    if(!uploaded.length){
+      emptyNames.push((emp.firstName||"")+" "+(emp.lastName||""));
+      return;
+    }
+    const folder = zip.folder(folderName);
+    uploaded.forEach(function(d){
+      const ext = DOC_CONTENT_TYPE_EXT[d.contentType] || (d.fileName && d.fileName.includes(".") ? d.fileName.split(".").pop() : "bin");
+      folder.file(safeZipName(d.label)+"."+ext, fetch("/api/documents/"+encodeURIComponent(c.id)+"/"+encodeURIComponent(d.key)).then(r=>r.arrayBuffer()));
+      fileCount++;
+    });
+  });
+  if(!fileCount){
+    showToast("לא נמצאו מסמכים שהועלו עבור העובדים שנבחרו. ודאי שלחצת \"רענון נתונים מהעובד/ת\" בכרטיס כל עובד/ת רלוונטי/ת.");
+    return;
+  }
+  showToast("מכין קובץ ZIP...");
+  zip.generateAsync({type:"blob"}).then(function(blob){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "מסמכים_"+todayIso()+".zip";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    let msg = fileCount+" קבצים מ-"+(cases.length-emptyNames.length)+" עובדים הורדו.";
+    if(emptyNames.length) msg += " ("+emptyNames.length+" עובדים בלי מסמכים שהועלו לא נכללו.)";
+    showToast(msg);
+  }).catch(function(){
+    showToast("שגיאה ביצירת קובץ ה-ZIP. יש לנסות שוב.");
+  });
+}
+
 /* ============================================================
    9-ב. וולידציית טופס 101
    ============================================================ */
@@ -3972,6 +4030,10 @@ function exportSelectionPanelHtml(casesList, emptyMessage){
     (casesList.length ? ('<div class="table-wrap"><table class="data-table"><thead><tr><th><input type="checkbox" '+(allSelected?"checked":"")+' onchange="toggleExportSelectAll(this.checked,'+idsJson+')"></th><th>שם עובד</th><th>חברה</th><th>אתר עבודה</th><th>תאריך פתיחת תיק</th><th>סטטוס פרטי בנק</th></tr></thead><tbody>'+rows+'</tbody></table></div>') : '<div class="empty-state">'+emptyMessage+'</div>') +
     '<div class="btn-row">' +
       '<button class="btn btn-primary" onclick="requestCreateBatch()">צור קובץ Excel</button>' +
+      // לא תלוי ב-ui.exportTarget (שיקלולית/כחולה) - שני היעדים מקבלים היום
+      // את הקבצים באותה דרך (מייל ידני, ר' התוכנית), אז זו פעולה נפרדת
+      // מיצוא ה-Excel, לא "אצווה" ונרשמת ב-DB.batches.
+      '<button class="btn btn-secondary" onclick="downloadDocumentsZip(ui.exportSelection)">הורדת מסמכים שהועלו (ZIP)</button>' +
     '</div>' +
   '</div>';
 }
