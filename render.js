@@ -1984,6 +1984,13 @@ function renderCaseHome(){
   '<div class="panel" style="max-width:720px;">' +
     '<div style="font-weight:700;font-size:15px;color:var(--header-text);">'+done+' מתוך '+total+' טפסים הושלמו</div>' +
   '</div>' +
+  // כפתור ניווט למסך "מסמכים" - היה חסר עד עכשיו כל דרך ללחוץ לשם, גם
+  // לפני שהתווספה יכולת ההעלאה. מוצג עם תג הסטטוס הקיים (docsStatusInfo,
+  // אותו תג שכבר מופיע ברשימת תיקי הקליטה).
+  '<div class="panel" style="max-width:720px;display:flex;align-items:center;justify-content:space-between;">' +
+    '<span class="status-pill '+docsStatusInfo(c).cls+'">'+docsStatusInfo(c).text+'</span>' +
+    '<button class="btn btn-sm btn-secondary" onclick="openCase(\''+c.id+'\',\'documents\')">מסמכים נדרשים</button>' +
+  '</div>' +
   '<div class="checklist-wrap">'+checklistRowsHtml(items,"view")+'</div>' +
   // אין יותר כפתור פתיחה ישירה של הטאב הנפרד - רק קישור להעתקה (ר'
   // copyEmployeeLink/employeeFillUrl למעלה) - מש"א מעתיק/ה ופותח/ת
