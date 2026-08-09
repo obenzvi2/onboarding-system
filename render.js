@@ -188,7 +188,10 @@ function backToList(){
    5. חישובי סטטוס לתיק
    ============================================================ */
 function docsStatusInfo(c){
-  const docs = c.employee.form101Status==="completed" || c.documents.length ? (c.documents.length?c.documents:buildDocuments(c)) : [];
+  // c.documents עשוי להיות חסר (undefined) עבור תיקים שהגיעו מהשרת דרך
+  // נתיב ישן/חלקי (ר' upsertLocalCase) - הגנה כדי שרשימת התיקים לא תקרוס.
+  const existing = c.documents||[];
+  const docs = c.employee.form101Status==="completed" || existing.length ? (existing.length?existing:buildDocuments(c)) : [];
   if(!docs.length) return {text:"—",cls:"pill-gray"};
   const missing = docs.filter(d=>d.status==="missing").length;
   if(missing===0) return {text:"הכל נמסר ("+docs.length+")",cls:"pill-green"};
