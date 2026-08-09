@@ -3130,22 +3130,26 @@ function renderForm101SectionB(c){
   return '' +
   '<h2 class="section-title" id="sec-b">'+sectionTitleHtml("ב","sec_b_title","פרטי העובד/ת")+'</h2>' +
   '<div class="panel">' +
-  // cols-2 (במקום ברירת המחדל של 3 עמודות) - לבקשת המשתמשת, כדי ש"מספר
-  // זהות"/"מספר דרכון" יהיה באותה שורה עם "זיהוי לפי" (בברירת המחדל של 3
-  // עמודות הם נופלים לשתי שורות נפרדות, ר' דוגמה שסופקה).
   '<div class="form-grid cols-2">' +
     f101FieldWrap("f101_firstName_ro","שם פרטי",true,'<input type="text" value="'+escapeHtml(emp.firstName)+'" readonly disabled>') +
     f101FieldWrap("f101_lastName_ro","שם משפחה",true,'<input type="text" value="'+escapeHtml(emp.lastName)+'" readonly disabled>') +
-    f101FieldWrap("f101_idType_ro","זיהוי לפי",true,
-      '<div class="radio-group"><label><input type="radio" '+(emp.idType==="id"?"checked":"")+' disabled> '+tr("id_type_id","תעודת זהות")+'</label>'+
-      '<label><input type="radio" '+(emp.idType==="passport"?"checked":"")+' disabled> '+tr("id_type_passport","דרכון (עבור אזרח זר)")+'</label></div>') +
+  '</div>' +
+  // "זיהוי לפי" בשורה עצמאית משלו (לא בתוך form-grid, ולכן לא מזווג עם
+  // שדה אחר) - לבקשת המשתמשת, לפי הדוגמה שסופקה.
+  f101FieldWrap("f101_idType_ro","זיהוי לפי",true,
+    '<div class="radio-group"><label><input type="radio" '+(emp.idType==="id"?"checked":"")+' disabled> '+tr("id_type_id","תעודת זהות")+'</label>'+
+    '<label><input type="radio" '+(emp.idType==="passport"?"checked":"")+' disabled> '+tr("id_type_passport","דרכון (עבור אזרח זר)")+'</label></div>') +
+  // "מספר זהות/דרכון" מזווג עם כפתור העלאת הקובץ באותה שורה (לא כשורה
+  // נפרדת מתחת לכל השדות כמו קודם) - לבקשת המשתמשת: מספר הזהות מיושר
+  // לימין, וכפתור ההעלאה לידו (בעמודה השמאלית, ר' סדר ה-RTL).
+  '<div class="form-grid cols-2">' +
     f101FieldWrap("f101_idNumber_ro",idLabel,true,'<input type="text" value="'+escapeHtml(idValue)+'" readonly disabled>',null,null,null,idLabelKey) +
+    documentAttachRowHtml(c, idDocKey) +
+  '</div>' +
+  '<div class="form-grid cols-2">' +
     f101FieldWrap("f101_birthDate","תאריך לידה",true,'<input type="date" id="f101_birthDate" class="'+e("f101_birthDate")+'" value="'+emp.birthDate+'" max="'+todayIso()+'" onblur="finalizeEmpField(\'birthDate\',this.value)">') +
     f101FieldWrap("f101_aliyaDate","תאריך עלייה",false,'<input type="date" id="f101_aliyaDate" value="'+emp.aliyaDate+'" onblur="updateEmp(\'aliyaDate\',this.value)">') +
   '</div>' +
-  // שורת העלאת צילום ת.ז/דרכון - מחוץ ל-form-grid הצפוף, לכן לא מתחרה
-  // על מקום עם שאר השדות (ר' התוכנית, בקשת המשתמשת לגבי מקום מוגבל).
-  documentAttachRowHtml(c, idDocKey) +
   '<div class="form-grid cols-4">' +
     f101FieldWrap("f101_city","עיר או יישוב",true,f101CityFieldHtml(emp.city,"f101_city")) +
     f101FieldWrap("f101_street","רחוב",true,'<input type="text" id="f101_street" class="'+e("f101_street")+'" value="'+escapeHtml(emp.street)+'" oninput="updateEmp(\'street\',this.value)">') +
