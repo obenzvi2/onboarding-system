@@ -58,18 +58,28 @@ function emptyBank(){
   return { bankCode:"", branchCode:"", accountNumber:"", confirmed:false, status:"pending", completedAt:null, deferred:false, date:"" };
 }
 
+/* בונה רשימת מסמכים דינמית לפי תשובות העובד/ת. נקראת מחדש בכל פעם
+   שהתשובות עשויות להשתנות (פתיחת תיק, סיום טופס 101, סיום טופס בנק -
+   ר' קריאות ל-buildDocuments ב-render.js) - ולכן **חייבת** לשמר מידע
+   שכבר קיים (סטטוס/קובץ שהועלה) לכל מסמך שעדיין רלוונטי, ולא רק לבנות
+   הכל מחדש עם status:"missing". אחרת העלאת קובץ (ר' documentAttachRowHtml
+   ב-render.js) הייתה נמחקת בכל פעם שהעובד/ת ממשיך/ה למלא ולסיים טופס. */
 function buildDocuments(caseObj){
-  // בונה רשימת מסמכים דינמית לפי תשובות העובד
   const emp = caseObj.employee;
+  const existing = {};
+  (caseObj.documents||[]).forEach(d=>{ existing[d.key] = d; });
   const docs = [];
-  if(emp.idType === "id"){
-    docs.push({key:"id_copy",label:"צילום תעודת זהות וספח",status:"missing"});
-  } else {
-    docs.push({key:"passport_copy",label:"צילום דרכון ואישור/רישיון שהייה",status:"missing"});
+  function add(key,label){
+    docs.push(existing[key] ? Object.assign({},existing[key],{label:label}) : {key:key,label:label,status:"missing"});
   }
-  docs.push({key:"form101_signed",label:"טופס 101 חתום",status: emp.form101Status==="completed" ? "missing" : "missing"});
+  if(emp.idType === "id"){
+    add("id_copy","צילום תעודת זהות וספח");
+  } else {
+    add("passport_copy","צילום דרכון ואישור/רישיון שהייה");
+  }
+  add("form101_signed","טופס 101 חתום");
   if(caseObj.needsBankForm){
-    docs.push({key:"bank_form_signed",label:"טופס פרטי חשבון בנק חתום",status:"missing"});
+    add("bank_form_signed","טופס פרטי חשבון בנק חתום");
   }
   const tc = emp.taxCredits;
   TAX_CREDIT_META.forEach(meta=>{
@@ -77,14 +87,14 @@ function buildDocuments(caseObj){
     const val = tc[meta.key];
     const checked = (typeof val === "object") ? val.checked : val;
     if(checked){
-      docs.push({key:"doc_"+meta.key,label:meta.document + " (סעיף "+meta.num+")",status:"missing"});
+      add("doc_"+meta.key, meta.document + " (סעיף "+meta.num+")");
     }
   });
   if(emp.taxCoordination && emp.taxCoordination.option==="hasOtherIncome" && emp.taxCoordination.sources.length){
-    docs.push({key:"doc_taxcoord_slip",label:"תלוש שכר או אסמכתא רלוונטית (הכנסות נוספות)",status:"missing"});
+    add("doc_taxcoord_slip","תלוש שכר או אסמכתא רלוונטית (הכנסות נוספות)");
   }
   if(emp.taxCoordination && emp.taxCoordination.option==="approved"){
-    docs.push({key:"doc_taxcoord_approval",label:"אישור תיאום מס מפקיד השומה",status:"missing"});
+    add("doc_taxcoord_approval","אישור תיאום מס מפקיד השומה");
   }
   return docs;
 }

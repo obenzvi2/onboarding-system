@@ -231,6 +231,7 @@ table.zebra-table tbody tr:nth-child(even) td{background:#DCE6EA!important;}
 .row-icon-btn{border:none;background:none;padding:2px;cursor:pointer;color:var(--text-main);display:inline-flex;align-items:center;}
 .row-icon-btn.edit:hover{color:var(--header-text);}
 .row-icon-btn.delete:hover{color:var(--error);}
+.row-icon-btn.attach:hover{color:var(--header-text);}
 /* הדגשת שורה בריחוף עכבר (hover) - רקע אפור בהיר, זמנית ונעלמת כשהעכבר
    עוזב את השורה. table.data-table משמש אך ורק במסכי ניהול עובדים,
    הגדרות מערכת, יצוא טפסים והיסטוריית טפסים - כך שהכלל הזה כבר ממילא

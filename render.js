@@ -44,7 +44,8 @@ let ui = {
      האימות (renderEmployeeOtpGate) במקום תוכן הצ'קליסט/הטפסים, גם אם
      ui.screen כבר מצביע על מסך תוכן. */
   employeeAuth:null,
-  copiedLinkCaseId:null // מזהה התיק שהקישור שלו הועתק לאחרונה (חיווי "✓ הועתק" זמני על הכפתור, ר' flashCopiedButton), null = אין חיווי פעיל
+  copiedLinkCaseId:null, // מזהה התיק שהקישור שלו הועתק לאחרונה (חיווי "✓ הועתק" זמני על הכפתור, ר' flashCopiedButton), null = אין חיווי פעיל
+  docUploadStatus:{} // מפתח=docKey, ערך "uploading" בזמן העלאה/מחיקה של מסמך (ר' documentAttachRowHtml) - ריק כשאין פעולה פעילה על אותו מסמך
 };
 /* מיפוי בין מצב דו-לשוני (ui.formLanguage) לבין קוד השפה הזרה שהוא מציג
    לצד העברית (ר' FORM101_I18N ב-i18n.js) - "both" היא הגרסה הוותיקה
@@ -1432,13 +1433,96 @@ const ICON_SVGS = {
   pencil: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>',
   trash: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
   printer: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
-  folderOpen: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>'
+  folderOpen: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>',
+  paperclip: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.53 17.53a2 2 0 0 1-2.83-2.83l8.49-8.49"/></svg>'
 };
 /* כפתור אייקון "שקוף" - בלי מסגרת ובלי רקע, רק הקו של האייקון עצמו,
    באותו צבע כמו טקסט השורה; צבע שונה מופיע רק במעבר עכבר (ר' CSS
    ‎.row-icon-btn). מחלקת edit/delete קובעת את צבע ה-hover. */
 function ICON_BTN(name,title,onclick,variant){
   return '<button class="row-icon-btn '+(variant||"")+'" onclick="'+onclick+'" title="'+escapeHtml(title)+'">'+ICON_SVGS[name]+'</button>';
+}
+
+/* ============================================================
+   8ג. העלאת מסמכים תומכים (צילום ת.ז, תעודת עולה, אישורים לסעיפי
+   זיכוי/פטור ממס וכו') - ר' התוכנית בקובץ graceful-skipping-unicorn.md.
+   רכיב אחד (documentAttachRowHtml) בשימוש חוזר בכל נקודות השילוב בטופס
+   101 (סעיפים ב'/ח'/ט') וגם במסך "מסמכים" הקיים - כך שההשפעה על
+   הפריסה אחידה וצפויה, ולא פריסה ייחודית לכל שדה (ר' בקשת המשתמשת
+   לגבי מקום מוגבל בשורות הצפופות כמו ח.7/ח.8). כמו כל שאר פעולות
+   העובד/ת, מאומת עם אותו טוקן סשן שהתקבל אחרי אימות ה-SMS (ר'
+   getEmployeeSessionToken ב-render.js, לא כאן כי מוגדר קודם בקובץ). */
+function documentAttachRowHtml(c, docKey){
+  const doc = (c.documents||[]).find(d=>d.key===docKey);
+  if(!doc) return "";
+  const inputId = "docfile_"+docKey;
+  const uploading = ui.docUploadStatus[docKey]==="uploading";
+  let badge;
+  if(doc.status==="uploaded") badge = '<span class="status-pill pill-green">הועלה</span>';
+  else if(doc.status==="delivered") badge = '<span class="status-pill pill-blue">נמסר פיזית</span>';
+  else badge = '<span class="status-pill pill-yellow">חסר</span>';
+  const viewLink = doc.status==="uploaded"
+    ? '<a href="/api/documents/'+encodeURIComponent(c.id)+'/'+encodeURIComponent(docKey)+'" target="_blank" rel="noopener" class="btn-link" style="font-size:13px;">צפייה בקובץ</a>'
+    : '';
+  const attachBtn = ICON_BTN("paperclip", doc.status==="uploaded" ? "החלפת קובץ" : "צרף קובץ", "triggerDocFileInput('"+docKey+"')", "attach");
+  return '<div class="doc-attach-row" style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap;">' +
+    badge + viewLink +
+    (uploading ? '<span style="font-size:13px;color:var(--header-text);">מעלה...</span>' : attachBtn) +
+    '<input type="file" id="'+inputId+'" accept="image/*,.pdf,.heic,.heif" style="display:none;" '+(uploading?"disabled":"")+' onchange="handleDocFileSelected(\''+c.id+'\',\''+docKey+'\',this)">' +
+  '</div>';
+}
+function triggerDocFileInput(docKey){
+  const input = document.getElementById("docfile_"+docKey);
+  if(input) input.click();
+}
+const DOC_MAX_FILE_BYTES = 3*1024*1024; // תואם למגבלה בצד השרת (ר' api/documents/[caseId]/index.js)
+function handleDocFileSelected(caseId, docKey, inputEl){
+  const file = inputEl.files && inputEl.files[0];
+  inputEl.value = ""; // מאפס כדי שבחירת אותו קובץ שוב תפעיל onchange גם בפעם הבאה
+  if(!file) return;
+  if(file.size > DOC_MAX_FILE_BYTES){ showToast("הקובץ גדול מדי (מקסימום 3MB)."); return; }
+  const reader = new FileReader();
+  reader.onload = function(){
+    const base64 = String(reader.result).split(",")[1] || "";
+    uploadDocumentFile(caseId, docKey, file.name, file.type, base64);
+  };
+  reader.onerror = function(){ showToast("שגיאה בקריאת הקובץ."); };
+  reader.readAsDataURL(file);
+}
+// מעדכנת/מוסיפה רשומת מסמך יחידה בתיק הנוכחי (בלי לבנות מחדש את כל
+// c.documents) - לאחר תשובת שרת מוצלחת מהעלאה/מחיקה.
+function upsertCaseDocument(doc){
+  const c = currentCase();
+  if(!c) return;
+  c.documents = c.documents||[];
+  const idx = c.documents.findIndex(d=>d.key===doc.key);
+  if(idx>=0) c.documents[idx] = doc; else c.documents.push(doc);
+}
+function uploadDocumentFile(caseId, docKey, fileName, contentType, dataBase64){
+  ui.docUploadStatus[docKey] = "uploading";
+  render();
+  const token = getEmployeeSessionToken(caseId);
+  fetch("/api/documents/"+encodeURIComponent(caseId), {
+    method: "POST",
+    headers: { "Content-Type":"application/json", "Authorization":"Bearer "+token },
+    body: JSON.stringify({ docKey:docKey, fileName:fileName, contentType:contentType, dataBase64:dataBase64 })
+  })
+    .then(function(r){ return r.json().then(function(data){ return {ok:r.ok, data:data}; }); })
+    .then(function(res){
+      delete ui.docUploadStatus[docKey];
+      if(res.ok && res.data.document){
+        upsertCaseDocument(res.data.document);
+        showToast("הקובץ הועלה בהצלחה.");
+      } else {
+        showToast((res.data && res.data.error) || "שגיאה בהעלאת הקובץ.");
+      }
+      render();
+    })
+    .catch(function(){
+      delete ui.docUploadStatus[docKey];
+      showToast("שגיאת תקשורת. יש לנסות שוב.");
+      render();
+    });
 }
 
 /* ============================================================
@@ -2901,6 +2985,11 @@ const FORM_LANG_DIR = { he:"rtl", en:"ltr", both:"ltr", ru:"ltr", both_ru:"ltr" 
 function renderForm101(isHr){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
+  // מרעננת את רשימת המסמכים הנדרשים בכל render (לא רק בסיום מילוי הטופס) -
+  // כדי ששורת ההעלאה (documentAttachRowHtml) תופיע מיד כשמסמנים סעיף
+  // זיכוי/תעודת עולה וכו', לא רק אחרי לחיצה על "סיימתי". buildDocuments
+  // משמרת (merge) קבצים שכבר הועלו לכל מפתח שעדיין רלוונטי (ר' state.js).
+  c.documents = buildDocuments(c);
   const emp = c.employee;
   const errCount = Object.keys(ui.errors).length;
   const anchors = [
@@ -2968,6 +3057,7 @@ function renderForm101SectionB(c){
   const idLabelKey = emp.idType==="id" ? "id_number_label" : "passport_number_label";
   const idLabel = emp.idType==="id" ? "מספר זהות" : "מספר דרכון";
   const idValue = emp.idType==="id" ? emp.idNumber : emp.passportNumber;
+  const idDocKey = emp.idType==="id" ? "id_copy" : "passport_copy";
   const yes = tr("yes","כן"), no = tr("no","לא");
   return '' +
   '<h2 class="section-title" id="sec-b">'+sectionTitleHtml("ב","sec_b_title","פרטי העובד/ת")+'</h2>' +
@@ -2983,6 +3073,9 @@ function renderForm101SectionB(c){
     f101FieldWrap("f101_aliyaDate","תאריך עלייה",false,'<input type="date" id="f101_aliyaDate" value="'+emp.aliyaDate+'" onblur="updateEmp(\'aliyaDate\',this.value)">') +
   '</div>' +
   '<div class="field-hint-static" style="margin-bottom:10px;">'+tr("sec_b_idHint","שם, סוג הזיהוי ומספר הזהות/דרכון נמסרו בעת פתיחת תיק הקליטה ואינם ניתנים לעריכה כאן.")+'</div>' +
+  // שורת העלאת צילום ת.ז/דרכון - מחוץ ל-form-grid הצפוף, לכן לא מתחרה
+  // על מקום עם שאר השדות (ר' התוכנית, בקשת המשתמשת לגבי מקום מוגבל).
+  documentAttachRowHtml(c, idDocKey) +
   '<div class="form-grid cols-4">' +
     f101FieldWrap("f101_city","עיר או יישוב",true,f101CityFieldHtml(emp.city,"f101_city")) +
     f101FieldWrap("f101_street","רחוב",true,'<input type="text" id="f101_street" class="'+e("f101_street")+'" value="'+escapeHtml(emp.street)+'" oninput="updateEmp(\'street\',this.value)">') +
@@ -3345,6 +3438,11 @@ function renderForm101SectionH(c){
       const checked = (typeof val==="object")?val.checked:val;
       if(checked && !disabled){
         extraBody += '<div class="card-hint" style="display:flex;align-items:flex-start;gap:8px;">'+WARNING_ICON+'<b>'+tr("document_required_prefix","מסמך נדרש:")+' '+tr("cred_"+key+"_document",meta.document)+'</b></div>';
+        // כפתור ההעלאה נוסף לשורת "מסמך נדרש" הקיימת (רוחבית מלאה,
+        // נפרדת מרשתות תת-השדות הצפופות של הכרטיס) - לא שורה חדשה
+        // ייחודית, כדי לא להוסיף עומס פריסה בכרטיסים הצפופים ממילא
+        // (כמו ח.7/ח.8, ר' התוכנית).
+        extraBody += documentAttachRowHtml(c, "doc_"+key);
       }
     }
     return creditCardShell(meta,disabled,disabledReason,extraBody,checkbox);
@@ -3378,10 +3476,12 @@ function renderForm101SectionI(c){
     }).join("") + '</div>' +
     '<div style="margin-top:10px;"><button class="btn-add-green" onclick="addIncomeSource()">+ '+tr("add_income_source_btn","הוסף מקור הכנסה")+'</button></div>' +
     (ui.errors["f101_taxCoordSources"]?'<div class="field-error">'+tr(ui.errors["f101_taxCoordSources"],ui.errors["f101_taxCoordSources"])+'</div>':'') +
-    '<div class="card-hint" style="margin-top:10px;display:flex;align-items:flex-start;gap:8px;">'+WARNING_ICON+'<b>'+tr("document_required_prefix","מסמך נדרש:")+' '+tr("sec_i_sourcesDocument","תלוש שכר או אסמכתא רלוונטית לכל מקור הכנסה.")+'</b></div>';
+    '<div class="card-hint" style="margin-top:10px;display:flex;align-items:flex-start;gap:8px;">'+WARNING_ICON+'<b>'+tr("document_required_prefix","מסמך נדרש:")+' '+tr("sec_i_sourcesDocument","תלוש שכר או אסמכתא רלוונטית לכל מקור הכנסה.")+'</b></div>' +
+    documentAttachRowHtml(c, "doc_taxcoord_slip");
   }
   if(tco.option==="approved"){
-    sourcesHtml = '<div class="card-hint" style="margin-top:10px;display:flex;align-items:flex-start;gap:8px;">'+WARNING_ICON+'<b>'+tr("document_required_prefix","מסמך נדרש:")+' '+tr("sec_i_approvedDocument","אישור תיאום מס מפקיד השומה.")+'</b></div>';
+    sourcesHtml = '<div class="card-hint" style="margin-top:10px;display:flex;align-items:flex-start;gap:8px;">'+WARNING_ICON+'<b>'+tr("document_required_prefix","מסמך נדרש:")+' '+tr("sec_i_approvedDocument","אישור תיאום מס מפקיד השומה.")+'</b></div>' +
+      documentAttachRowHtml(c, "doc_taxcoord_approval");
   }
   return '' +
   '<h2 class="section-title" id="sec-i">'+sectionTitleHtml("ט","sec_i_title","תיאום מס")+'</h2>' +
@@ -3745,11 +3845,17 @@ function setDocStatus(idx,status){
 function renderDocumentsScreen(){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
-  if(!c.documents.length) c.documents = buildDocuments(c);
+  // מרעננת תמיד (לא רק כשריקה) - כמו ב-renderForm101 - כדי שהמסך יראה
+  // מיד מסמכים חדשים שהתווספו (סעיף זיכוי שסומן וכו') בלי לצאת ולחזור.
+  c.documents = buildDocuments(c);
   const docs = c.documents;
   const rows = docs.length ? docs.map((d,idx)=>{
+    const uploaded = d.status==="uploaded";
+    const viewLink = uploaded
+      ? '<a href="/api/documents/'+encodeURIComponent(c.id)+'/'+encodeURIComponent(d.key)+'" target="_blank" rel="noopener" class="btn-link" style="margin-right:10px;">צפייה בקובץ</a>'
+      : '';
     return '<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:14px;">' +
-      '<div>'+escapeHtml(d.label)+'</div>' +
+      '<div>'+escapeHtml(d.label)+(uploaded?' <span class="status-pill pill-green">הועלה ע"י העובד/ת</span>':'')+viewLink+'</div>' +
       '<div class="row-actions">' +
         '<button class="btn btn-sm '+(d.status==="missing"?"btn-danger":"btn-secondary")+'" onclick="setDocStatus('+idx+',\'missing\')">חסר</button>' +
         '<button class="btn btn-sm '+(d.status==="delivered"?"btn-primary":"btn-secondary")+'" onclick="setDocStatus('+idx+',\'delivered\')">נמסר פיזית</button>' +
@@ -3760,7 +3866,7 @@ function renderDocumentsScreen(){
   return '' +
   '<button class="btn-link" onclick="openCase(\''+c.id+'\',\'case-home\')">&rarr; חזרה למסך התיק</button>' +
   '<h1 style="margin-top:14px;">מסמכים נדרשים — '+escapeHtml(c.employee.firstName+" "+c.employee.lastName)+'</h1>' +
-  '<div class="page-desc">הרשימה נגזרת אוטומטית מתשובות העובד/ת בטופס 101. אין אפשרות להעלות קבצים למערכת — יש לסמן ידנית האם המסמך נמסר פיזית.</div>' +
+  '<div class="page-desc">הרשימה נגזרת אוטומטית מתשובות העובד/ת בטופס 101. עובד/ת יכול/ה להעלות קבצים ישירות בטופס 101 (מוצג כאן "הועלה ע"י העובד/ת") - אם התיק שותף עם עובד/ת, יש ללחוץ "רענון נתונים מהעובד/ת" בכרטיס התיק כדי לראות קבצים שהועלו. אפשר גם לסמן ידנית שמסמך נמסר פיזית.</div>' +
   (missing?'<div class="alert alert-warning-yellow">קיימים '+missing+' מסמכים שטרם נמסרו.</div>':'<div class="alert alert-info">כל המסמכים הנדרשים נמסרו.</div>') +
   rows;
 }
