@@ -3130,7 +3130,10 @@ function renderForm101SectionB(c){
   return '' +
   '<h2 class="section-title" id="sec-b">'+sectionTitleHtml("ב","sec_b_title","פרטי העובד/ת")+'</h2>' +
   '<div class="panel">' +
-  '<div class="form-grid">' +
+  // cols-2 (במקום ברירת המחדל של 3 עמודות) - לבקשת המשתמשת, כדי ש"מספר
+  // זהות"/"מספר דרכון" יהיה באותה שורה עם "זיהוי לפי" (בברירת המחדל של 3
+  // עמודות הם נופלים לשתי שורות נפרדות, ר' דוגמה שסופקה).
+  '<div class="form-grid cols-2">' +
     f101FieldWrap("f101_firstName_ro","שם פרטי",true,'<input type="text" value="'+escapeHtml(emp.firstName)+'" readonly disabled>') +
     f101FieldWrap("f101_lastName_ro","שם משפחה",true,'<input type="text" value="'+escapeHtml(emp.lastName)+'" readonly disabled>') +
     f101FieldWrap("f101_idType_ro","זיהוי לפי",true,
@@ -3301,7 +3304,8 @@ function renderForm101SectionF(c){
   return '' +
   '<h2 class="section-title" id="sec-f">'+sectionTitleHtml("ו","sec_f_title","פרטים על בן/בת הזוג")+'</h2>' +
   '<div class="panel">' +
-  '<div class="form-grid">' +
+  // cols-2 - אותו שינוי כמו בסעיף ב' (פרטי העובד/ת), לבקשת המשתמשת.
+  '<div class="form-grid cols-2">' +
     f101FieldWrap("f101_spouse_firstName","שם פרטי",true,'<input type="text" id="f101_spouse_firstName" class="'+e("f101_spouse_firstName")+'" value="'+escapeHtml(sp.firstName)+'" oninput="updateEmp(\'spouse.firstName\',this.value)">',"כפי שמופיע בתעודת הזהות") +
     f101FieldWrap("f101_spouse_lastName","שם משפחה",true,'<input type="text" id="f101_spouse_lastName" class="'+e("f101_spouse_lastName")+'" value="'+escapeHtml(sp.lastName)+'" oninput="updateEmp(\'spouse.lastName\',this.value)">',"כפי שמופיע בתעודת הזהות") +
     f101FieldWrap("f101_spouse_idType","זיהוי לפי",true,
