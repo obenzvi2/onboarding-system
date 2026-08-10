@@ -1437,7 +1437,8 @@ const ICON_SVGS = {
   trash: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
   printer: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
   folderOpen: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>',
-  paperclip: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.53 17.53a2 2 0 0 1-2.83-2.83l8.49-8.49"/></svg>'
+  paperclip: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.53 17.53a2 2 0 0 1-2.83-2.83l8.49-8.49"/></svg>',
+  cloudUpload: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>'
 };
 /* כפתור אייקון "שקוף" - בלי מסגרת ובלי רקע, רק הקו של האייקון עצמו,
    באותו צבע כמו טקסט השורה; צבע שונה מופיע רק במעבר עכבר (ר' CSS
@@ -1455,26 +1456,52 @@ function ICON_BTN(name,title,onclick,variant){
    לגבי מקום מוגבל בשורות הצפופות כמו ח.7/ח.8). כמו כל שאר פעולות
    העובד/ת, מאומת עם אותו טוקן סשן שהתקבל אחרי אימות ה-SMS (ר'
    getEmployeeSessionToken ב-render.js, לא כאן כי מוגדר קודם בקובץ). */
-function documentAttachRowHtml(c, docKey){
+function documentAttachRowHtml(c, docKey, tooltipText){
   const doc = (c.documents||[]).find(d=>d.key===docKey);
   if(!doc) return "";
   const inputId = "docfile_"+docKey;
   const uploading = ui.docUploadStatus[docKey]==="uploading";
-  let badge;
+  // "חסר" לא מוצג יותר כתגית נפרדת - כפתור "צרף קבצים..." הבולט עצמו
+  // כבר מתקשר את זה (ר' התמונה שסופקה). תגיות עדיין מוצגות למצבים
+  // ש"צריך" לתקשר במיוחד (הועלה בהצלחה / נמסר פיזית מחוץ למערכת).
+  let badge = "";
   if(doc.status==="uploaded") badge = '<span class="status-pill pill-green">הועלה</span>';
   else if(doc.status==="delivered") badge = '<span class="status-pill pill-blue">נמסר פיזית</span>';
-  else badge = '<span class="status-pill pill-yellow">חסר</span>';
   const viewLink = doc.status==="uploaded"
     ? '<a href="/api/documents/'+encodeURIComponent(c.id)+'/'+encodeURIComponent(docKey)+'" target="_blank" rel="noopener" class="btn-link" style="font-size:13px;">צפייה בקובץ</a>'
     : '';
-  const attachBtn = ICON_BTN("paperclip", doc.status==="uploaded" ? "החלפת קובץ" : "צרף קובץ", "triggerDocFileInput('"+docKey+"')", "attach");
-  return '<div class="doc-attach-row" style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap;">' +
-    badge + viewLink +
-    (uploading ? '<span style="font-size:13px;color:var(--header-text);">מעלה...</span>' : attachBtn) +
+  const btnLabel = doc.status==="uploaded" ? "החלפת קובץ" : "צרף קבצים...";
+  const attachBtn = '<button type="button" class="btn-add-green" onclick="triggerDocFileInput(\''+docKey+'\')">'+ICON_SVGS.cloudUpload+' '+btnLabel+'</button>';
+  // שורת תווית + סימן שאלה (qmarkHtml) מוצגת רק כשיש טקסט הסבר להעביר -
+  // לבקשת המשתמשת (התמונה שסופקה), רלוונטי כרגע רק לצילום ת.ז/דרכון
+  // בסעיף ב'. בסעיפים ח'/ט' כבר יש שורת "מסמך נדרש: ..." משלהם מעל
+  // השורה הזו, ולכן לא מוסיפים כאן תווית כפולה.
+  const labelRow = tooltipText
+    ? '<div style="font-size:13.5px;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:5px;margin-bottom:6px;">'+escapeHtml(doc.label||"")+qmarkHtml(tooltipText)+'</div>'
+    : '';
+  // margin-top:6px רק כשאין labelRow משלה (בסעיפים ח'/ט', שם השורה מתווספת
+  // אחרי שורת "מסמך נדרש" קיימת וצריכה מרווח ממנה) - כשיש labelRow (סעיפים
+  // ב'/ו') השורה הזו יושבת כתא עצמאי ב-form-grid לצד שדה המספר, וצריכה
+  // להתחיל בדיוק באותו גובה כמו ה-label של השדה השכן, בלי מרווח נוסף
+  // מלמעלה (אחרת הכפתור "צונח" נמוך יותר מתיבת הקלט לידו - לבקשת המשתמשת).
+  return '<div class="doc-attach-row"'+(tooltipText?'':' style="margin-top:6px;"')+'>' +
+    labelRow +
+    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
+      (uploading ? '<span style="font-size:13px;color:var(--header-text);">מעלה...</span>' : attachBtn) +
+      badge + viewLink +
+    '</div>' +
     '<input type="file" id="'+inputId+'" accept="image/*,.pdf,.heic,.heif" style="display:none;" '+(uploading?"disabled":"")+' onchange="handleDocFileSelected(\''+c.id+'\',\''+docKey+'\',this)">' +
   '</div>';
 }
 function triggerDocFileInput(docKey){
+  // אם כבר קיים קובץ מועלה למסמך הזה - מבקשים אישור לפני החלפתו (הקובץ
+  // הישן יימחק בפועל מהאחסון בצד השרת ברגע שההעלאה החדשה תצליח, ר'
+  // api/documents/[caseId]/index.js).
+  const c = currentCase();
+  const doc = c && (c.documents||[]).find(d=>d.key===docKey);
+  if(doc && doc.status==="uploaded"){
+    if(!confirm("קיים כבר קובץ מועלה עבור מסמך זה. הקובץ הקיים יוחלף בקובץ החדש שתבחר/י ולא ניתן יהיה לשחזר אותו. להמשיך?")) return;
+  }
   const input = document.getElementById("docfile_"+docKey);
   if(input) input.click();
 }
@@ -3126,6 +3153,9 @@ function renderForm101SectionB(c){
   const idLabel = emp.idType==="id" ? "מספר זהות" : "מספר דרכון";
   const idValue = emp.idType==="id" ? emp.idNumber : emp.passportNumber;
   const idDocKey = emp.idType==="id" ? "id_copy" : "passport_copy";
+  const idDocTooltip = emp.idType==="id"
+    ? "יש לצרף צילום תעודת זהות כולל ספח. אם צורף בעבר, יש לצרף צילום רק אם היו שינויים בפרטים."
+    : "יש לצרף צילום דרכון ואישור/רישיון שהייה בתוקף. אם צורף בעבר, יש לצרף צילום רק אם היו שינויים בפרטים.";
   const yes = tr("yes","כן"), no = tr("no","לא");
   return '' +
   '<h2 class="section-title" id="sec-b">'+sectionTitleHtml("ב","sec_b_title","פרטי העובד/ת")+'</h2>' +
@@ -3138,13 +3168,13 @@ function renderForm101SectionB(c){
   // שדה אחר) - לבקשת המשתמשת, לפי הדוגמה שסופקה.
   f101FieldWrap("f101_idType_ro","זיהוי לפי",true,
     '<div class="radio-group"><label><input type="radio" '+(emp.idType==="id"?"checked":"")+' disabled> '+tr("id_type_id","תעודת זהות")+'</label>'+
-    '<label><input type="radio" '+(emp.idType==="passport"?"checked":"")+' disabled> '+tr("id_type_passport","דרכון (עבור אזרח זר)")+'</label></div>') +
+    '<label><input type="radio" '+(emp.idType==="passport"?"checked":"")+' disabled> '+tr("id_type_passport","דרכון (עבור אזרח זר)")+'</label></div>',null,null,"idtype-standalone-row") +
   // "מספר זהות/דרכון" מזווג עם כפתור העלאת הקובץ באותה שורה (לא כשורה
   // נפרדת מתחת לכל השדות כמו קודם) - לבקשת המשתמשת: מספר הזהות מיושר
   // לימין, וכפתור ההעלאה לידו (בעמודה השמאלית, ר' סדר ה-RTL).
   '<div class="form-grid cols-2">' +
     f101FieldWrap("f101_idNumber_ro",idLabel,true,'<input type="text" value="'+escapeHtml(idValue)+'" readonly disabled>',null,null,null,idLabelKey) +
-    documentAttachRowHtml(c, idDocKey) +
+    documentAttachRowHtml(c, idDocKey, idDocTooltip) +
   '</div>' +
   '<div class="form-grid cols-2">' +
     f101FieldWrap("f101_birthDate","תאריך לידה",true,'<input type="date" id="f101_birthDate" class="'+e("f101_birthDate")+'" value="'+emp.birthDate+'" max="'+todayIso()+'" onblur="finalizeEmpField(\'birthDate\',this.value)">') +
@@ -3305,26 +3335,40 @@ function renderForm101SectionF(c){
       '<div class="field-hint-static">'+tr("sec_f_notMarriedHint","חלק זה רלוונטי רק אם הינך נשוי/אה.")+'</div>' +
     '</div>';
   }
+  const spouseDocKey = sp.idType==="id" ? "spouse_id_copy" : "spouse_passport_copy";
+  const spouseDocTooltip = sp.idType==="id"
+    ? "יש לצרף צילום תעודת זהות של בן/בת הזוג כולל ספח. אם צורף בעבר, יש לצרף צילום רק אם היו שינויים בפרטים."
+    : "יש לצרף צילום דרכון ואישור/רישיון שהייה בתוקף של בן/בת הזוג. אם צורף בעבר, יש לצרף צילום רק אם היו שינויים בפרטים.";
   return '' +
   '<h2 class="section-title" id="sec-f">'+sectionTitleHtml("ו","sec_f_title","פרטים על בן/בת הזוג")+'</h2>' +
   '<div class="panel">' +
-  // cols-2 - אותו שינוי כמו בסעיף ב' (פרטי העובד/ת), לבקשת המשתמשת.
   '<div class="form-grid cols-2">' +
     f101FieldWrap("f101_spouse_firstName","שם פרטי",true,'<input type="text" id="f101_spouse_firstName" class="'+e("f101_spouse_firstName")+'" value="'+escapeHtml(sp.firstName)+'" oninput="updateEmp(\'spouse.firstName\',this.value)">',"כפי שמופיע בתעודת הזהות") +
     f101FieldWrap("f101_spouse_lastName","שם משפחה",true,'<input type="text" id="f101_spouse_lastName" class="'+e("f101_spouse_lastName")+'" value="'+escapeHtml(sp.lastName)+'" oninput="updateEmp(\'spouse.lastName\',this.value)">',"כפי שמופיע בתעודת הזהות") +
-    f101FieldWrap("f101_spouse_idType","זיהוי לפי",true,
-      '<div class="radio-group"><label><input type="radio" name="spouseIdType" value="id" '+(sp.idType==="id"?"checked":"")+' onchange="updateEmp(\'spouse.idType\',\'id\')"> '+tr("id_type_id","תעודת זהות")+'</label>'+
-      '<label><input type="radio" name="spouseIdType" value="passport" '+(sp.idType==="passport"?"checked":"")+' onchange="updateEmp(\'spouse.idType\',\'passport\')"> '+tr("id_type_passport","דרכון (עבור אזרח זר)")+'</label></div>') +
+  '</div>' +
+  // "זיהוי לפי" בשורה עצמאית משלו, ו"מספר זהות/דרכון" מזווג עם כפתור
+  // העלאת הקובץ באותה שורה - אותו מבנה בדיוק כמו בסעיף ב' (פרטי העובד/ת),
+  // לבקשת המשתמשת ("בדיוק כמו הלחצן והכיתוב שליד שדה תעודת זהות של העובד").
+  f101FieldWrap("f101_spouse_idType","זיהוי לפי",true,
+    '<div class="radio-group"><label><input type="radio" name="spouseIdType" value="id" '+(sp.idType==="id"?"checked":"")+' onchange="updateEmp(\'spouse.idType\',\'id\')"> '+tr("id_type_id","תעודת זהות")+'</label>'+
+    '<label><input type="radio" name="spouseIdType" value="passport" '+(sp.idType==="passport"?"checked":"")+' onchange="updateEmp(\'spouse.idType\',\'passport\')"> '+tr("id_type_passport","דרכון (עבור אזרח זר)")+'</label></div>',null,null,"idtype-standalone-row") +
+  '<div class="form-grid cols-2">' +
     (sp.idType==="id" ?
       f101FieldWrap("f101_spouse_idNumber","מספר זהות (9 ספרות)",true,'<input type="text" id="f101_spouse_idNumber" class="'+e("f101_spouse_idNumber")+'" value="'+escapeHtml(sp.idNumber)+'" maxlength="9" oninput="updateEmp(\'spouse.idNumber\',this.value.trim())" onblur="finalizeEmpField(\'spouse.idNumber\',this.value.trim())">')
       :
       f101FieldWrap("f101_spouse_passportNumber","מספר דרכון",true,'<input type="text" id="f101_spouse_passportNumber" class="'+e("f101_spouse_passportNumber")+'" value="'+escapeHtml(sp.passportNumber)+'" maxlength="20" oninput="updateEmp(\'spouse.passportNumber\',this.value.trim())">')
     ) +
+    documentAttachRowHtml(c, spouseDocKey, spouseDocTooltip) +
+  '</div>' +
+  '<div class="form-grid cols-2">' +
     f101FieldWrap("f101_spouse_birthDate","תאריך לידה",true,'<input type="date" id="f101_spouse_birthDate" class="'+e("f101_spouse_birthDate")+'" value="'+sp.birthDate+'" max="'+todayIso()+'" onblur="finalizeEmpField(\'spouse.birthDate\',this.value)">') +
     f101FieldWrap("f101_spouse_aliyaDate","תאריך עלייה",false,'<input type="date" id="f101_spouse_aliyaDate" value="'+sp.aliyaDate+'" onblur="updateEmp(\'spouse.aliyaDate\',this.value)">') +
+  '</div>' +
+  '<div class="form-grid cols-2">' +
     f101FieldWrap("f101_spouse_incomeStatus","הכנסה",true,
       '<div class="radio-group">'+CODE_TABLES.spouseIncomeOptions.map(o=>'<label><input type="radio" name="spouseIncomeStatus" value="'+o.id+'" '+(sp.incomeStatus===o.id?"checked":"")+' onchange="updateEmp(\'spouse.incomeStatus\',\''+o.id+'\')"> '+codeName("spouseIncome",o)+'</label>').join("")+'</div>') +
-  '</div></div>';
+  '</div>' +
+  '</div>';
 }
 
 /* ---------- ז. שינויים במהלך השנה (טקסט בלבד) ---------- */

@@ -114,6 +114,11 @@ h2.section-title:first-child{margin-top:0;}
    (16px) שקיים בין שורות בתוך grid יחיד - כדי שהמרווח ייראה זהה בכל
    הטופס, ולא רק שם שבו יש כמה form-grid נפרדים ברצף. */
 .panel .form-grid + .form-grid{margin-top:16px;}
+/* שדה "זיהוי לפי" (סעיפים ב'/ו') יושב עצמאי בין שני form-grid ולכן לא
+   מקבל מרווח מהכלל למעלה (שחל רק בין שני form-grid רצופים) - בלי המחלקה
+   הזו הוא נדבק לשורה שמעליו ומתחתיו. התווית עצמה נשארת צמודה ל-radio-group
+   שלה (ר' בקשת המשתמשת: מרווח רק מסביב לשדה כולו, לא בתוכו). */
+.idtype-standalone-row{margin:16px 0;}
 .field{display:flex;flex-direction:column;gap:6px;}
 .field.span-2{grid-column:span 2;}
 .field.span-3{grid-column:span 3;}

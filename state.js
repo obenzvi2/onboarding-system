@@ -77,6 +77,15 @@ function buildDocuments(caseObj){
   } else {
     add("passport_copy","צילום דרכון ואישור/רישיון שהייה");
   }
+  // מסמך זהות בן/בת הזוג - רק כשסעיף ו' (פרטים על בן/בת הזוג) רלוונטי,
+  // כלומר כשהעובד/ת נשוי/אה (ר' renderForm101SectionF).
+  if(emp.maritalStatus === "married"){
+    if(emp.spouse.idType === "id"){
+      add("spouse_id_copy","צילום תעודת זהות וספח (בן/בת הזוג)");
+    } else {
+      add("spouse_passport_copy","צילום דרכון ואישור/רישיון שהייה (בן/בת הזוג)");
+    }
+  }
   add("form101_signed","טופס 101 חתום");
   if(caseObj.needsBankForm){
     add("bank_form_signed","טופס פרטי חשבון בנק חתום");

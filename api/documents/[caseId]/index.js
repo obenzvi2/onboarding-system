@@ -6,7 +6,7 @@
    פענוח multipart) לפרויקט שכבר מסתמך על JSON בכל שאר נקודות הקצה. */
 const { getCaseRecord, putCaseRecord } = require("../../../lib/kv");
 const { requireCaseSession } = require("../../../lib/auth");
-const { uploadDocument } = require("../../../lib/blob");
+const { uploadDocument, deleteDocument } = require("../../../lib/blob");
 const { withErrorHandling } = require("../../../lib/withErrorHandling");
 
 /* 3MB גולמי -> כ-4MB אחרי קידוד base64 + מבנה ה-JSON, בטוח מתחת למגבלת
@@ -44,11 +44,20 @@ module.exports = withErrorHandling(async function handler(req, res){
   const docIdx = (caseData.documents||[]).findIndex(d=>d.key===docKey);
   if(docIdx<0){ res.status(400).json({ error: "מסמך לא מוכר עבור תיק זה." }); return; }
 
+  // אם כבר היה קובץ קודם עבור מסמך זה (החלפה, לא העלאה ראשונה) - שומרים
+  // את הנתיב הישן כדי למחוק אותו אחרי שההעלאה החדשה מצליחה, כדי לא
+  // להשאיר קבצים "יתומים" בחנות ה-Blob (ר' בקשת המשתמשת).
+  const previousPathname = caseData.documents[docIdx].pathname;
+
   const { pathname } = await uploadDocument(caseId, docKey, fileName, buffer, contentType);
   caseData.documents[docIdx] = Object.assign({}, caseData.documents[docIdx], {
     status: "uploaded", pathname: pathname, fileName: fileName, uploadedAt: new Date().toISOString()
   });
   await putCaseRecord(caseId, caseData);
+
+  if(previousPathname && previousPathname !== pathname){
+    await deleteDocument(previousPathname);
+  }
 
   res.status(200).json({ ok: true, document: caseData.documents[docIdx] });
 });
