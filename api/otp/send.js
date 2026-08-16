@@ -9,10 +9,11 @@ function generateCode(){
 }
 
 // מסתיר את רוב מספר הטלפון בהודעת התשובה ללקוח - כדי שהמסך יוכל להציג
-// "שלחנו קוד לטלפון המסתיים ב-XX**" בלי לחשוף את המספר המלא לצד הלקוח.
+// "שלחנו קוד לטלפון המסתיים ב-***XXX" (3 ספרות אחרונות בלבד, לבקשת
+// המשתמשת) בלי לחשוף את המספר המלא לצד הלקוח.
 function maskPhone(phone){
   const digits = String(phone||"");
-  return digits.length > 4 ? "*".repeat(digits.length - 4) + digits.slice(-4) : digits;
+  return digits.length > 3 ? "*".repeat(digits.length - 3) + digits.slice(-3) : digits;
 }
 
 module.exports = withErrorHandling(async function handler(req, res){
