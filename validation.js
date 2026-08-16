@@ -14,6 +14,24 @@ function formatDateHe(iso){
   if(isNaN(d.getTime())) return "";
   return d.getDate().toString().padStart(2,"0")+"/"+(d.getMonth()+1).toString().padStart(2,"0")+"/"+d.getFullYear();
 }
+/* הופכת טקסט מוקלד "DD/MM/YYYY" (ר' שדות התאריך ההקלדתיים בטופס 101,
+   render.js - maskDateDigits/commitDateField) ל-ISO "YYYY-MM-DD" לאחסון,
+   כדי שכל הלוגיקה העסקית הקיימת (finalFieldError, ageAt, השוואות תאריך
+   עתידי וכו') תמשיך לעבוד בלי שינוי. מחזירה {iso:""} עבור קלט ריק,
+   {invalid:true} עבור תבנית לא שלמה/לא תקינה (כולל תאריכים לא-קיימים
+   בפועל כמו 30/2 - הבדיקה round-trip דרך אובייקט Date עצמו: אם היום/
+   חודש/שנה "גלשו" (למשל 30/2 הופך ל-2/3), ה-Date שנוצר לא יחזיר בדיוק
+   את אותם ערכים בחזרה). */
+function parseDateHe(text){
+  const s = (text||"").trim();
+  if(!s) return {iso:""};
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(!m) return {invalid:true};
+  const day = Number(m[1]), month = Number(m[2]), year = Number(m[3]);
+  const d = new Date(year, month-1, day);
+  if(d.getFullYear()!==year || d.getMonth()!==month-1 || d.getDate()!==day) return {invalid:true};
+  return {iso: year+"-"+String(month).padStart(2,"0")+"-"+String(day).padStart(2,"0")};
+}
 function formatDateTimeHe(iso){
   if(!iso) return "";
   const d = new Date(iso);

@@ -45,7 +45,8 @@ let ui = {
      ui.screen כבר מצביע על מסך תוכן. */
   employeeAuth:null,
   copiedLinkCaseId:null, // מזהה התיק שהקישור שלו הועתק לאחרונה (חיווי "✓ הועתק" זמני על הכפתור, ר' flashCopiedButton), null = אין חיווי פעיל
-  docUploadStatus:{} // מפתח=docKey, ערך "uploading" בזמן העלאה/מחיקה של מסמך (ר' documentAttachRowHtml) - ריק כשאין פעולה פעילה על אותו מסמך
+  docUploadStatus:{}, // מפתח=docKey, ערך "uploading" בזמן העלאה/מחיקה של מסמך (ר' documentAttachRowHtml) - ריק כשאין פעולה פעילה על אותו מסמך
+  dateInputDrafts:{} // מפתח=errKey של שדה תאריך הקלדתי, ערך=הטקסט המוקלד (DD/MM/YYYY) בזמן שהשדה בעריכה, לפני שהומר ל-ISO ב-blur (ר' handleDateInput/commitDateField)
 };
 /* מיפוי בין מצב דו-לשוני (ui.formLanguage) לבין קוד השפה הזרה שהוא מציג
    לצד העברית (ר' FORM101_I18N ב-i18n.js) - "both" היא הגרסה הוותיקה
@@ -1331,6 +1332,74 @@ function finalizeEmpField(path,value){
   if(err) ui.errors[errKey] = err;
   else delete ui.errors[errKey];
   render();
+}
+/* ============================================================
+   שדות תאריך הקלדתיים (type="text" + inputmode="numeric", לא
+   type="date") - בנייד type="date" תמיד פותח את דיאלוג הלוח-שנה הטבעי
+   של המכשיר (אין attribute שמבטל את זה, ואומת שאין בו גם אפשרות הקלדה
+   כמו שיש ב-PC), ולבקשת המשתמשת רוצים לאפשר הקלדה ישירה כמו ב-PC.
+   התצוגה/הקלט הם "DD/MM/YYYY" (פורמט הקלדה - maskDateDigits), אבל
+   האחסון ב-state נשאר בדיוק כמו היום (ISO "YYYY-MM-DD") - ההמרה קורית
+   רק ב-blur (commitDateField), כדי שכל הלוגיקה העסקית הקיימת
+   (finalFieldError/ageAt/השוואות תאריך וכו') תמשיך לעבוד בלי שום שינוי.
+   ============================================================ */
+// משאירה ספרות בלבד ומכניסה "/" אוטומטית אחרי הימים והחודש (מקסימום 8
+// ספרות = DDMMYYYY).
+function maskDateDigits(raw){
+  const digits = String(raw||"").replace(/\D/g,"").slice(0,8);
+  let out = digits.slice(0,2);
+  if(digits.length>2) out += "/"+digits.slice(2,4);
+  if(digits.length>4) out += "/"+digits.slice(4,8);
+  return out;
+}
+// רץ תוך כדי הקלדה (oninput): ממסך את הערך ישירות על ה-DOM (בלי render
+// מלא - זה שדה טקסט פשוט, אין צורך בכל מנגנון הרינדור מחדש בשביל מיסוך
+// תווים), תוך שימור מיקום הסמן ביחס למספר הספרות שהוקלדו. שומרת גם עותק
+// ב-ui.dateInputDrafts כגיבוי - למקרה שרינדור חיצוני (למשל טיימר) יקרה
+// תוך כדי הקלדה ויבנה מחדש את השדה מה-state (עדיין לא מעודכן, ר'
+// commitDateField) לפני ה-blur.
+// ערך התצוגה של שדה תאריך הקלדתי בזמן render: הטיוטה המוקלדת אם השדה
+// באמצע עריכה (ר' handleDateInput), אחרת התאריך המאוחסן (ISO) מפורמט
+// לתצוגה "DD/MM/YYYY" הרגילה.
+function dateInputValue(errKey, iso){
+  return ui.dateInputDrafts[errKey]!==undefined ? ui.dateInputDrafts[errKey] : formatDateHe(iso);
+}
+function handleDateInput(inputEl, errKey){
+  const oldValue = inputEl.value;
+  const posBefore = inputEl.selectionStart;
+  const digitsBeforeCursor = oldValue.slice(0, posBefore).replace(/\D/g,"").length;
+  const masked = maskDateDigits(oldValue);
+  inputEl.value = masked;
+  let digitsSeen = 0, newPos = masked.length;
+  for(let i=0;i<masked.length;i++){
+    if(digitsSeen>=digitsBeforeCursor){ newPos = i; break; }
+    if(/\d/.test(masked[i])) digitsSeen++;
+  }
+  while(masked[newPos]==="/") newPos++;
+  inputEl.setSelectionRange(newPos, newPos);
+  ui.dateInputDrafts[errKey] = masked;
+}
+// רץ ביציאה מהשדה (onblur): הופך את הטקסט המוקלד ל-ISO ומעביר אותו
+// הלאה בדיוק כמו שדה type="date" היה מעביר את this.value שלו - ל-
+// finalizeFn, שהיא אחת מפונקציות ה-handler הקיימות (finalizeEmpField/
+// updateEmp/updateCaseStartDate/updateCreditField+finalizeCreditField),
+// בלי לשנות אותן בכלל. אם הטקסט לא ריק אבל גם לא תאריך תקין (תבנית
+// שגויה או תאריך לא-קיים כמו 30/2) - עוצרים כאן עם הודעת שגיאה משלנו,
+// ולא קוראים ל-finalizeFn כלל: כך לא דורסים את ה-state בערך שגוי, וגם
+// לא נותנים לבדיקה הקיימת (finalFieldError, שרצה בתוך finalizeFn) לדרוס
+// את הודעת "תאריך לא תקין" הזו בהודעה אחרת (או למחוק אותה).
+function commitDateField(inputEl, errKey, finalizeFn){
+  if(isRerendering) return; // blur מלאכותי שנגרם מהרינדור עצמו - לא פעולת יציאה אמיתית
+  const draft = ui.dateInputDrafts[errKey];
+  const raw = draft!==undefined ? draft : inputEl.value;
+  delete ui.dateInputDrafts[errKey];
+  const parsed = parseDateHe(raw);
+  if(parsed.invalid){
+    ui.errors[errKey] = "תאריך לא תקין.";
+    render();
+    return;
+  }
+  finalizeFn(parsed.iso);
 }
 /* תאריך תחילת עבודה בשנת המס - שדה ברמת התיק (c.startDate, לא emp),
    לכן לא עובר דרך updateEmp. יורש ערך מ"פתיחת תיק קליטה חדש" אם הוזן
@@ -3229,8 +3298,8 @@ function renderForm101SectionB(c){
     documentAttachRowHtml(c, idDocKey, idDocTooltip) +
   '</div>' +
   '<div class="form-grid cols-2">' +
-    f101FieldWrap("f101_birthDate","תאריך לידה",true,'<input type="date" id="f101_birthDate" class="'+e("f101_birthDate")+'" value="'+emp.birthDate+'" max="'+todayIso()+'" onblur="finalizeEmpField(\'birthDate\',this.value)">') +
-    f101FieldWrap("f101_aliyaDate","תאריך עלייה",false,'<input type="date" id="f101_aliyaDate" value="'+emp.aliyaDate+'" onblur="updateEmp(\'aliyaDate\',this.value)">') +
+    f101FieldWrap("f101_birthDate","תאריך לידה",true,'<input type="text" inputmode="numeric" maxlength="10" dir="ltr" style="direction:ltr;unicode-bidi:plaintext;text-align:right;" placeholder="dd/mm/yyyy" id="f101_birthDate" class="'+e("f101_birthDate")+'" value="'+escapeHtml(dateInputValue("f101_birthDate",emp.birthDate))+'" oninput="handleDateInput(this,\'f101_birthDate\')" onblur="commitDateField(this,\'f101_birthDate\',function(iso){finalizeEmpField(\'birthDate\',iso);})">') +
+    f101FieldWrap("f101_aliyaDate","תאריך עלייה",false,'<input type="text" inputmode="numeric" maxlength="10" dir="ltr" style="direction:ltr;unicode-bidi:plaintext;text-align:right;" placeholder="dd/mm/yyyy" id="f101_aliyaDate" value="'+escapeHtml(dateInputValue("f101_aliyaDate",emp.aliyaDate))+'" oninput="handleDateInput(this,\'f101_aliyaDate\')" onblur="commitDateField(this,\'f101_aliyaDate\',function(iso){updateEmp(\'aliyaDate\',iso);})">') +
   '</div>' +
   '<div class="form-grid cols-4">' +
     f101FieldWrap("f101_city","עיר או יישוב",true,f101CityFieldHtml(emp.city,"f101_city")) +
@@ -3291,7 +3360,7 @@ function renderForm101SectionC(c){
         '<div class="form-grid cols-3">' +
           f101FieldWrap("f101_kid_"+idx+"_name","שם",true,'<input type="text" id="f101_kid_'+idx+'_name" class="'+e("f101_kid_"+idx+"_name")+'" value="'+escapeHtml(kid.name)+'" oninput="updateEmp(\'children.'+idx+'.name\',this.value)">') +
           f101FieldWrap("f101_kid_"+idx+"_idNumber","מספר זהות (9 ספרות)",true,'<input type="text" inputmode="numeric" pattern="[0-9]*" id="f101_kid_'+idx+'_idNumber" class="'+e("f101_kid_"+idx+"_idNumber")+'" value="'+escapeHtml(kid.idNumber)+'" maxlength="9" oninput="updateEmp(\'children.'+idx+'.idNumber\',this.value.trim())" onblur="finalizeEmpField(\'children.'+idx+'.idNumber\',this.value.trim())">') +
-          f101FieldWrap("f101_kid_"+idx+"_birthDate","תאריך לידה",true,'<input type="date" id="f101_kid_'+idx+'_birthDate" class="'+e("f101_kid_"+idx+"_birthDate")+'" value="'+kid.birthDate+'" max="'+todayIso()+'" onblur="finalizeEmpField(\'children.'+idx+'.birthDate\',this.value)">') +
+          f101FieldWrap("f101_kid_"+idx+"_birthDate","תאריך לידה",true,'<input type="text" inputmode="numeric" maxlength="10" dir="ltr" style="direction:ltr;unicode-bidi:plaintext;text-align:right;" placeholder="dd/mm/yyyy" id="f101_kid_'+idx+'_birthDate" class="'+e("f101_kid_"+idx+"_birthDate")+'" value="'+escapeHtml(dateInputValue("f101_kid_"+idx+"_birthDate",kid.birthDate))+'" oninput="handleDateInput(this,\'f101_kid_'+idx+'_birthDate\')" onblur="commitDateField(this,\'f101_kid_'+idx+'_birthDate\',function(iso){finalizeEmpField(\'children.'+idx+'.birthDate\',iso);})">') +
         '</div>' +
         '<div class="form-grid cols-3" style="margin-top:8px;">' +
           '<div class="check-group"><label style="white-space:nowrap;"><input type="checkbox" '+(kid.inCustody?"checked":"")+' onchange="toggleChildCustody('+idx+',this.checked)"> '+tr("kid_inCustody_label","הילד/ה נמצא/ת בחזקתי")+'</label></div>' +
@@ -3320,7 +3389,7 @@ function renderForm101SectionD(c){
       (ui.errors["f101_incomeType"]?'<div class="field-error">'+tr(ui.errors["f101_incomeType"],ui.errors["f101_incomeType"])+'</div>':'') +
     '</div>' +
     (emp.incomeType==="additional" ? '<div class="alert alert-warning-pink"><b>'+tr("sec_d_additionalIncomeWarningTitle","שים לב!")+'</b>'+tr("sec_d_additionalIncomeWarning","מכיוון שסימנת שזוהי משכורת נוספת עבורך, עליך לערוך תיאום מס ולהגישו למעסיק, אחרת יורד מהשכר שלך מס בשיעור מירבי, כ-48%.<br>ניתן לערוך תיאום מס באינטרנט, על ידי הגשת טופס 116 לפקיד השומה, או בחלק ט׳ של טופס זה.<br>אם כבר יש ברשותך אישור מפקיד השומה, יש למסור אותו למשאבי אנוש.<br>אם עדיין אין ברשותך אישור מפקיד השומה, יש להעביר אותו למשאבי אנוש לפני הכנת המשכורת הראשונה.<br>אם זה לא ברור לך, יש ליצור קשר עם המעסיק.")+'</div>' : '') +
-    f101FieldWrap("f101_startDate","תאריך תחילת עבודה בשנת המס",true,'<input type="date" id="f101_startDate" value="'+c.startDate+'" style="max-width:260px;" onblur="updateCaseStartDate(this.value)">',startDateTooltip) +
+    f101FieldWrap("f101_startDate","תאריך תחילת עבודה בשנת המס",true,'<input type="text" inputmode="numeric" maxlength="10" dir="ltr" style="direction:ltr;unicode-bidi:plaintext;text-align:right;max-width:260px;" placeholder="dd/mm/yyyy" id="f101_startDate" value="'+escapeHtml(dateInputValue("f101_startDate",c.startDate))+'" oninput="handleDateInput(this,\'f101_startDate\')" onblur="commitDateField(this,\'f101_startDate\',function(iso){updateCaseStartDate(iso);})">',startDateTooltip) +
   '</div>';
 }
 
@@ -3408,8 +3477,8 @@ function renderForm101SectionF(c){
     ) +
   '</div>' +
   '<div class="form-grid cols-2">' +
-    f101FieldWrap("f101_spouse_birthDate","תאריך לידה",true,'<input type="date" id="f101_spouse_birthDate" class="'+e("f101_spouse_birthDate")+'" value="'+sp.birthDate+'" max="'+todayIso()+'" onblur="finalizeEmpField(\'spouse.birthDate\',this.value)">') +
-    f101FieldWrap("f101_spouse_aliyaDate","תאריך עלייה",false,'<input type="date" id="f101_spouse_aliyaDate" value="'+sp.aliyaDate+'" onblur="updateEmp(\'spouse.aliyaDate\',this.value)">') +
+    f101FieldWrap("f101_spouse_birthDate","תאריך לידה",true,'<input type="text" inputmode="numeric" maxlength="10" dir="ltr" style="direction:ltr;unicode-bidi:plaintext;text-align:right;" placeholder="dd/mm/yyyy" id="f101_spouse_birthDate" class="'+e("f101_spouse_birthDate")+'" value="'+escapeHtml(dateInputValue("f101_spouse_birthDate",sp.birthDate))+'" oninput="handleDateInput(this,\'f101_spouse_birthDate\')" onblur="commitDateField(this,\'f101_spouse_birthDate\',function(iso){finalizeEmpField(\'spouse.birthDate\',iso);})">') +
+    f101FieldWrap("f101_spouse_aliyaDate","תאריך עלייה",false,'<input type="text" inputmode="numeric" maxlength="10" dir="ltr" style="direction:ltr;unicode-bidi:plaintext;text-align:right;" placeholder="dd/mm/yyyy" id="f101_spouse_aliyaDate" value="'+escapeHtml(dateInputValue("f101_spouse_aliyaDate",sp.aliyaDate))+'" oninput="handleDateInput(this,\'f101_spouse_aliyaDate\')" onblur="commitDateField(this,\'f101_spouse_aliyaDate\',function(iso){updateEmp(\'spouse.aliyaDate\',iso);})">') +
   '</div>' +
   '<div class="form-grid cols-2">' +
     f101FieldWrap("f101_spouse_incomeStatus","הכנסה",true,
@@ -3499,7 +3568,7 @@ function renderForm101SectionH(c){
         checkbox = '<input type="checkbox" '+(tc.c3.checked?"checked":"")+' onchange="toggleCredit(\'c3\',this.checked)">';
         if(tc.c3.checked){
           extraBody = '<div class="form-grid cols-2" style="margin-top:10px;">' +
-            f101FieldWrap("f101_c3_fromDate","מתאריך",true,'<input type="date" id="f101_c3_fromDate" value="'+tc.c3.fromDate+'" onblur="updateCreditField(\'c3\',\'fromDate\',this.value)">') +
+            f101FieldWrap("f101_c3_fromDate","מתאריך",true,'<input type="text" inputmode="numeric" maxlength="10" dir="ltr" style="direction:ltr;unicode-bidi:plaintext;text-align:right;" placeholder="dd/mm/yyyy" id="f101_c3_fromDate" value="'+escapeHtml(dateInputValue("f101_c3_fromDate",tc.c3.fromDate))+'" oninput="handleDateInput(this,\'f101_c3_fromDate\')" onblur="commitDateField(this,\'f101_c3_fromDate\',function(iso){updateCreditField(\'c3\',\'fromDate\',iso);})">') +
             f101FieldWrap("f101_c3_settlement","היישוב",true,'<input type="text" id="f101_c3_settlement" value="'+escapeHtml(tc.c3.settlement)+'" onchange="updateCreditField(\'c3\',\'settlement\',this.value)">') +
           '</div>';
         }
@@ -3510,8 +3579,8 @@ function renderForm101SectionH(c){
         checkbox = '<input type="checkbox" '+(tc.c4.checked?"checked":"")+' '+(disabled?"disabled":"")+' onchange="toggleCredit(\'c4\',this.checked)">';
         if(tc.c4.checked){
           extraBody = '<div class="form-grid cols-2" style="margin-top:10px;">' +
-            f101FieldWrap("f101_c4_fromDate","מתאריך",true,'<input type="date" id="f101_c4_fromDate" value="'+tc.c4.fromDate+'" onblur="updateCreditField(\'c4\',\'fromDate\',this.value)">') +
-            f101FieldWrap("f101_c4_noIncomeUntilDate","לא הייתה לי הכנסה בישראל מתחילת שנת המס הנוכחית עד תאריך",false,'<input type="date" id="f101_c4_noIncomeUntilDate" value="'+tc.c4.noIncomeUntilDate+'" onblur="updateCreditField(\'c4\',\'noIncomeUntilDate\',this.value)">') +
+            f101FieldWrap("f101_c4_fromDate","מתאריך",true,'<input type="text" inputmode="numeric" maxlength="10" dir="ltr" style="direction:ltr;unicode-bidi:plaintext;text-align:right;" placeholder="dd/mm/yyyy" id="f101_c4_fromDate" value="'+escapeHtml(dateInputValue("f101_c4_fromDate",tc.c4.fromDate))+'" oninput="handleDateInput(this,\'f101_c4_fromDate\')" onblur="commitDateField(this,\'f101_c4_fromDate\',function(iso){updateCreditField(\'c4\',\'fromDate\',iso);})">') +
+            f101FieldWrap("f101_c4_noIncomeUntilDate","לא הייתה לי הכנסה בישראל מתחילת שנת המס הנוכחית עד תאריך",false,'<input type="text" inputmode="numeric" maxlength="10" dir="ltr" style="direction:ltr;unicode-bidi:plaintext;text-align:right;" placeholder="dd/mm/yyyy" id="f101_c4_noIncomeUntilDate" value="'+escapeHtml(dateInputValue("f101_c4_noIncomeUntilDate",tc.c4.noIncomeUntilDate))+'" oninput="handleDateInput(this,\'f101_c4_noIncomeUntilDate\')" onblur="commitDateField(this,\'f101_c4_noIncomeUntilDate\',function(iso){updateCreditField(\'c4\',\'noIncomeUntilDate\',iso);})">') +
           '</div>';
         }
         break;
@@ -3592,8 +3661,8 @@ function renderForm101SectionH(c){
         checkbox = '<input type="checkbox" '+(tc.c14.checked?"checked":"")+' onchange="toggleCredit(\'c14\',this.checked)">';
         if(tc.c14.checked){
           extraBody = '<div class="form-grid cols-2" style="margin-top:10px;">' +
-            f101FieldWrap("f101_c14_startDate","תאריך תחילת שירות",true,'<input type="date" id="f101_c14_startDate" value="'+tc.c14.startDate+'" onblur="finalizeCreditField(\'c14\',\'startDate\',this.value)">') +
-            f101FieldWrap("f101_c14_endDate","תאריך סיום שירות",true,'<input type="date" id="f101_c14_endDate" value="'+tc.c14.endDate+'" onblur="finalizeCreditField(\'c14\',\'endDate\',this.value)">') +
+            f101FieldWrap("f101_c14_startDate","תאריך תחילת שירות",true,'<input type="text" inputmode="numeric" maxlength="10" dir="ltr" style="direction:ltr;unicode-bidi:plaintext;text-align:right;" placeholder="dd/mm/yyyy" id="f101_c14_startDate" value="'+escapeHtml(dateInputValue("f101_c14_startDate",tc.c14.startDate))+'" oninput="handleDateInput(this,\'f101_c14_startDate\')" onblur="commitDateField(this,\'f101_c14_startDate\',function(iso){finalizeCreditField(\'c14\',\'startDate\',iso);})">') +
+            f101FieldWrap("f101_c14_endDate","תאריך סיום שירות",true,'<input type="text" inputmode="numeric" maxlength="10" dir="ltr" style="direction:ltr;unicode-bidi:plaintext;text-align:right;" placeholder="dd/mm/yyyy" id="f101_c14_endDate" value="'+escapeHtml(dateInputValue("f101_c14_endDate",tc.c14.endDate))+'" oninput="handleDateInput(this,\'f101_c14_endDate\')" onblur="commitDateField(this,\'f101_c14_endDate\',function(iso){finalizeCreditField(\'c14\',\'endDate\',iso);})">') +
           '</div>';
         }
         break;
