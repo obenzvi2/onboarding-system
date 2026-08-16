@@ -3290,7 +3290,7 @@ function renderForm101SectionC(c){
         '<div class="kid-card-head"><b>'+tr("kid_card_prefix","ילד")+' '+(idx+1)+'</b><button class="btn-icon-danger" title="'+trPlain("remove_child_title","מחק ילד")+'" onclick="removeChildRow('+idx+')">&minus;</button></div>' +
         '<div class="form-grid cols-3">' +
           f101FieldWrap("f101_kid_"+idx+"_name","שם",true,'<input type="text" id="f101_kid_'+idx+'_name" class="'+e("f101_kid_"+idx+"_name")+'" value="'+escapeHtml(kid.name)+'" oninput="updateEmp(\'children.'+idx+'.name\',this.value)">') +
-          f101FieldWrap("f101_kid_"+idx+"_idNumber","מספר זהות (9 ספרות)",true,'<input type="text" id="f101_kid_'+idx+'_idNumber" class="'+e("f101_kid_"+idx+"_idNumber")+'" value="'+escapeHtml(kid.idNumber)+'" maxlength="9" oninput="updateEmp(\'children.'+idx+'.idNumber\',this.value.trim())" onblur="finalizeEmpField(\'children.'+idx+'.idNumber\',this.value.trim())">') +
+          f101FieldWrap("f101_kid_"+idx+"_idNumber","מספר זהות (9 ספרות)",true,'<input type="text" inputmode="numeric" pattern="[0-9]*" id="f101_kid_'+idx+'_idNumber" class="'+e("f101_kid_"+idx+"_idNumber")+'" value="'+escapeHtml(kid.idNumber)+'" maxlength="9" oninput="updateEmp(\'children.'+idx+'.idNumber\',this.value.trim())" onblur="finalizeEmpField(\'children.'+idx+'.idNumber\',this.value.trim())">') +
           f101FieldWrap("f101_kid_"+idx+"_birthDate","תאריך לידה",true,'<input type="date" id="f101_kid_'+idx+'_birthDate" class="'+e("f101_kid_"+idx+"_birthDate")+'" value="'+kid.birthDate+'" max="'+todayIso()+'" onblur="finalizeEmpField(\'children.'+idx+'.birthDate\',this.value)">') +
         '</div>' +
         '<div class="form-grid cols-3" style="margin-top:8px;">' +
@@ -3402,7 +3402,7 @@ function renderForm101SectionF(c){
     '<label><input type="radio" name="spouseIdType" value="passport" '+(sp.idType==="passport"?"checked":"")+' onchange="updateEmp(\'spouse.idType\',\'passport\')"> '+tr("id_type_passport","דרכון (עבור אזרח זר)")+'</label></div>',null,null,"idtype-standalone-row") +
   '<div class="form-grid cols-2">' +
     (sp.idType==="id" ?
-      f101FieldWrap("f101_spouse_idNumber","מספר זהות (9 ספרות)",true,'<input type="text" id="f101_spouse_idNumber" class="'+e("f101_spouse_idNumber")+'" value="'+escapeHtml(sp.idNumber)+'" maxlength="9" oninput="updateEmp(\'spouse.idNumber\',this.value.trim())" onblur="finalizeEmpField(\'spouse.idNumber\',this.value.trim())">',null,null,"span-2")
+      f101FieldWrap("f101_spouse_idNumber","מספר זהות (9 ספרות)",true,'<input type="text" inputmode="numeric" pattern="[0-9]*" id="f101_spouse_idNumber" class="'+e("f101_spouse_idNumber")+'" value="'+escapeHtml(sp.idNumber)+'" maxlength="9" oninput="updateEmp(\'spouse.idNumber\',this.value.trim())" onblur="finalizeEmpField(\'spouse.idNumber\',this.value.trim())">',null,null,"span-2")
       :
       f101FieldWrap("f101_spouse_passportNumber","מספר דרכון",true,'<input type="text" id="f101_spouse_passportNumber" class="'+e("f101_spouse_passportNumber")+'" value="'+escapeHtml(sp.passportNumber)+'" maxlength="20" oninput="updateEmp(\'spouse.passportNumber\',this.value.trim())">',null,null,"span-2")
     ) +
@@ -3447,14 +3447,24 @@ function creditCardShell(meta,disabled,disabledReason,bodyHtml,checkboxHtml){
   // span אחד עם bi-he-block מקונן בפנים, כדי ש-.card-title (flex-wrap)
   // ישבור שורה בין השניים ויישר את הכוכבית/qmark רק מול השורה הראשונה.
   const bothLang = BOTH_LANG_OF[ui.formLanguage];
+  // flex:1 1 0 על ה-span (בסיס 0, לא auto): ברירת המחדל (flex-basis:auto)
+  // של פריט flex משתמשת ברוחב הטקסט השלם-בלי-שבירה כדי להחליט אם הפריט
+  // "נכנס" לשורה הנוכחית לצד ה-checkbox - וכשהכותרת ארוכה, הרוחב הזה
+  // גדול מדי, אז כל ה-span "קופץ" לשורה חדשה משלו (ריק מתחת ל-checkbox),
+  // במקום שהטקסט עצמו ייכנס לשורה הראשונה וימשיך לשבור שורה בתוך עצמו
+  // כרגיל. min-width:0 לבדו לא מספיק (הוא רק מגביל כמה אפשר לכווץ את
+  // הפריט אחרי שכבר הוחלט על מיקומו בשורה, לא את ההחלטה עצמה) - flex-
+  // basis:0 מאפס את הבסיס ההתחלתי כך שהפריט תמיד "נכנס" לשורה הראשונה,
+  // ו-flex-grow:1 מרחיב אותו אח"כ למלא את השטח הפנוי (לבקשת המשתמשת,
+  // ר' סעיפים 2א/5/10/13/14/15 בטלפון - קורה רק כשהכותרת ארוכה מספיק).
   let titleHtml;
   if(bothLang){
     const foreignTitle = rawTranslation(bothLang, "cred_"+meta.key+"_title");
     titleHtml = foreignTitle
-      ? ('<span>'+num+': '+foreignTitle+'</span>'+qmark+'<span class="bi-he-block" dir="rtl">'+meta.num+': '+meta.title+'</span>')
-      : ('<span>'+meta.num+': '+meta.title+'</span>'+qmark);
+      ? ('<span style="flex:1 1 0;min-width:0;">'+num+': '+foreignTitle+'</span>'+qmark+'<span class="bi-he-block" dir="rtl">'+meta.num+': '+meta.title+'</span>')
+      : ('<span style="flex:1 1 0;min-width:0;">'+meta.num+': '+meta.title+'</span>'+qmark);
   } else {
-    titleHtml = '<span>'+num+': '+tr("cred_"+meta.key+"_title", meta.title)+'</span>'+qmark;
+    titleHtml = '<span style="flex:1 1 0;min-width:0;">'+num+': '+tr("cred_"+meta.key+"_title", meta.title)+'</span>'+qmark;
   }
   return '<div class="card'+(disabled?" disabled":"")+'" id="cred_'+meta.key+'">' +
     '<div class="card-title">'+checkboxHtml+titleHtml+'</div>' +

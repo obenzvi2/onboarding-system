@@ -100,6 +100,15 @@ h2.section-title:first-child{margin-top:0;}
    השורות יחד (מה שהיה גורם להם "לצוף" למרכז האנכי במקום להתיישר מול
    שורת הכותרת הראשונה בלבד) - ר' creditCardShell ב-render.js. */
 .card-title{font-weight:700;color:var(--text-main);font-size:14.5px;display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
+/* ה-checkbox מקבל align-self משלו (לא נוגעים ב-align-items:center של
+   הקונטיינר כולו, ר' ההסבר למעלה על המצב הדו-לשוני) - כשהכותרת ליד
+   ה-checkbox נשברת לכמה שורות (ר' flex:1 1 0 על ה-span ב-creditCardShell
+   ב-render.js), align-items:center היה ממרכז את ה-checkbox מול הגובה
+   הכולל של כל השורות יחד, כך שהוא "צף" יורד באמצע במקום להתיישר מול
+   השורה הראשונה - align-self:flex-start מיישר אותו תמיד מול השורה
+   הראשונה בלבד, וה-margin-top הקטן מיישר אותו ויזואלית מול גובה
+   האותיות (ולא מול קצה התיבה של השורה) - לבקשת המשתמשת. */
+.card-title input[type=checkbox]{align-self:flex-start;margin-top:3px;}
 .card.disabled .card-title{color:#7a8794;}
 .card-hint{font-size:12.5px;color:#5c7d8c;margin-top:6px;}
 .card.disabled-note{font-size:12.5px;color:#8a94a3;background:#eceff2;border-radius:6px;padding:8px 10px;margin-top:8px;}
