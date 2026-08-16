@@ -298,7 +298,12 @@ function renderNow(){
   if(focusId){
     const newEl = document.getElementById(focusId);
     if(newEl){
-      newEl.focus();
+      // preventScroll:true - השדה כבר נמצא באותו מקום ויזואלית (רק הוחלף
+      // ב-DOM חדש, ר' isRerendering למעלה), אז אין צורך לגלול אליו שוב.
+      // בלי זה, בנייד כל הקלדה גורמת לדפדפן "לקפוץ" (Chrome/Safari גוללים
+      // אוטומטית שדה קלט שממוקד ברגע הקריאה ל-focus() לתוך אזור הנראה
+      // מעל המקלדת הוירטואלית) - לבקשת המשתמשת, ר' הסרטון שסופק.
+      newEl.focus({preventScroll:true});
       if(selStart!==null && selEnd!==null && "setSelectionRange" in newEl){
         try{ newEl.setSelectionRange(selStart, selEnd); }catch(e){ /* type אינו תומך (כגון date/number) - מתעלמים */ }
       }
