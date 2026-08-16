@@ -97,10 +97,16 @@ function form101SplitPhone(val){
    value; type:"checkbox" מקבל checked בלבד. */
 function form101OfficialValues(c){
   const emp = c.employee, co = CODE_TABLES.companies.find(x=>x.id===c.companyId) || {};
-  const idVal = emp.idType==="id" ? emp.idNumber : emp.passportNumber;
+  // תיבות הספרות (employeeIdNumber/employeeIdNumberPage2) מיועדות למספר
+  // זהות ישראלי בלבד - לא ל"idVal" גנרי שנופל חזרה על מספר הדרכון, כי
+  // דרכון עשוי לכלול אותיות/להיות באורך שונה מ-9 (בדיוק כמו אצל בן/בת
+  // הזוג, ר' spouseIdNumber מול spousePassportNumber למטה) - מספר דרכון
+  // מוצג בנפרד לגמרי ב-employeePassportNumber, גם הוא כתיבות בודדות
+  // (type:"digits" - השורה המודפסת של מספר הדרכון בטופס מחולקת לתיבות
+  // בדיוק כמו מספר הזהות, לא רצף טקסט חופשי).
   return {
     taxYear: { value: String(c.taxYear||"") },
-    employeeIdNumberPage2: { value: form101PadDigits(idVal,9) },
+    employeeIdNumberPage2: { value: emp.idType==="id" ? form101PadDigits(emp.idNumber,9) : "" },
 
     employerName:         { value: co.name },
     employerAddress:      { value: co.address },
@@ -109,7 +115,8 @@ function form101OfficialValues(c){
     // הספרות שאחריה (ר' ההערה ליד employerDeductionFile ב-form101FieldMap.js).
     employerDeductionFile: { value: co.deductionFileNum ? co.deductionFileNum.slice(1) : "" },
 
-    employeeIdNumber:  { value: form101PadDigits(idVal,9) },
+    employeeIdNumber:       { value: emp.idType==="id" ? form101PadDigits(emp.idNumber,9) : "" },
+    employeePassportNumber: { value: emp.idType==="passport" ? emp.passportNumber : "" },
     employeeLastName:  { value: emp.lastName },
     employeeFirstName: { value: emp.firstName },
     employeeBirthDate: { value: form101DateDigits8(emp.birthDate) },
@@ -137,6 +144,16 @@ function form101OfficialValues(c){
     maritalDivorcedCheckbox:  { checked: emp.maritalStatus==="divorced" },
     maritalWidowedCheckbox:   { checked: emp.maritalStatus==="widowed" },
     maritalSeparatedCheckbox: { checked: emp.maritalStatus==="separated" },
+
+    // חבר/ת קיבוץ: בטופס המודפס יש שתי תשובות "כן" נפרדות (הכנסותיי
+    // מועברות/אינן מועברות לקיבוץ) - ר' ההערה המורחבת ליד updateKibbutzPrimary
+    // ב-render.js למבנה הנתונים המלא (kibbutzMember עם 3 ערכים אפשריים).
+    kibbutzYesTransferredCheckbox:    { checked: emp.kibbutzMember==="yes_transferred" },
+    kibbutzYesNotTransferredCheckbox: { checked: emp.kibbutzMember==="yes_not_transferred" },
+    kibbutzNoCheckbox:  { checked: emp.kibbutzMember==="no" },
+    healthFundYesCheckbox: { checked: emp.healthFundMember==="yes" },
+    healthFundNoCheckbox:  { checked: emp.healthFundMember==="no" },
+    healthFundName:        { value: emp.healthFundMember==="yes" ? emp.healthFundName : "" },
 
     employmentStartDate: { value: form101DateDigits8(c.startDate) },
     incomeTypeMonthlyCheckbox:     { checked: emp.incomeType==="monthly" },

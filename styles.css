@@ -390,7 +390,13 @@ table.code-table td:last-child, table.code-table th:last-child{width:90px;}
    השחור המודפס-מראש של הטופס הרשמי עצמו, שנשאר בתמונת הרקע). */
 .f101o-field{position:absolute;direction:rtl;text-align:right;unicode-bidi:plaintext;white-space:nowrap;overflow:hidden;line-height:1.15;color:#1a3fa8;font-family:Arial,sans-serif;}
 .f101o-field.ltr{direction:ltr;text-align:right;unicode-bidi:plaintext;}
-.f101o-digit{position:absolute;text-align:center;direction:ltr;line-height:1.1;color:#1a3fa8;font-family:Arial,sans-serif;}
+/* גופן monospace (לא Arial כמו שאר שדות הטופס) - כל תו (כולל אותיות
+   בתעודות זהות/דרכון, לא רק ספרות) תופס בדיוק אותו רוחב, כדי שהמרווחים
+   בין התווים ייראו אחידים גם כשכל תו יושב במרכז תיבה ברוחב זהה
+   (renderF101ODigitBoxes) - בגופן פרופורציונלי כמו Arial תו רחב ("W")
+   לצד תו צר ("1") נראה לא-אחיד גם אם התיבות עצמן ממורכזות בדיוק, במיוחד
+   על פני רצף ארוך כמו מספר דרכון. לבקשת המשתמשת. */
+.f101o-digit{position:absolute;text-align:center;direction:ltr;line-height:1.1;color:#1a3fa8;font-family:"Courier New",Consolas,monospace;}
 .f101o-x{position:absolute;display:flex;align-items:center;justify-content:center;font-weight:800;color:#1a3fa8;line-height:1;}
 .f101o-calib-box{display:none;position:absolute;border:1px solid #e0392b;background:rgba(224,57,43,0.08);box-sizing:border-box;pointer-events:none;}
 .form101-official-page.calibrate .f101o-calib-box{display:block;}
