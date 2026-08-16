@@ -70,22 +70,15 @@ function buildDocuments(caseObj){
   (caseObj.documents||[]).forEach(d=>{ existing[d.key] = d; });
   const docs = [];
   function add(key,label){
-    docs.push(existing[key] ? Object.assign({},existing[key],{label:label}) : {key:key,label:label,status:"missing"});
+    docs.push(existing[key] ? Object.assign({},existing[key],{label:label}) : {key:key,label:label,status:"missing",files:[]});
   }
   if(emp.idType === "id"){
     add("id_copy","צילום תעודת זהות וספח");
   } else {
     add("passport_copy","צילום דרכון ואישור/רישיון שהייה");
   }
-  // מסמך זהות בן/בת הזוג - רק כשסעיף ו' (פרטים על בן/בת הזוג) רלוונטי,
-  // כלומר כשהעובד/ת נשוי/אה (ר' renderForm101SectionF).
-  if(emp.maritalStatus === "married"){
-    if(emp.spouse.idType === "id"){
-      add("spouse_id_copy","צילום תעודת זהות וספח (בן/בת הזוג)");
-    } else {
-      add("spouse_passport_copy","צילום דרכון ואישור/רישיון שהייה (בן/בת הזוג)");
-    }
-  }
+  // אין דרישה לצילום ת.ז/דרכון של בן/בת הזוג - לבקשת המשתמשת (סעיף ו'
+  // מסתפק בפרטים המוקלדים בטופס, בלי מסמך תומך).
   add("form101_signed","טופס 101 חתום");
   if(caseObj.needsBankForm){
     add("bank_form_signed","טופס פרטי חשבון בנק חתום");

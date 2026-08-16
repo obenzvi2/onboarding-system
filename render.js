@@ -1427,9 +1427,6 @@ function trLabelHtml(key, heFallback, required, tooltipText){
   return tr(key, heFallback) + starAndTip;
 }
 const IDNUM_TOOLTIP = "אין צורך להכניס אפסים בתחילת המספר והם לא ישמרו.";
-/* אייקון אזהרה (משולש צהוב עם סימן קריאה שחור) המוצג לפני שורות
-   "מסמך נדרש: ..." בטופס, כדי להבליט אותן לעין. */
-const WARNING_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px;"><path d="M12 2.5 L23 21.5 H1 Z" fill="#FFC700" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/><rect x="10.8" y="9" width="2.4" height="7" rx="1.2" fill="#000"/><circle cx="12" cy="18.3" r="1.35" fill="#000"/></svg>';
 /* אייקוני קו פשוטים (עריכה/מחיקה) לכפתורי פעולה בטבלאות - קו שחור בלבד,
    ללא מסגרת/רקע לכפתור עצמו (ר' ICON_BTN). */
 const ICON_SVGS = {
@@ -1456,22 +1453,47 @@ function ICON_BTN(name,title,onclick,variant){
    לגבי מקום מוגבל בשורות הצפופות כמו ח.7/ח.8). כמו כל שאר פעולות
    העובד/ת, מאומת עם אותו טוקן סשן שהתקבל אחרי אימות ה-SMS (ר'
    getEmployeeSessionToken ב-render.js, לא כאן כי מוגדר קודם בקובץ). */
+// פורמט "X.X KB" לגודל קובץ (בייטים -> קילובייט, ספרה אחת אחרי הנקודה) -
+// לשימוש בשורת כל קובץ שהועלה (ר' documentAttachRowHtml).
+function formatFileSizeKB(bytes){
+  if(!bytes && bytes!==0) return "";
+  return (bytes/1024).toFixed(1)+" KB";
+}
 function documentAttachRowHtml(c, docKey, tooltipText){
   const doc = (c.documents||[]).find(d=>d.key===docKey);
   if(!doc) return "";
   const inputId = "docfile_"+docKey;
   const uploading = ui.docUploadStatus[docKey]==="uploading";
-  // "חסר" לא מוצג יותר כתגית נפרדת - כפתור "צרף קבצים..." הבולט עצמו
-  // כבר מתקשר את זה (ר' התמונה שסופקה). תגיות עדיין מוצגות למצבים
-  // ש"צריך" לתקשר במיוחד (הועלה בהצלחה / נמסר פיזית מחוץ למערכת).
-  let badge = "";
-  if(doc.status==="uploaded") badge = '<span class="status-pill pill-green">הועלה</span>';
-  else if(doc.status==="delivered") badge = '<span class="status-pill pill-blue">נמסר פיזית</span>';
-  const viewLink = doc.status==="uploaded"
-    ? '<a href="/api/documents/'+encodeURIComponent(c.id)+'/'+encodeURIComponent(docKey)+'" target="_blank" rel="noopener" class="btn-link" style="font-size:13px;">צפייה בקובץ</a>'
+  const files = doc.files||[];
+  // "חסר" לא מוצג יותר כתגית נפרדת - כפתור "צרף קובץ..." הבולט עצמו
+  // כבר מתקשר את זה (ר' התמונה שסופקה). "נמסר פיזית" (מסומן ידנית ע"י
+  // מש"א, לא קשור לקבצים) עדיין מוצג ככזה שצריך לתקשר במיוחד.
+  const badge = doc.status==="delivered" ? '<span class="status-pill pill-blue">נמסר פיזית</span>' : "";
+  // כל מסמך תומך עד 3 קבצים (ר' api/documents/[caseId]/index.js) - כל
+  // קובץ מוצג כשורה עצמאית עם שם הקובץ עצמו כקישור לצפייה/הורדה (בלי
+  // קישור/אייקון "צפייה בקובץ" נפרד - לבקשת המשתמשת) וכפתור מחיקה אדום
+  // (אייקון פח בלבד, בלי טקסט - ר' .btn-icon-danger הקיים לכפתור "מחק
+  // ילד"). הכפתור הירוק "צרף קובץ..." ממשיך להופיע כל עוד לא הגיעו ל-3.
+  // רשימת קבצים בפריסת grid (לא flex לכל שורה בנפרד) - כדי שכפתורי המחיקה
+  // ייושרו זה מתחת לזה בעמודה קבועה, וכך גם עמודת הגדלים, במקום שכל שורה
+  // תיישר לפי אורך שם הקובץ שלה. כל העמודות "auto" (מצומדות לתוכן, בלי
+  // "1fr" שמותח ומרחיק) - כך שכל השורה (מחיקה+גודל+שם) נשארת צמודה לצד
+  // ימין, מיושרת עם כפתור "צרף קובץ..." שמעליה (לבקשת המשתמשת - ר' התמונה
+  // שסופקה: לא עוד כפתור מחיקה בקצה שמאל הרחוק עם רווח ריק גדול).
+  const filesListHtml = files.length ? (
+    '<div style="display:grid;grid-template-columns:auto auto auto;width:fit-content;margin-right:0;margin-left:auto;align-items:center;column-gap:6px;row-gap:6px;margin-top:12px;">' +
+    files.map(function(f){
+      const url = "/api/documents/"+encodeURIComponent(c.id)+"/"+encodeURIComponent(docKey)+"/"+encodeURIComponent(f.id);
+      const sizeLabel = formatFileSizeKB(f.size);
+      return '<a href="'+url+'" target="_blank" rel="noopener" class="btn-link" style="font-size:13.5px;">'+escapeHtml(f.fileName||"קובץ")+'</a>' +
+        '<span style="font-size:12px;color:#6b7a86;">'+sizeLabel+'</span>' +
+        '<button type="button" class="btn-icon-danger" title="מחיקת קובץ" '+(uploading?"disabled":"")+' onclick="deleteDocFile(\''+c.id+'\',\''+docKey+'\',\''+f.id+'\')">'+ICON_SVGS.trash+'</button>';
+    }).join("") +
+    '</div>'
+  ) : "";
+  const attachBtn = files.length<3
+    ? '<button type="button" class="btn-add-green" onclick="triggerDocFileInput(\''+docKey+'\')">'+ICON_SVGS.cloudUpload+' צרף קובץ...</button>'
     : '';
-  const btnLabel = doc.status==="uploaded" ? "החלפת קובץ" : "צרף קבצים...";
-  const attachBtn = '<button type="button" class="btn-add-green" onclick="triggerDocFileInput(\''+docKey+'\')">'+ICON_SVGS.cloudUpload+' '+btnLabel+'</button>';
   // שורת תווית + סימן שאלה (qmarkHtml) מוצגת רק כשיש טקסט הסבר להעביר -
   // לבקשת המשתמשת (התמונה שסופקה), רלוונטי כרגע רק לצילום ת.ז/דרכון
   // בסעיף ב'. בסעיפים ח'/ט' כבר יש שורת "מסמך נדרש: ..." משלהם מעל
@@ -1487,21 +1509,14 @@ function documentAttachRowHtml(c, docKey, tooltipText){
   return '<div class="doc-attach-row"'+(tooltipText?'':' style="margin-top:6px;"')+'>' +
     labelRow +
     '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
-      (uploading ? '<span style="font-size:13px;color:var(--header-text);">מעלה...</span>' : attachBtn) +
-      badge + viewLink +
+      (uploading ? '<span style="font-size:13px;color:var(--header-text);">מעבד...</span>' : attachBtn) +
+      badge +
     '</div>' +
+    filesListHtml +
     '<input type="file" id="'+inputId+'" accept="image/*,.pdf,.heic,.heif" style="display:none;" '+(uploading?"disabled":"")+' onchange="handleDocFileSelected(\''+c.id+'\',\''+docKey+'\',this)">' +
   '</div>';
 }
 function triggerDocFileInput(docKey){
-  // אם כבר קיים קובץ מועלה למסמך הזה - מבקשים אישור לפני החלפתו (הקובץ
-  // הישן יימחק בפועל מהאחסון בצד השרת ברגע שההעלאה החדשה תצליח, ר'
-  // api/documents/[caseId]/index.js).
-  const c = currentCase();
-  const doc = c && (c.documents||[]).find(d=>d.key===docKey);
-  if(doc && doc.status==="uploaded"){
-    if(!confirm("קיים כבר קובץ מועלה עבור מסמך זה. הקובץ הקיים יוחלף בקובץ החדש שתבחר/י ולא ניתן יהיה לשחזר אותו. להמשיך?")) return;
-  }
   const input = document.getElementById("docfile_"+docKey);
   if(input) input.click();
 }
@@ -1554,10 +1569,36 @@ function uploadDocumentFile(caseId, docKey, fileName, contentType, dataBase64){
       render();
     });
 }
+// מוחקת קובץ בודד מתוך doc.files (ר' api/documents/[caseId]/[docKey]/
+// [fileId].js) - פעולה בלתי הפיכה, לכן דורשת אישור מפורש כמו שאר פעולות
+// המחיקה באפליקציה (ר' לדוגמה requestBulkDeleteCases).
+function deleteDocFile(caseId, docKey, fileId){
+  if(!confirm("למחוק את הקובץ? לא ניתן לשחזר לאחר המחיקה.")) return;
+  ui.docUploadStatus[docKey] = "uploading";
+  render();
+  const token = getEmployeeSessionToken(caseId);
+  fetch("/api/documents/"+encodeURIComponent(caseId)+"/"+encodeURIComponent(docKey)+"/"+encodeURIComponent(fileId), {
+    method: "DELETE",
+    headers: { "Authorization":"Bearer "+token }
+  })
+    .then(function(r){ return r.json().then(function(data){ return {ok:r.ok, data:data}; }); })
+    .then(function(res){
+      delete ui.docUploadStatus[docKey];
+      if(res.ok && res.data.document){
+        upsertCaseDocument(res.data.document);
+        showToast("הקובץ נמחק.");
+      } else {
+        showToast((res.data && res.data.error) || "שגיאה במחיקת הקובץ.");
+      }
+      render();
+    })
+    .catch(function(){
+      delete ui.docUploadStatus[docKey];
+      showToast("שגיאת תקשורת. יש לנסות שוב.");
+      render();
+    });
+}
 
-// סיומת קובץ לפי contentType - לשימוש בשם הקובץ בתוך ה-ZIP (docKey/label
-// לבדם לא כוללים סיומת). ברירת מחדל "bin" למקרה נדיר של סוג לא מוכר.
-const DOC_CONTENT_TYPE_EXT = { "image/jpeg":"jpg", "image/png":"png", "image/webp":"webp", "image/heic":"heic", "image/heif":"heif", "application/pdf":"pdf" };
 /* מנקה תווים שלא חוקיים בשם קובץ/תיקייה (עבור מערכות קבצים של Windows/Mac
    כאחד) - משמש לבניית מבנה התיקיות בתוך ה-ZIP. */
 function safeZipName(s){
@@ -1586,9 +1627,15 @@ function downloadDocumentsZip(caseIds){
     }
     const folder = zip.folder(folderName);
     uploaded.forEach(function(d){
-      const ext = DOC_CONTENT_TYPE_EXT[d.contentType] || (d.fileName && d.fileName.includes(".") ? d.fileName.split(".").pop() : "bin");
-      folder.file(safeZipName(d.label)+"."+ext, fetch("/api/documents/"+encodeURIComponent(c.id)+"/"+encodeURIComponent(d.key)).then(r=>r.arrayBuffer()));
-      fileCount++;
+      // עד 3 קבצים למסמך (ר' buildDocuments) - שם קובץ ה-ZIP מקבל מספר
+      // סידורי כשיש יותר מקובץ אחד תחת אותו מסמך, כדי למנוע התנגשות שמות.
+      const docFiles = d.files||[];
+      docFiles.forEach(function(f,i){
+        const ext = f.fileName && f.fileName.includes(".") ? f.fileName.split(".").pop() : "bin";
+        const suffix = docFiles.length>1 ? " ("+(i+1)+")" : "";
+        folder.file(safeZipName(d.label)+suffix+"."+ext, fetch("/api/documents/"+encodeURIComponent(c.id)+"/"+encodeURIComponent(d.key)+"/"+encodeURIComponent(f.id)).then(r=>r.arrayBuffer()));
+        fileCount++;
+      });
     });
   });
   if(!fileCount){
@@ -3335,10 +3382,6 @@ function renderForm101SectionF(c){
       '<div class="field-hint-static">'+tr("sec_f_notMarriedHint","חלק זה רלוונטי רק אם הינך נשוי/אה.")+'</div>' +
     '</div>';
   }
-  const spouseDocKey = sp.idType==="id" ? "spouse_id_copy" : "spouse_passport_copy";
-  const spouseDocTooltip = sp.idType==="id"
-    ? "יש לצרף צילום תעודת זהות של בן/בת הזוג כולל ספח. אם צורף בעבר, יש לצרף צילום רק אם היו שינויים בפרטים."
-    : "יש לצרף צילום דרכון ואישור/רישיון שהייה בתוקף של בן/בת הזוג. אם צורף בעבר, יש לצרף צילום רק אם היו שינויים בפרטים.";
   return '' +
   '<h2 class="section-title" id="sec-f">'+sectionTitleHtml("ו","sec_f_title","פרטים על בן/בת הזוג")+'</h2>' +
   '<div class="panel">' +
@@ -3354,11 +3397,10 @@ function renderForm101SectionF(c){
     '<label><input type="radio" name="spouseIdType" value="passport" '+(sp.idType==="passport"?"checked":"")+' onchange="updateEmp(\'spouse.idType\',\'passport\')"> '+tr("id_type_passport","דרכון (עבור אזרח זר)")+'</label></div>',null,null,"idtype-standalone-row") +
   '<div class="form-grid cols-2">' +
     (sp.idType==="id" ?
-      f101FieldWrap("f101_spouse_idNumber","מספר זהות (9 ספרות)",true,'<input type="text" id="f101_spouse_idNumber" class="'+e("f101_spouse_idNumber")+'" value="'+escapeHtml(sp.idNumber)+'" maxlength="9" oninput="updateEmp(\'spouse.idNumber\',this.value.trim())" onblur="finalizeEmpField(\'spouse.idNumber\',this.value.trim())">')
+      f101FieldWrap("f101_spouse_idNumber","מספר זהות (9 ספרות)",true,'<input type="text" id="f101_spouse_idNumber" class="'+e("f101_spouse_idNumber")+'" value="'+escapeHtml(sp.idNumber)+'" maxlength="9" oninput="updateEmp(\'spouse.idNumber\',this.value.trim())" onblur="finalizeEmpField(\'spouse.idNumber\',this.value.trim())">',null,null,"span-2")
       :
-      f101FieldWrap("f101_spouse_passportNumber","מספר דרכון",true,'<input type="text" id="f101_spouse_passportNumber" class="'+e("f101_spouse_passportNumber")+'" value="'+escapeHtml(sp.passportNumber)+'" maxlength="20" oninput="updateEmp(\'spouse.passportNumber\',this.value.trim())">')
+      f101FieldWrap("f101_spouse_passportNumber","מספר דרכון",true,'<input type="text" id="f101_spouse_passportNumber" class="'+e("f101_spouse_passportNumber")+'" value="'+escapeHtml(sp.passportNumber)+'" maxlength="20" oninput="updateEmp(\'spouse.passportNumber\',this.value.trim())">',null,null,"span-2")
     ) +
-    documentAttachRowHtml(c, spouseDocKey, spouseDocTooltip) +
   '</div>' +
   '<div class="form-grid cols-2">' +
     f101FieldWrap("f101_spouse_birthDate","תאריך לידה",true,'<input type="date" id="f101_spouse_birthDate" class="'+e("f101_spouse_birthDate")+'" value="'+sp.birthDate+'" max="'+todayIso()+'" onblur="finalizeEmpField(\'spouse.birthDate\',this.value)">') +
@@ -3556,7 +3598,7 @@ function renderForm101SectionH(c){
       const val = tc[key];
       const checked = (typeof val==="object")?val.checked:val;
       if(checked && !disabled){
-        extraBody += '<div class="card-hint" style="display:flex;align-items:flex-start;gap:8px;">'+WARNING_ICON+'<b>'+tr("document_required_prefix","מסמך נדרש:")+' '+tr("cred_"+key+"_document",meta.document)+'</b></div>';
+        extraBody += '<div style="margin-top:6px;font-size:13.5px;font-weight:600;color:var(--text-main);">'+tr("cred_"+key+"_document",meta.document)+'</div>';
         // כפתור ההעלאה נוסף לשורת "מסמך נדרש" הקיימת (רוחבית מלאה,
         // נפרדת מרשתות תת-השדות הצפופות של הכרטיס) - לא שורה חדשה
         // ייחודית, כדי לא להוסיף עומס פריסה בכרטיסים הצפופים ממילא
@@ -3595,11 +3637,11 @@ function renderForm101SectionI(c){
     }).join("") + '</div>' +
     '<div style="margin-top:10px;"><button class="btn-add-green" onclick="addIncomeSource()">+ '+tr("add_income_source_btn","הוסף מקור הכנסה")+'</button></div>' +
     (ui.errors["f101_taxCoordSources"]?'<div class="field-error">'+tr(ui.errors["f101_taxCoordSources"],ui.errors["f101_taxCoordSources"])+'</div>':'') +
-    '<div class="card-hint" style="margin-top:10px;display:flex;align-items:flex-start;gap:8px;">'+WARNING_ICON+'<b>'+tr("document_required_prefix","מסמך נדרש:")+' '+tr("sec_i_sourcesDocument","תלוש שכר או אסמכתא רלוונטית לכל מקור הכנסה.")+'</b></div>' +
+    '<div style="margin-top:10px;font-size:13.5px;font-weight:600;color:var(--text-main);">'+tr("sec_i_sourcesDocument","תלוש שכר או אסמכתא רלוונטית לכל מקור הכנסה.")+'</div>' +
     documentAttachRowHtml(c, "doc_taxcoord_slip");
   }
   if(tco.option==="approved"){
-    sourcesHtml = '<div class="card-hint" style="margin-top:10px;display:flex;align-items:flex-start;gap:8px;">'+WARNING_ICON+'<b>'+tr("document_required_prefix","מסמך נדרש:")+' '+tr("sec_i_approvedDocument","אישור תיאום מס מפקיד השומה.")+'</b></div>' +
+    sourcesHtml = '<div style="margin-top:10px;font-size:13.5px;font-weight:600;color:var(--text-main);">'+tr("sec_i_approvedDocument","אישור תיאום מס מפקיד השומה.")+'</div>' +
       documentAttachRowHtml(c, "doc_taxcoord_approval");
   }
   return '' +
@@ -3970,11 +4012,14 @@ function renderDocumentsScreen(){
   const docs = c.documents;
   const rows = docs.length ? docs.map((d,idx)=>{
     const uploaded = d.status==="uploaded";
-    const viewLink = uploaded
-      ? '<a href="/api/documents/'+encodeURIComponent(c.id)+'/'+encodeURIComponent(d.key)+'" target="_blank" rel="noopener" class="btn-link" style="margin-right:10px;">צפייה בקובץ</a>'
-      : '';
-    return '<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:14px;">' +
-      '<div>'+escapeHtml(d.label)+(uploaded?' <span class="status-pill pill-green">הועלה ע"י העובד/ת</span>':'')+viewLink+'</div>' +
+    // עד 3 קבצים למסמך (ר' buildDocuments) - כל קובץ מוצג כקישור נפרד
+    // ("צפייה בקובץ" + מספר סידורי כשיש יותר מאחד), לפי הנתיב החדש
+    // בן 3 הסגמנטים (ר' api/documents/[caseId]/[docKey]/[fileId].js).
+    const viewLinks = (d.files||[]).map(function(f,i){
+      return ' <a href="/api/documents/'+encodeURIComponent(c.id)+'/'+encodeURIComponent(d.key)+'/'+encodeURIComponent(f.id)+'" target="_blank" rel="noopener" class="btn-link" style="margin-right:10px;">צפייה בקובץ'+((d.files||[]).length>1?" "+(i+1):"")+'</a>';
+    }).join("");
+    return '<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">' +
+      '<div>'+escapeHtml(d.label)+(uploaded?' <span class="status-pill pill-green">הועלה ע"י העובד/ת</span>':'')+viewLinks+'</div>' +
       '<div class="row-actions">' +
         '<button class="btn btn-sm '+(d.status==="missing"?"btn-danger":"btn-secondary")+'" onclick="setDocStatus('+idx+',\'missing\')">חסר</button>' +
         '<button class="btn btn-sm '+(d.status==="delivered"?"btn-primary":"btn-secondary")+'" onclick="setDocStatus('+idx+',\'delivered\')">נמסר פיזית</button>' +

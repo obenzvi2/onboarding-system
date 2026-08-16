@@ -3,10 +3,14 @@
 /* POST בלבד: העלאת קובץ מסמך תומך ע"י העובד/ת (אחרי אימות SMS) - מאומת
    באותו טוקן סשן כמו /api/cases/[id] (ר' lib/auth.js). הגוף הוא JSON עם
    הקובץ מקודד ב-base64 (לא multipart) - כדי לא להוסיף תלות חדשה (ספריית
-   פענוח multipart) לפרויקט שכבר מסתמך על JSON בכל שאר נקודות הקצה. */
+   פענוח multipart) לפרויקט שכבר מסתמך על JSON בכל שאר נקודות הקצה.
+   כל מסמך תומך עד 3 קבצים (ר' doc.files[] ב-buildDocuments ב-state.js) -
+   כל העלאה היא תוספת למערך, לא החלפה (מחיקת קובץ בודדת נעשית דרך
+   DELETE ב-[docKey]/[fileId].js). */
+const crypto = require("crypto");
 const { getCaseRecord, putCaseRecord } = require("../../../lib/kv");
 const { requireCaseSession } = require("../../../lib/auth");
-const { uploadDocument, deleteDocument } = require("../../../lib/blob");
+const { uploadDocument } = require("../../../lib/blob");
 const { withErrorHandling } = require("../../../lib/withErrorHandling");
 
 /* 3MB גולמי -> כ-4MB אחרי קידוד base64 + מבנה ה-JSON, בטוח מתחת למגבלת
@@ -44,20 +48,17 @@ module.exports = withErrorHandling(async function handler(req, res){
   const docIdx = (caseData.documents||[]).findIndex(d=>d.key===docKey);
   if(docIdx<0){ res.status(400).json({ error: "מסמך לא מוכר עבור תיק זה." }); return; }
 
-  // אם כבר היה קובץ קודם עבור מסמך זה (החלפה, לא העלאה ראשונה) - שומרים
-  // את הנתיב הישן כדי למחוק אותו אחרי שההעלאה החדשה מצליחה, כדי לא
-  // להשאיר קבצים "יתומים" בחנות ה-Blob (ר' בקשת המשתמשת).
-  const previousPathname = caseData.documents[docIdx].pathname;
+  const doc = caseData.documents[docIdx];
+  const files = doc.files || [];
+  if(files.length >= 3){
+    res.status(400).json({ error: "ניתן לצרף עד 3 קבצים למסמך זה." });
+    return;
+  }
 
   const { pathname } = await uploadDocument(caseId, docKey, fileName, buffer, contentType);
-  caseData.documents[docIdx] = Object.assign({}, caseData.documents[docIdx], {
-    status: "uploaded", pathname: pathname, fileName: fileName, uploadedAt: new Date().toISOString()
-  });
+  const newFile = { id: crypto.randomUUID(), fileName: fileName, pathname: pathname, size: buffer.length, uploadedAt: new Date().toISOString() };
+  caseData.documents[docIdx] = Object.assign({}, doc, { status: "uploaded", files: files.concat([newFile]) });
   await putCaseRecord(caseId, caseData);
-
-  if(previousPathname && previousPathname !== pathname){
-    await deleteDocument(previousPathname);
-  }
 
   res.status(200).json({ ok: true, document: caseData.documents[docIdx] });
 });
