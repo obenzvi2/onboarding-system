@@ -1549,7 +1549,12 @@ function documentAttachRowHtml(c, docKey, tooltipText){
   const doc = (c.documents||[]).find(d=>d.key===docKey);
   if(!doc) return "";
   const inputId = "docfile_"+docKey;
-  const uploading = ui.docUploadStatus[docKey]==="uploading";
+  // "compressing" (ר' compressImageToBlob) הוא שלב נוסף, אופציונלי, לפני
+  // "uploading" - רק לתמונות שחורגות מ-3MB (ר' handleDocFileSelected) -
+  // שתי הסטטוסים חוסמים את הכפתור/שדה הקלט באותו אופן, רק הטקסט המוצג
+  // שונה ביניהם.
+  const uploadStatus = ui.docUploadStatus[docKey];
+  const uploading = !!uploadStatus;
   const files = doc.files||[];
   // "חסר" לא מוצג יותר כתגית נפרדת - כפתור "צרף קובץ..." הבולט עצמו
   // כבר מתקשר את זה (ר' התמונה שסופקה). "נמסר פיזית" (מסומן ידנית ע"י
@@ -1566,8 +1571,14 @@ function documentAttachRowHtml(c, docKey, tooltipText){
   // "1fr" שמותח ומרחיק) - כך שכל השורה (מחיקה+גודל+שם) נשארת צמודה לצד
   // ימין, מיושרת עם כפתור "צרף קובץ..." שמעליה (לבקשת המשתמשת - ר' התמונה
   // שסופקה: לא עוד כפתור מחיקה בקצה שמאל הרחוק עם רווח ריק גדול).
+  // margin-inline-start/end (לא margin-right/left הפיזיים!) - כדי שרשימת
+  // הקבצים תיצמד לאותו צד בדיוק כמו כפתור "צרף קובץ" שמעליה גם בטופס
+  // דו-לשוני (dir="ltr"): בעברית (RTL) הצד הזה הוא ימין, אבל באנגלית/רוסית
+  // (LTR) הכפתור עצמו זז שמאלה - margin-right/left קבועים היו משאירים את
+  // רשימת הקבצים תמיד בצד ימין הפיזי, כלומר רחוקה מהכפתור בצד השני של
+  // השורה (במקום ממש מתחתיו), מה שנראה כאילו הם באותה שורה זה לצד זה.
   const filesListHtml = files.length ? (
-    '<div style="display:grid;grid-template-columns:auto auto auto;width:fit-content;margin-right:0;margin-left:auto;align-items:center;column-gap:6px;row-gap:6px;margin-top:12px;">' +
+    '<div style="display:grid;grid-template-columns:auto auto auto;width:fit-content;margin-inline-start:0;margin-inline-end:auto;align-items:center;column-gap:6px;row-gap:6px;margin-top:12px;">' +
     files.map(function(f){
       const url = "/api/documents/"+encodeURIComponent(c.id)+"/"+encodeURIComponent(docKey)+"/"+encodeURIComponent(f.id);
       const sizeLabel = formatFileSizeKB(f.size);
@@ -1577,15 +1588,32 @@ function documentAttachRowHtml(c, docKey, tooltipText){
     }).join("") +
     '</div>'
   ) : "";
+  // תרגום טקסט הכפתור: trAttrOnly (לא tr()) בכוונה - כפתור זה נשאר
+  // שורה יחידה גם במצב דו-לשוני (בלי שורת עברית קטנה מתחתיו כמו שאר
+  // הכפתורים הירוקים), כדי להישאר באותו גובה בדיוק כמו בטופס העברי
+  // (ר' גם .lang-bi .btn-add-green:has(.bi-he-block) ב-styles.css,
+  // שמצמצם גודל רק לכפתורים עם שורה כפולה בפועל) - לבקשת המשתמשת.
   const attachBtn = files.length<3
-    ? '<button type="button" class="btn-add-green" onclick="triggerDocFileInput(\''+docKey+'\')">'+ICON_SVGS.cloudUpload+' צרף קובץ...</button>'
+    ? '<button type="button" class="btn-add-green" onclick="triggerDocFileInput(\''+docKey+'\')">'+ICON_SVGS.cloudUpload+' '+trAttrOnly("attach_file_btn","צרף קובץ...")+'</button>'
     : '';
   // שורת תווית + סימן שאלה (qmarkHtml) מוצגת רק כשיש טקסט הסבר להעביר -
   // לבקשת המשתמשת (התמונה שסופקה), רלוונטי כרגע רק לצילום ת.ז/דרכון
   // בסעיף ב'. בסעיפים ח'/ט' כבר יש שורת "מסמך נדרש: ..." משלהם מעל
   // השורה הזו, ולכן לא מוסיפים כאן תווית כפולה.
+  // תווית המסמך עצמה כן מתורגמת דרך tr() (כולל שורת העברית הקטנה
+  // במצב דו-לשוני, כמו כל תווית שדה אחרת) - כדי שגובה השורה הזו יישאר
+  // זהה לגובה תווית השדה השכן (מספר ת.ז/דרכון) גם במצב דו-לשוני, ולא
+  // "יקצר" ביחס אליה ויגרום לכפתור לצנוח נמוך יותר מהשדה שלידו.
+  const docLabelKey = "doclabel_"+docKey;
+  // trLabelHtml (לא tr()!) - אותה סיבה בדיוק כמו ב-f101FieldWrap/trLabelHtml
+  // עצמה: ה-qmark חייב להישאר צמוד לטקסט הזר בשורה הראשונה, לא להידחק
+  // אחרי שורת התרגום העברי (tr() לבדה שמה את ה-bi-he-block *לפני* הqmark
+  // שמתווסף מבחוץ, כך שהם "מתחלפים" בסדר תחת flex-wrap ומגיעים לשורה
+  // השנייה יחד עם העברית). flex-wrap:wrap הכרחי כאן (בדיוק כמו ב-.field
+  // label ב-styles.css) - בלעדיו שורת התרגום העברי לא נשברת לשורה נפרדת
+  // כלל, אלא נדחסת לתוך אותה שורה כמו הטקסט הזר.
   const labelRow = tooltipText
-    ? '<div style="font-size:13.5px;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:5px;margin-bottom:6px;">'+escapeHtml(doc.label||"")+qmarkHtml(tooltipText)+'</div>'
+    ? '<div style="font-size:13.5px;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+trLabelHtml(docLabelKey,doc.label||"",false,tooltipText)+'</div>'
     : '';
   // margin-top:6px רק כשאין labelRow משלה (בסעיפים ח'/ט', שם השורה מתווספת
   // אחרי שורת "מסמך נדרש" קיימת וצריכה מרווח ממנה) - כשיש labelRow (סעיפים
@@ -1595,7 +1623,7 @@ function documentAttachRowHtml(c, docKey, tooltipText){
   return '<div class="doc-attach-row"'+(tooltipText?'':' style="margin-top:6px;"')+'>' +
     labelRow +
     '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
-      (uploading ? '<span style="font-size:13px;color:var(--header-text);">מעבד...</span>' : attachBtn) +
+      (uploading ? '<span style="font-size:13px;color:var(--header-text);">'+(uploadStatus==="compressing"?"דוחס תמונה...":"מעבד...")+'</span>' : attachBtn) +
       badge +
     '</div>' +
     filesListHtml +
@@ -1607,18 +1635,88 @@ function triggerDocFileInput(docKey){
   if(input) input.click();
 }
 const DOC_MAX_FILE_BYTES = 3*1024*1024; // תואם למגבלה בצד השרת (ר' api/documents/[caseId]/index.js)
+// מקסימום פיקסלים בציר הארוך של תמונה שעוברת דחיסה (ר' compressImageToBlob) -
+// מספיק בשביל טקסט קריא בצילום מסמך, אבל מקטין דרסטית את גודל הקובץ מול
+// רזולוציית מצלמה מלאה (לרוב 4000+ פיקסלים בטלפונים מודרניים) - עוד לפני
+// שבכלל מתחילים להוריד את איכות ה-JPEG.
+const DOC_COMPRESS_MAX_DIMENSION = 2200;
+/* דוחסת תמונה (File/Blob מכל סוג שהדפדפן יודע לפענח ל-<img>, כולל HEIC
+   בדפדפנים שתומכים) לכדי Blob מסוג JPEG שקטן מ-maxBytes, ע"י שילוב של
+   הקטנת רזולוציה (למקסימום DOC_COMPRESS_MAX_DIMENSION בציר הארוך) והורדת
+   איכות דחיסה הדרגתית. לא זורקת שגיאה אם לא הצליחה לרדת מתחת ל-maxBytes
+   (למשל תמונה שהיא בעצמה כבר טקסט/גרפיקה שלא נדחסת טוב) - במקרה כזה
+   ה-Blob הכי קטן שהתקבל (באיכות הכי נמוכה שניסינו) עדיין מוחזר, וה-caller
+   (handleDocFileSelected) בודק את הגודל הסופי ומציג שגיאה בעצמו אם עדיין
+   גדול מדי. כן דוחה (reject) אם בכלל לא הצלחנו לטעון את התמונה ל-<img>
+   (למשל HEIC בדפדפן שלא תומך בפענוח כזה) - את זה ה-caller לא יכול לתקן. */
+function compressImageToBlob(file, maxBytes){
+  return new Promise(function(resolve, reject){
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = function(){
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, DOC_COMPRESS_MAX_DIMENSION / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth * scale));
+      const h = Math.max(1, Math.round(img.naturalHeight * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+      const qualities = [0.82, 0.65, 0.5, 0.35];
+      let i = 0;
+      (function tryNext(){
+        canvas.toBlob(function(blob){
+          if(!blob){ reject(new Error("toBlob failed")); return; }
+          if(blob.size <= maxBytes || i >= qualities.length-1){ resolve(blob); return; }
+          i++;
+          tryNext();
+        }, "image/jpeg", qualities[i]);
+      })();
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error("image load failed")); };
+    img.src = url;
+  });
+}
+function readFileAndUpload(caseId, docKey, fileName, contentType, fileOrBlob){
+  const reader = new FileReader();
+  reader.onload = function(){
+    const base64 = String(reader.result).split(",")[1] || "";
+    uploadDocumentFile(caseId, docKey, fileName, contentType, base64);
+  };
+  reader.onerror = function(){ showToast("שגיאה בקריאת הקובץ."); };
+  reader.readAsDataURL(fileOrBlob);
+}
 function handleDocFileSelected(caseId, docKey, inputEl){
   const file = inputEl.files && inputEl.files[0];
   inputEl.value = ""; // מאפס כדי שבחירת אותו קובץ שוב תפעיל onchange גם בפעם הבאה
   if(!file) return;
-  if(file.size > DOC_MAX_FILE_BYTES){ showToast("הקובץ גדול מדי (מקסימום 3MB)."); return; }
-  const reader = new FileReader();
-  reader.onload = function(){
-    const base64 = String(reader.result).split(",")[1] || "";
-    uploadDocumentFile(caseId, docKey, file.name, file.type, base64);
-  };
-  reader.onerror = function(){ showToast("שגיאה בקריאת הקובץ."); };
-  reader.readAsDataURL(file);
+  if(file.size <= DOC_MAX_FILE_BYTES){
+    readFileAndUpload(caseId, docKey, file.name, file.type, file);
+    return;
+  }
+  // קובץ שאינו תמונה (בעיקר PDF) לא ניתן לדחיסה אוטומטית בצד הלקוח - אותה
+  // הודעת שגיאה כמו קודם. תמונה גדולה מדי (בעיקר צילום מצלמה ברזולוציה
+  // מלאה - ר' השיחה עם המשתמשת) עוברת דחיסה אוטומטית לפני שמוותרים עליה.
+  if(!/^image\//.test(file.type)){
+    showToast("הקובץ גדול מדי (מקסימום 3MB).");
+    return;
+  }
+  ui.docUploadStatus[docKey] = "compressing";
+  render();
+  compressImageToBlob(file, DOC_MAX_FILE_BYTES).then(function(blob){
+    delete ui.docUploadStatus[docKey];
+    if(blob.size > DOC_MAX_FILE_BYTES){
+      render();
+      showToast("הקובץ גדול מדי גם אחרי דחיסה (מקסימום 3MB). יש לנסות תמונה אחרת.");
+      return;
+    }
+    const compressedName = file.name.replace(/\.[^./\\]+$/,"") + ".jpg";
+    readFileAndUpload(caseId, docKey, compressedName, "image/jpeg", blob);
+  }).catch(function(){
+    delete ui.docUploadStatus[docKey];
+    render();
+    showToast("הקובץ גדול מדי (מקסימום 3MB). לא ניתן היה לדחוס את התמונה הזו אוטומטית.");
+  });
 }
 // מעדכנת/מוסיפה רשומת מסמך יחידה בתיק הנוכחי (בלי לבנות מחדש את כל
 // c.documents) - לאחר תשובת שרת מוצלחת מהעלאה/מחיקה.

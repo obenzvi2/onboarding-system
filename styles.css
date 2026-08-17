@@ -313,7 +313,7 @@ table.data-table tr:hover td{background:#E7E7E7;}
    עברית מתחתיה), מה שהופך אותו לגדול/כבד מדי ביחס לשאר הכפתורים - כאן הוא
    מוקטן, והשורה העברית חוזרת למשקל רגיל (לא bold) כדי שלא תתחרה חזותית עם
    השפה הזרה מעליה. */
-.lang-bi .btn-add-green{padding:6px 14px;font-size:12.5px;}
+.lang-bi .btn-add-green:has(.bi-he-block){padding:6px 14px;font-size:12.5px;}
 .lang-bi .btn-add-green .bi-he-block{font-weight:400;}
 /* כפתור "סיימתי" (btn-primary) בסוף טופס 101 - אותה בעיית ניגודיות כמו
    בכפתור "+ Add child" (הצבע האפור הרגיל בלתי-נראה על רקע ירוק), אבל כאן
