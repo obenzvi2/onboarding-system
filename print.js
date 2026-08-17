@@ -28,13 +28,14 @@ function form101CreditChildAgeBracketsSummary(val){
   return parts.length ? "ילדים שימלאו להם - "+parts.join(", ") : "לא פורט";
 }
 
-function printToolbar(caseId,backScreen,title){
+// empBackScreen: ערך ui.screen לחזרה אצל העובד/ת (form101/bank-form) - כשיש
+// טופס יחיד וברור לחזור אליו (לבקשת המשתמשת, שהעדיפה חזרה ישירה לטופס על
+// פני חזרה לרשימה). לא מועבר מהתצוגה המשולבת (form101+bank יחד) כי אין שם
+// טופס בודד לחזור אליו - שם ממשיכים לחזור לרשימת הטפסים כמו קודם.
+function printToolbar(caseId,backScreen,title,empBackScreen){
   const isEmp = ui.mode==="employee";
-  // ההדפסה (טופס 101 / בנק) היא כעת רק אחד מ-11 הטפסים ברשימה, ולכן
-  // "חזרה" מהדפסה אינה סוגרת יותר את הטאב אוטומטית - חוזרים לרשימת
-  // הטפסים כדי שאפשר יהיה להמשיך למלא את שאר הטפסים באותה ישיבה.
-  const backOnclick = isEmp ? "ui.screen='checklist';render()" : ("openCase('"+caseId+"','"+backScreen+"')");
-  const backLabel = isEmp ? "חזרה לרשימת הטפסים" : "חזרה למסך התיק";
+  const backOnclick = isEmp ? ("ui.screen='"+(empBackScreen||"checklist")+"';render()") : ("openCase('"+caseId+"','"+backScreen+"')");
+  const backLabel = isEmp ? (empBackScreen ? "חזרה לטופס" : "חזרה לרשימת הטפסים") : "חזרה למסך התיק";
   return '<div class="print-toolbar no-print">' +
     '<button class="btn-link" onclick="'+backOnclick+'">&rarr; '+backLabel+'</button>' +
     '<div style="font-weight:700;color:var(--header-text);">'+title+'</div>' +
@@ -54,7 +55,7 @@ function closeEmployeeTab(){
 function renderPrintForm101(){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
-  return printToolbar(c.id,"case-home","טופס 101 — תצוגת הדפסה") + renderForm101OfficialPage(c);
+  return printToolbar(c.id,"case-home","טופס 101 — תצוגת הדפסה","form101") + renderForm101OfficialPage(c);
 }
 
 /* ============================================================
@@ -748,7 +749,7 @@ function form101PrintFramesHtml(c,isLastDoc){
 function renderPrintBank(){
   const c = currentCase();
   if(!c) return '<div class="empty-state">תיק לא נמצא.</div>';
-  return printToolbar(c.id,"case-home","טופס פרטי חשבון בנק — תצוגת הדפסה") + bankPrintFrameHtml(c,true);
+  return printToolbar(c.id,"case-home","טופס פרטי חשבון בנק — תצוגת הדפסה","bank-form") + bankPrintFrameHtml(c,true);
 }
 function bankPrintFrameHtml(c,isLastDoc){
   const emp = c.employee, b = c.bank;

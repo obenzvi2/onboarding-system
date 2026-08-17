@@ -757,6 +757,10 @@ function printForm(caseId,type){
   ui.currentCaseId = caseId;
   const c = getCase(caseId);
   if(c) c.lastPrintAt = new Date().toISOString();
+  // תצוגה מקדימה נשארת תמיד בתוך אותו טאב (גם במחשב) - כפתור "חזרה לטופס"
+  // בתצוגת ההדפסה (ר' printToolbar ב-print.js) כבר חוזר ישירות לטופס
+  // עצמו בלי איבוד נתונים, כך שאין צורך בטאב נפרד; טאב נפרד היה יוצר
+  // מצב שבו טופס 101 פתוח פעמיים בו-זמנית (לבקשת המשתמשת).
   const screenMap = {"form101":"print-form101","bank":"print-bank","form101-bank":"print-form101-bank"};
   setScreen(screenMap[type] || "print-bank");
 }
